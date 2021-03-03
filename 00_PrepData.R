@@ -55,8 +55,8 @@ cities[ind1] <- lapply(cities[ind1], droplevels)
 
 # Path of reanalysis data
 path <- "V:/VolumeQ/AGteam/MCCdata/reanalysis"
-path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
-  "StorageOnDemand Q/AGteam/MCCdata/reanalysis")
+# path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
+#   "StorageOnDemand Q/AGteam/MCCdata/reanalysis")
 
 # Load data
 era5 <- readRDS(paste0(path, "/processed/ERA5_daily_1979_202007_mcc20200907.Rds"))
