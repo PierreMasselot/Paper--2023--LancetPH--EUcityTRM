@@ -2,7 +2,7 @@
 #
 #                         MCC-CityEurope
 #
-#                       Data preparation
+#                       MCC data preparation
 #
 ################################################################################
 
@@ -11,20 +11,21 @@
 #---------------------------
 
 path <- "V:/VolumeQ/AGteam/MCCdata/data/MCC_all"
-path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
-  "StorageOnDemand Q/AGteam/MCCdata/data/MCC_all")
+# path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
+#   "StorageOnDemand Q/AGteam/MCCdata/data/MCC_all")
 
 load(sprintf("%s/MCCdata_20200907.RData", path))
 
 #----- Select european countries -----
-sel_count <- sort(c('cze9415', 'est9718', 'fnl9414', 'fra0014', 'ger9315', 
-  'grc0110', 'ita0615', 'mld0110', 'net9516c', 'nor6918', 'por8018', 'rom9416', 
-  'spa9014', 'sui9513', 'swe9016', 'uk9016'))
+# We do not select mld0110 because absent in eurostat data
+# We use only cities 
+sel_country <- sort(c('cze9415', 'est9718', 'fnl9414', 'fra0014', 'ger9315', 
+  'grc0110', 'irl8407', 'ita0615', 'net9516c', 'nor6918', 'por8018', 
+  'rom9416', 'spa9014', 'sui9513', 'swe9016', 'uk9016'))
 
-dlist <- dlist[cities$country %in% sel_count]
-cities <- cities[cities$country %in% sel_count,]
-countries <- countries[countries$country %in% sel_count,]
-
+dlist <- dlist[cities$country %in% sel_country]
+cities <- cities[cities$country %in% sel_country,]
+countries <- countries[countries$country %in% sel_country,]
 
 #----- Exclusions
 
@@ -75,7 +76,6 @@ for(nm in cities$city) {
   dlist[[nm]] <- merge(dlist[[nm]], 
     subset(era5, city == nm, c("date", "era5tmean")), by="date")
 }
-
 
 #---------------------------
 #  Save data
