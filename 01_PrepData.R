@@ -67,18 +67,12 @@ era5 <- subset(era5, select = c("era5_code","date","temp_mean"))
 era5lookup <- readRDS(paste0(path, 
   "/lookup_table/lookup_ERA5_MCCdata_20200907.RDS"))
 # Merge with lookup table
-era5 <- merge(era5, era5lookup[,c("city","era5_code")], by="era5_code",
+era5 <- merge(era5, era5lookup[,c("city","era5_code")], by = "era5_code",
   allow.cartesian = TRUE)
 names(era5)[names(era5)=="temp_mean"] <- "era5tmean"
 
 #----- Merge with MCC data
 for(nm in cities$city) {
   dlist[[nm]] <- merge(dlist[[nm]], 
-    subset(era5, city == nm, c("date", "era5tmean")), by="date")
+    subset(era5, city == nm, c("date", "era5tmean")), by = "date")
 }
-
-#---------------------------
-#  Save data
-#---------------------------
-
-save(dlist, cities, countries, file = "Data/00_Prep_data.RData")
