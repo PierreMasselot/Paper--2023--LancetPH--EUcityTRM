@@ -76,3 +76,9 @@ for(nm in cities$city) {
   dlist[[nm]] <- merge(dlist[[nm]], 
     subset(era5, city == nm, c("date", "era5tmean")), by = "date")
 }
+
+
+#---------------------------
+#  Save
+#---------------------------
+save(dlist, cities, countries, file = "Data/01_MCCdata.RData")

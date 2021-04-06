@@ -6,95 +6,102 @@
 #
 ################################################################################
 
+library(readxl)
+library(Hmisc)
+
+load("Data/01_MCCdata.RData")
+
 #---------------------------
 #  Parameters
 #---------------------------
 
 # Years selected. Averaged if several
-year <- as.character(1990:2018)
+year <- as.character(2005:2018)
 
 # The priority of urban audit geographical levels
 level_priority <- c("CITY", "GREATERCITY", "FUA")
+
+# Paths
+path_urau <- "V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)"
+path_ucd <- "V:/VolumeQ/AGteam/Urban Centre Database"
+path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
 
 #---------------------------
 #  Link datasets
 #---------------------------
 
-#----- Link Urban audit to MCC
+#----- Load all lookup table 
+
+# Urban audit and UCD (contains the list of Urban audit)
+urau_cities <- read.table(sprintf("%s/lookup/URAU_UCD.csv", path_urau),
+  sep = ",", header = T, quote = "\"")
 
 # Lookup table between MCC and URAU
-lookup <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)/",
-  "lookup/MCC_URAU.csv"))
+urau_mcc <- read.table(sprintf("%s/lookup/MCC_URAU.csv", path_urau),
+  header = T, sep = ";")
 
-# Merge with cities
-mcc_urau <- merge(cities, lookup, sort = F, all = F)
-
-# Select code according to level of priority
-euro_meta <- mcc_urau[,c("city", "cityname")]
-euro_meta[,c("urau_code", "urau_name")] <- NA
-
-for (i in seq_along(level_priority)){
-  # Missing values
-  missings <- is.na(euro_meta[,c("urau_code", "urau_name")])
-  
-  # Replace missings
-  euro_meta[,c("urau_code", "urau_name")][missings] <- 
-    mcc_urau[,c(sprintf("URAU_%s_CODE", level_priority[i]), 
-      sprintf("URAU_%s_NAME", level_priority[i]))][missings]
-}
-
-# Exclude cities with no match in the Urban audit dataset
-nomatch <- is.na(euro_meta$urau_code)
-dlist <- dlist[!nomatch]
-cities <- cities[!nomatch,]
-euro_meta <- euro_meta[!nomatch,]
-
-#----- Link NUTS to MCC
-
-# Lookup table between urban audit and NUTS
-lookup_urau_nuts <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
+# Lookup table between URAU and NUTS
+urau_nuts <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
   "Urban Audit (urb_cgc)/lookup/URAU_NUTS2020.csv"))
 
-# Merge with cities
-euro_meta <- merge(euro_meta, lookup_urau_nuts[,c("URAU_CODE", "NUTS3_2021")],
-  by.x = "urau_code", by.y = "URAU_CODE", sort = F, all.y = F)
+#----- Merge everything together
 
-# Add NUTS3 description
-nuts_desc <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
-  "Regional by NUTS classification (reg)/metadata/NUTS_AT_2021.csv"))
-euro_meta <- merge(euro_meta, 
-  nuts_desc[,c("NUTS_ID", "NAME_LATN", "URBN_TYPE", "COAST_TYPE")], 
-  by.x = "NUTS3_2021", by.y = "NUTS_ID", sort = F, all.y = F)
+metadata <- Reduce(
+  function(x, y) merge(x, y, by = "URAU_CODE", all.x = T, all.y = F),
+  list(urau_cities,
+    urau_mcc[,c("URAU_CODE", "mcc_code", "cityname")],
+    urau_nuts[, c("URAU_CODE", "URAU_CATG", "NUTS3_2021")])
+)
+  
+#----- Select level
 
-# Managing specific cases
-euro_meta[euro_meta$cityname == "London","NUTS3_2021"] <- 
-  substr(euro_meta[euro_meta$cityname == "London","NUTS3_2021"], 1, 3)
+# Discard functional urban areas because they are huge
+metadata <- metadata[metadata$URAU_CATG != "F",]
 
-# Add codes for NUTS2 and NUTS1
-euro_meta$NUTS2_2021 <- substr(euro_meta$NUTS3_2021, 1, 4)
-euro_meta$NUTS1_2021 <- substr(euro_meta$NUTS3_2021, 1, 3)
+# Reject MCC matches that are not in selected MCC countries
+keepmcc <- with(metadata, is.na(mcc_code) | 
+    sapply(strsplit(mcc_code, "\\."), "[", 2) %in% droplevels(countries$country))
+metadata <- metadata[keepmcc,]
+
+# Select either city or greater city if the former is unavailable
+cityselect <- by(metadata, substr(metadata$URAU_CODE, 1, 5), function(x){
+  csel <- x$URAU_CATG == "C"
+  if(sum(csel) > 0){
+    x <- x[csel,]
+  } 
+  x
+})
+metadata <- do.call(rbind, cityselect)
+
+# Remove potential remaining duplicates
+metadata <- metadata[!duplicated(metadata),]
+
+#----- Manage specific cases
+
+# Remove London boroughs
+metadata <- metadata[!(substr(metadata$NUTS3_2021,1,3) == "UKI" & 
+    metadata$URAU_NAME != "London"),]
+metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
+
+#----- Add other NUTS level codes for easier merging
+metadata$NUTS2_2021 <- substr(metadata$NUTS3_2021, 1, 4)
+metadata$NUTS1_2021 <- substr(metadata$NUTS3_2021, 1, 3)
+
+#----- Order dataset
+metadata <- metadata[order(metadata$URAU_CODE),]
 
 #---------------------------
 #  Load Eurostat's Urban Audit data
 #---------------------------
 
-path <- "V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)"
 datasets <- c("popstr", "env")
 
 #----- Load the necessary datasets
 
 urb_dat <- lapply(datasets, function(dat){
   # Load cities and greater cities dataset
-  readcgc <- read.table(sprintf("%s/data/urb_c%s.tsv", path, dat), header = T,
-    sep = "\t", na.strings = ": ", check.names = F)
-  
-  # Load FUA dataset
-  readfua <- read.table(sprintf("%s/data/urb_l%s.tsv", path, dat), header = T,
-    sep = "\t", na.strings = ": ", check.names = F)
-  
-  # Put them together
-  read <- rbind(readcgc[,c(names(readcgc)[1], year)], 
-    readfua[,c(names(readfua)[1], year)])
+  read <- read.table(sprintf("%s/data/urb_c%s.tsv", path_urau, dat), 
+    header = T, sep = "\t", na.strings = ": ", check.names = F)
   
   # Separate city and variables in two columns
   spl_city_var <- strsplit(read[[1]], ",")
@@ -141,38 +148,14 @@ names(urb_dat$env)[-(1:2)] <- c("tmean_warm_URAU", "tmean_cold_URAU",
 # Merge the different urban audit datasets together
 urb_df <- Reduce(merge, urb_dat)
 
-#----- Link MCC cities 
+#----- Merge to the list of cities 
 
-euro_meta <- merge(euro_meta, urb_df, by.x = "urau_code", by.y = "citycode",
-  sort = F, all.y = F, all.x = T)
-
-# Add meta description
-sources <- c(prop65_URAU = "cpopstr", builtup_URAU = "cenv",
-  tmean_warm_URAU = "cenv", tmean_cold_URAU = "cenv", 
-  sunshine_URAU = "cenv", rainfall_URAU = "cenv", acc_o3_URAU = "cenv", 
-  meanno2_URAU = "cenv", meanpm10_URAU = "cenv")
-
-descriptions <- c(
-  prop65_URAU = "Proportion of population aged 65 and older",
-  builtup_URAU = paste0("Share of built-up area:", 
-    "residential urban fabric + industrial/commercial/public infrastructure +", 
-    "transport infrastructure + other art. area"
-  ),
-  tmean_warm_URAU = "Mean temperature of warmest month", 
-  tmean_cold_URAU = "Mean temperature of coldest month", 
-  sunshine_URAU = "Numbers of hours of sunshine per day", 
-  rainfall_URAU = "Rainfall (litre / m2)", 
-  acc_o3_URAU = "Accumulated ozone concentration in excess 70 µg/m3", 
-  meanno2_URAU = "Average concentration of NO2", 
-  meanpm10_URAU = "Average concentration of PM10"
-)
+metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "citycode",
+  all.y = F, all.x = T, sort = F)
   
-
 #---------------------------
 #  Load Eurostat's regional data
 #---------------------------
-
-path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
 
 #----- List loaded variables
 # For each variable, contains:
@@ -256,6 +239,18 @@ load_desc <- list(
     file = "lan_lcv_ovw",
     desc = "Share of land covered by water",
     select = c(unit = "PC", landcover = "LCG")
+  ),
+  cooldegdays = list(
+    level = 3,
+    file = "nrg_chddr2_a",
+    desc = "Cooling degree days (above 24)",
+    select = c(unit = "NR", indic_nrg = "CDD")
+  ),
+  heatdegdays = list(
+    level = 3,
+    file = "nrg_chddr2_a",
+    desc = "Heating degree days (below 15)",
+    select = c(unit = "NR", indic_nrg = "HDD")
   )
 )
 
@@ -305,27 +300,22 @@ nuts_vars <- lapply(load_desc, function(x){
 #----- Merge everything together
 
 # Merge NUTS variables with MCC
-euro_meta <- Reduce(function(x, y){
+metadata <- Reduce(function(x, y){
     merge(x, y, 
       by.x = sprintf("NUTS%i_2021", attr(y, "level")), by.y = "geo",
       sort = F, all.x = T, all.y = F)
   }, 
-  nuts_vars, init = euro_meta, 
-  accumulate = T
-)[[length(load_desc) + 1]]
+  nuts_vars, init = metadata
+)
 
 # Add names
 namvec <- sprintf("%s_NUTS%i", names(load_desc), 
   sapply(load_desc, "[[", "level"))
-names(euro_meta)[ncol(euro_meta) - length(load_desc):1 + 1] <- 
-
-# Add descriptions and source
-sources[namvec] <- sapply(load_desc, "[[", "file")
-descriptions[namvec] <- sapply(load_desc, "[[", "desc")
+names(metadata)[ncol(metadata) - length(load_desc):1 + 1] <- namvec
 
 
 #----- Add social isolation from 2011 census
-read <- read.table(sprintf("%s/data/cens_11ms_r3.tsv", path), header = T,
+read <- read.table(sprintf("%s/data/cens_11ms_r3.tsv", path_nuts), header = T,
   sep = "\t", na.strings = c(": ", ":"), check.names = F)
 
 # Reshape
@@ -359,71 +349,84 @@ select_prop <- data.frame(region = names(select_prop),
   isol_NUTS3 = unlist(select_prop))
 
 # Merge with dataset
-euro_meta <- merge(euro_meta, select_prop, by.x = "NUTS3_2021", by.y = "region",
+metadata <- merge(metadata, select_prop, by.x = "NUTS3_2021", by.y = "region",
   all.x = T, all.y = F, sort = F)
 
-# Add meta description
-sources["isol_NUTS3"] <- "cens_11ms_r3"
-descriptions["isol_NUTS3"] <- 
-  paste0("Proportion of persons with marital status (from 2011 census):",
-    "single, divorced or widowed")
-  
 #---------------------------
-# Temperature indicators
+# Add Urban Centre Database
 #---------------------------
 
-# Compute temperature indicators for MCC cities
-temp_meta <- sapply(dlist, function(d){
-  c(tmean = mean(d$era5tmean), 
-    trange = diff(range(d$era5tmean, na.rm = T)),
-    cooldegdays = sum(pmax(0, d$era5tmean - 24), na.rm = T),
-    heatdegdays = sum(pmax(0, 15 - d$era5tmean), na.rm = T)
-  )}
-)
+# Read database
+read_ucd <- read.table(
+  sprintf("%s/original/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A_V1_2.csv", 
+    path_ucd),
+  sep = ",", header = T, quote = "\"")
 
-# Coerce it as a proper data.frame
-temp_meta_df <- as.data.frame(t(temp_meta))
-names(temp_meta_df) <- sprintf("%s_MCC", names(temp_meta_df))
-temp_meta_df$city <- rownames(temp_meta_df)
-rownames(temp_meta_df) <- NULL
+# Select variables
+var_sel <- c(tmean_UCD = "E_WR_T_14", greenness_UCD = "E_GR_AV14",
+  pm25_UCD = "E_CPM2_T14")
+read_ucd <- read_ucd[,c("ID_HDC_G0", var_sel)]
+names(read_ucd)[-1] <- names(var_sel)
 
-# Merge it with the euro_meta data.frame
-euro_meta <- merge(euro_meta, temp_meta_df, by = "city",
-  all.x = T, all.y = F, sort = F)
-
-# Add meta description
-sources[names(temp_meta_df)[-ncol(temp_meta_df)]] <- "dlist"
-descriptions[names(temp_meta_df)[-ncol(temp_meta_df)]] <- c(
-  "Average temperature", "Temperature range", 
-  "Total number of cooling degree days (24 C)",
-  "Total number of heating degree days (15 C)"
-)
+# Merge with metadata
+metadata <- merge(metadata, read_ucd, all.x = T, all.y = F, sort = F)
 
 #---------------------------
-# Meta descriptions
+# Missing values imputation
 #---------------------------
 
-# Unlist description and source
-attr(euro_meta, "source") <- unlist(sources)
-attr(euro_meta, "description") <- unlist(descriptions)
+var_inds <- grep("(_URAU)$|(_NUTS[123])$|(_UCD)$", names(metadata))
 
+#----- Check number of missings
 # Missings for each variable
-attr(euro_meta, "miss_vars") <- apply(euro_meta[,-(1:10)], 2, 
+attr(metadata, "miss_vars") <- apply(metadata[,var_inds], 2, 
   function(x) sum(is.na(x)))
+
+attr(metadata, "miss_vars") / nrow(metadata) * 100
 
 # Missings for each city
-attr(euro_meta, "miss_city") <- apply(euro_meta[,-(1:10)], 1, 
+attr(metadata, "miss_city") <- apply(metadata[,var_inds], 1, 
   function(x) sum(is.na(x)))
-names(attr(euro_meta, "miss_city")) <- euro_meta$city
+names(attr(metadata, "miss_city")) <- metadata$URAU_NAME
 
-# Sort meta data as cities
-ord <- match(cities$city, euro_meta$city)
-euro_meta <- euro_meta[ord,]
-rownames(euro_meta) <- NULL
+summary(attr(metadata, "miss_city")) / length(attr(metadata, "miss_vars")) * 100
+
+#----- Impute
+# Create formula for aregImpute
+imp_form <- sprintf("~ %s", paste(names(metadata)[var_inds], collapse = " + "))
+
+# Reorder variables and recommended number of imputation
+up_form <- reformM(as.formula(imp_form), data = metadata)
+
+# Impute values
+meta_imp <- aregImpute(up_form, data = metadata, n.impute = 96)
+
+# Replace in dataset
+metavar <- metadata[,var_inds]
+rownames(metavar) <- metadata$URAU_CODE
+imputed <- is.na(metavar) # To keep track of imputed values
+for (i in seq_len(ncol(metavar))) metavar[is.na(metavar[,i]),i] <- 
+  rowMeans(meta_imp$imputed[[names(metavar)[i]]])
 
 #---------------------------
 #  Save data
 #---------------------------
 
-# save(dlist, cities, countries, euro_meta, 
-#   file = "Data/prep_data.RData")
+#----- Reorganize data
+# Separate MCC cities and predicted
+inmcc <- !is.na(metadata$mcc_code)
+metamcc <- metavar[inmcc,]
+metapred <- metavar[!inmcc,]
+
+# Extract description
+descmcc <- metadata[inmcc,-var_inds]
+descpred <- metadata[!inmcc,-var_inds]
+
+# Reorder and select mcc time series
+reord <- match(descmcc$mcc_code, names(dlist))
+dlist <- dlist[reord]
+cities <- cities[reord,]
+
+#----- Export
+save(dlist, cities, countries, metamcc, metapred, descmcc, descpred, imputed, 
+  file = "Data/02_Alldata.RData")
