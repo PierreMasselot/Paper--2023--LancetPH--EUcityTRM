@@ -27,6 +27,8 @@
 # OUPUT:
 #   A nested list stage1res the same length as dlist containing:
 #     - tsum: summary of temperature for the city
+#     - dsum: summary of each outcome
+#     - period: period of the data (excluding missings)
 #     - one element per outcome that includes
 #         - conv: indicates if the GLM fitting converged
 #         - coef: coefficients for the overall association
