@@ -22,7 +22,7 @@
 #     Each city must contain a data.frame with at least the following variables
 #     - date: formatted as "yyyy-mm-dd" or "yyyy/mm/dd"
 #     - tmean: daily mean temperature
-#     - outcomes as specified in the parameters below
+#     - outcomes as specified in the parameters below (vector 'outcome vars')
 #
 # OUPUT:
 #   A nested list stage1res the same length as dlist containing:
@@ -45,8 +45,9 @@ library(doParallel)
 
 # Outcome variables
 # This can be changed to match your variable names (please put the total 1st)
-outcome_vars <- c("all",
-  "resp", "cvd")
+outcome_vars <- c("all_main", "cvd_main", "resp_main", "cvresp_main", 
+  "all_65p", "cvd_65p", "resp_65p", "cvresp_65p", 
+  "all_75p", "cvd_75p", "resp_75p", "cvresp_75p")
 
 # Exposure-response parameters
 varfun <- "bs"
@@ -54,23 +55,22 @@ varper <- c(10,75,90)
 vardegree <- 2
 
 # Lag-response parameters
+# Change here for sensitivity analysis
 maxlag <- 10
 lagfun <- "ns"
 lagknots <- logknots(maxlag, 2)
+# Suggestions for sensitivity:
+# maxlag <- 3
+# lagknots <- 1
+#
+# maxlag <- 21
+# lagknots <- logknots(21, 3)
 
 # Seasonality / trend degrees of freedom
 nkseas <- 7
 
-#---- Different lags for sensitivity
-sens_pars <- list(
-  lag3 = list(varfun = varfun, vardegree = vardegree, varper = varper,
-    maxlag = 3, lagfun = lagfun, lagknots = 1),
-  lag21 = list(varfun = varfun, vardegree = vardegree, varper = varper,
-    maxlag = 21, lagfun = lagfun, lagknots = logknots(21, 3))
-)
-
 #---------------------------
-#  Order dlist according to cities
+# Order dlist according to cities
 #---------------------------
 
 dlist <- dlist[match(names(dlist), cities$city)]
@@ -116,6 +116,13 @@ stage1res <- foreach(i = iter(seq(dlist)),
   tsum["Range"] <- tsum["Max."] - tsum["Min."]
   out$tsum <- tsum
   
+  # Mortality summary
+  dsumlist <- summary(dat[,outcome_vars])
+  out$dsumlist <- dsumlist
+  
+  # Period
+  out$period <- range(na.omit(dat)$year)
+  
   # Define crossbasis
   cb <- crossbasis(dat$tmean, lag = maxlag, 
     argvar = list(fun = varfun, degree = vardegree, 
@@ -131,8 +138,9 @@ stage1res <- foreach(i = iter(seq(dlist)),
     res <- glm(y ~ cb + dow + ns(date, df = nkseas * length(unique(year))), 
       dat, family = quasipoisson)
     
-    # Store convergence
+    # Store useful elements
     out[[outcome]]$conv <- res$converged
+    out[[outcome]]$nobs <- length(res$model$y)
     
     # Reduction to overall cumulative
     red <- crossreduce(cb, res, cen = 15)
@@ -140,28 +148,6 @@ stage1res <- foreach(i = iter(seq(dlist)),
     # Store reduced coefs
     out[[outcome]]$coef <- coef(red)
     out[[outcome]]$vcov <- vcov(red)
-  }
-  
-  #----- Run sensitivity analysis
-  for (j in seq_along(sens_pars)){
-    # Redefine crossbasis
-    cb <- with(sens_pars[[j]], crossbasis(dat$tmean, lag = maxlag, 
-      argvar = list(fun = varfun, degree = vardegree, 
-        knots = quantile(dat$tmean, varper / 100, na.rm = T)),
-      arglag = list(fun = lagfun, knots = lagknots))
-    )
-    
-    # Run the model and store results
-    y <- dat[, outcome_vars[1]]
-    res <- glm(y ~ cb + dow + ns(date, df = nkseas * length(unique(year))), 
-      dat, family = quasipoisson)
-    red <- crossreduce(cb, res, cen = 15)
-    
-    # Store results
-    nam <- names(sens_pars)[j]
-    out[[nam]]$conv <- res$converged
-    out[[nam]]$coef <- coef(red)
-    out[[nam]]$vcov <- vcov(red)
   }
   
   # Output

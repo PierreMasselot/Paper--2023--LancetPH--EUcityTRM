@@ -7,6 +7,7 @@
 ################################################################################
 
 library(data.table)
+library(sf)
 
 #--------------------------
 #  Parameters
@@ -26,7 +27,7 @@ age_labs <- c("main", "65p", "75p")
 
 # Lookup between Built-Up Areas and LSOAs
 buapath <- "V:/VolumeQ/AGteam/ONS/geography/lookup"
-buapath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/geography/lookup"
+# buapath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/geography/lookup"
 
 bualookup <- read.table(paste0(buapath, "/Lower_Layer_Super_Output_Area__2011_",
   "_to_Built-up_Area_Sub-division_to_Built-up_Area_to_Local_Authority",  
@@ -35,7 +36,7 @@ bualookup <- read.table(paste0(buapath, "/Lower_Layer_Super_Output_Area__2011_",
 
 # Load LSOA population
 poppath <- "V:/VolumeQ/AGteam/NOMIS/census2011/KeyStatistics/"
-poppath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/NOMIS/census2011/KeyStatistics/"
+# poppath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/NOMIS/census2011/KeyStatistics/"
 pop <- read.csv(paste0(poppath, "KS102EW.csv"))
 names(pop)[5] <- "Total"
 
@@ -57,7 +58,7 @@ bualookup <- subset(bualookup, BUA11CD %in% bualist$BUA11CD)
 
 # Path of mortality data
 deathpath <- "V:/VolumeQ/AGteam/ONS/mortality/data"
-deathpath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/mortality/data"
+# deathpath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/mortality/data"
 
 onsdeath <- as.data.table(readRDS(paste0(deathpath, "/ONSmortality.RDS")))
 
@@ -116,13 +117,14 @@ alloutcomes <- Reduce(merge, outcome_list)
 
 # Split the data by city
 dlist <- split(alloutcomes[, -1], alloutcomes[,"city"])
-names(dlist) <- gsub(" BUA", "", 
-  bualist$BUA11NM[match(names(dlist), bualist$BUA11CD)])
 
-# Fill all dates between start and end dates
+# Fill all dates between start and end dates (and fill with zeros)
 dateseq <- seq.Date(datestart, dateend, "days")
-dlist <- lapply(dlist, function(x) merge(x, data.frame(date = dateseq), 
-  all = T))
+dlist <- lapply(dlist, function(x) {
+  x <- merge(x, data.frame(date = dateseq), all = T)
+  x[is.na(x)] <- 0
+  x
+})
 
 #--------------------------
 #  Load temperature data
@@ -130,17 +132,69 @@ dlist <- lapply(dlist, function(x) merge(x, data.frame(date = dateseq),
 
 # Load LSOA level temp data
 tmeanpath <- "V:/VolumeQ/AGteam/ONSmortality/processed/LSOA19812018/"
-tmeanpath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONSmortality/processed/LSOA19812018/"
+# tmeanpath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONSmortality/processed/LSOA19812018/"
 
 # Dates of tmean data
 tmeandates <- seq(as.Date("1981/1/1"), as.Date("2018/12/31"), "days")
 
-# Load LSOA temp data for each BUA
-for (i in seq_len(nrow(bualist))){
-  lsoalist <- subset(bualookup, BUA11CD == bualist$BUA11CD[i], LSOA11CD)
-  tmeanlist <- lapply(lsoalist, function(lsoa) {
+#----- Load LSOA temp data for each BUA
+for (i in seq_along(dlist)){
+  # LSOAs inside the BUA
+  lsoalist <- unlist(subset(bualookup, BUA11CD == names(dlist)[i], LSOA11CD))
+  
+  # Load and append them
+  templist <- lapply(lsoalist, function(lsoa) {
     temp <- data.table(readRDS(paste0(tmeanpath, lsoa, ".Rds")))
     cbind(data.table(LSOA11CD = lsoa), date = tmeandates, temp)
   }) 
-  alltmean <- do.call(rbind, tmeanlist)
+  alltemp <- do.call(rbind, templist)
+  
+  # Average by date
+  tmean <- alltemp[,.(tmean = mean(tmean)), by = date]
+  
+  # Merge to dlist
+  dlist[[i]] <- merge(dlist[[i]], tmean, all.x = T, all.y = F)
 }
+
+#--------------------------
+#  City characteristics
+#--------------------------
+
+#----- Load geographical information
+
+# Read BUA polygon shapefiles
+source <- "V:/VolumeQ/AGteam/ONS/geography/shapefiles/BUA"
+file <- "Built-up_Areas_(December_2011)_Boundaries_V2"
+file.copy(paste0(source, "/", file, ".zip"), getwd())
+unzip(zipfile = paste0(file,".zip"), exdir = getwd())
+buashp <- st_read(paste0(file, ".shp"))[2]
+file.remove(list.files()[grep(file, list.files(), fixed = T)])
+
+# Keep only the BUA above
+buashp <- subset(buashp, bua11cd %in% bualist$BUA11CD)
+
+# Compute centroid of each BUA
+buapt <- st_centroid(buashp)
+
+# Transofrm in lon/lat
+buapt <- st_transform(buapt, 4326)
+bualonlat <- st_coordinates(buapt)
+colnames(bualonlat) <- c("lon", "lat")
+
+#----- Create city meta object
+
+cities <- data.frame(city = names(dlist), 
+  cityname = bualist$BUA11NM[match(names(dlist), bualist$BUA11CD)],
+  bualonlat[match(names(dlist), buapt$bua11cd),])
+
+
+#--------------------------
+#  Save
+#--------------------------
+
+# Remove data.table classes for consistency
+dlist <- lapply(dlist, as.data.frame)
+
+# Save
+save(dlist, cities, file = "data/ukdata.RData")
+

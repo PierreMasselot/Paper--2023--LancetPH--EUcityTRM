@@ -37,3 +37,4 @@ vignettes/*.pdf
 
 # Datasets
 article/Data/*.RData
+report/data/
