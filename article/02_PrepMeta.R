@@ -9,14 +9,12 @@
 library(readxl)
 library(Hmisc)
 
-load("Data/01_MCCdata.RData")
-
 #---------------------------
 #  Parameters
 #---------------------------
 
 # Years selected. Averaged if several
-year <- as.character(2005:2018)
+year <- as.character(2005:2015)
 
 # The priority of urban audit geographical levels
 level_priority <- c("CITY", "GREATERCITY", "FUA")
@@ -429,4 +427,4 @@ cities <- cities[reord,]
 
 #----- Export
 save(dlist, cities, countries, metamcc, metapred, descmcc, descpred, imputed, 
-  file = "Data/02_Alldata.RData")
+  file = "data/Alldata.RData")

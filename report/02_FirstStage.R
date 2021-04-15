@@ -58,15 +58,15 @@ vardegree <- 2
 
 # Lag-response parameters
 # Change here for sensitivity analysis
-maxlag <- 10
+# maxlag <- 10
 lagfun <- "ns"
-lagknots <- logknots(maxlag, 2)
+# lagknots <- logknots(maxlag, 2)
 # Suggestions for sensitivity:
 # maxlag <- 3
 # lagknots <- 1
 #
-# maxlag <- 21
-# lagknots <- logknots(21, 3)
+maxlag <- 21
+lagknots <- logknots(21, 3)
 
 # Seasonality / trend degrees of freedom
 nkseas <- 7
@@ -164,4 +164,5 @@ names(stage1res) <- cities$city
 
 # Export
 # Please replace 'country' by your country
-save(dlist, cities, stage1res, file = "FirstStage_country.RData")
+save(dlist, cities, stage1res, 
+  file = sprintf("results/FirstStage_UK_lag%i.RData", maxlag))

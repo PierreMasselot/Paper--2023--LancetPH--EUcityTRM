@@ -14,8 +14,8 @@ library(sf)
 #--------------------------
 
 # Dates for analysis
-datestart <- as.Date("1981/01/01")
-dateend <- as.Date("2020/12/31")
+datestart <- as.Date("1990/01/01")
+dateend <- as.Date("2016/12/31")
 
 # Define age groups (nested)
 age_cut <- c(0, 65, 75)
@@ -112,19 +112,19 @@ for (a in seq_along(age_labs)){
   setnames(outcome_list[[vname]], "N", vname)
 }
 
-# Merge all series
-alloutcomes <- Reduce(merge, outcome_list)
+# Merge all series with all possible combinations of date / city
+citydatgrid <- as.data.table(expand.grid(
+  date = seq.Date(datestart, dateend, "days"),
+  city = bualist$BUA11CD))
+alloutcomes <- Reduce(function(x,y) merge(x, y, all = T), 
+  outcome_list, init = citydatgrid)
+
+# Fill NAs (no record) with 0s
+alloutcomes[is.na(alloutcomes)] <- 0
 
 # Split the data by city
-dlist <- split(alloutcomes[, -1], alloutcomes[,"city"])
-
-# Fill all dates between start and end dates (and fill with zeros)
-dateseq <- seq.Date(datestart, dateend, "days")
-dlist <- lapply(dlist, function(x) {
-  x <- merge(x, data.frame(date = dateseq), all = T)
-  x[is.na(x)] <- 0
-  x
-})
+dlist <- split(alloutcomes[, -"city"], 
+  alloutcomes[,"city"])
 
 #--------------------------
 #  Load temperature data
