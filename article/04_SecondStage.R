@@ -8,7 +8,7 @@
 
 library(mixmeta)
 
-load("data/Alldata.RData")
+load("results/FirstStage.RData")
 
 #---------------------------
 #  Parameters

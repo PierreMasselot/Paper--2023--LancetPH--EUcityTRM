@@ -60,5 +60,5 @@ names(stage1res) <- cities$city
 
 # Export
 save(dlist, cities, countries, stage1res, 
-  metavar, metadesc, imputed, 
+  metavar, metadesc, metageo, imputed, 
   file = "results/FirstStage.RData")
