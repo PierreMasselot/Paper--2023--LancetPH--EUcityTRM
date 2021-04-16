@@ -36,6 +36,7 @@ vignettes/*.pdf
 *.knit.md
 
 # Datasets
-article/data/*.RData
+article/data/
+article/results/
 report/data/
 report/results/

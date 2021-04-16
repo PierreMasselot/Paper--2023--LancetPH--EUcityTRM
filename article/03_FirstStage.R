@@ -10,7 +10,7 @@ library(dlnm)
 library(splines)
 library(doParallel)
 
-load("Data/Prep_data.RData")
+load("data/Alldata.RData")
 
 #---------------------------
 #  Prepare parallelization
@@ -40,7 +40,7 @@ stage1res <- foreach(i = iter(seq(dlist)),
     arglag = list(knots = logknots(21, 3)))
   
   # Run model
-  res <- glm(y ~ cb + dow + ns(date, df = 8 * length(unique(year))), 
+  res <- glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 
     dat, family = quasipoisson)
   
   # Reduction to overall cumulative
@@ -59,4 +59,6 @@ stopCluster(cl)
 names(stage1res) <- cities$city
 
 # Export
-save(dlist, cities, countries, stage1res, file = "Data/01_FirstStage.RData")
+save(dlist, cities, countries, stage1res, 
+  metamcc, metapred, descmcc, descpred, imputed, 
+  file = "results/FirstStage.RData")
