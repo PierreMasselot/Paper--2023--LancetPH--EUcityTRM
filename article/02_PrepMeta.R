@@ -8,6 +8,7 @@
 
 library(readxl)
 library(Hmisc)
+library(sf)
 
 #---------------------------
 #  Parameters
@@ -18,6 +19,9 @@ year <- as.character(2005:2015)
 
 # The priority of urban audit geographical levels
 level_priority <- c("CITY", "GREATERCITY", "FUA")
+
+# Projecttion for geo objects
+geoproj <- "4326"
 
 # Paths
 path_urau <- "V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)"
@@ -407,6 +411,27 @@ for (i in seq_len(ncol(metavar))) metavar[is.na(metavar[,i]),i] <-
   rowMeans(meta_imp$imputed[[names(metavar)[i]]])
 
 #---------------------------
+# Load geographical data
+#---------------------------
+
+#----- Load points for each city
+# Unzip in temporary directory
+unzip(zipfile = sprintf("%s/geography/URAU_LB_2020_%s.shp.zip", 
+    path_urau, geoproj), 
+  exdir = tempdir())
+
+# load shapefile
+urau_points <- st_read(sprintf("%s/URAU_LB_2020_%s.shp", tempdir(), geoproj))
+
+# Remove temporary file
+file.remove(sprintf("%s/%s", tempdir(), 
+  list.files(tempdir())[grep("URAU_LB_2020", list.files(tempdir()))]))
+
+#----- Select geometry of retained cities
+metageo <- urau_points[match(metadata$URAU_CODE, urau_points$URAU_CODE),
+  c("URAU_CODE", "geometry")]
+
+#---------------------------
 #  Save data
 #---------------------------
 
@@ -423,5 +448,5 @@ dlist <- dlist[reord]
 cities <- cities[reord,]
 
 #----- Export
-save(dlist, cities, countries, metavar, metadesc, imputed, 
+save(dlist, cities, countries, metavar, metadesc, imputed, metageo, 
   file = "data/Alldata.RData")
