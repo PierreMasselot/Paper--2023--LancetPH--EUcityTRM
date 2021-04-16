@@ -411,20 +411,17 @@ for (i in seq_len(ncol(metavar))) metavar[is.na(metavar[,i]),i] <-
 #---------------------------
 
 #----- Reorganize data
-# Separate MCC cities and predicted
-inmcc <- !is.na(metadata$mcc_code)
-metamcc <- metavar[inmcc,]
-metapred <- metavar[!inmcc,]
+# Description of metadata (meta^2 data)
+metadesc <- metadata[,-var_inds]
 
-# Extract description
-descmcc <- metadata[inmcc,-var_inds]
-descpred <- metadata[!inmcc,-var_inds]
+# Add indicator for whther it is in MCC
+metadesc$inmcc <- !is.na(metadata$mcc_code)
 
 # Reorder and select mcc time series
-reord <- match(descmcc$mcc_code, names(dlist))
+reord <- match(subset(metadesc, inmcc)$mcc_code, names(dlist))
 dlist <- dlist[reord]
 cities <- cities[reord,]
 
 #----- Export
-save(dlist, cities, countries, metamcc, metapred, descmcc, descpred, imputed, 
+save(dlist, cities, countries, metavar, metadesc, imputed, 
   file = "data/Alldata.RData")
