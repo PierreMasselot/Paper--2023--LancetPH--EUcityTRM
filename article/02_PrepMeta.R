@@ -7,8 +7,9 @@
 ################################################################################
 
 library(readxl)
-library(Hmisc)
+library(mice)
 library(sf)
+library(modeest)
 
 #---------------------------
 #  Parameters
@@ -52,7 +53,7 @@ metadata <- Reduce(
   function(x, y) merge(x, y, by = "URAU_CODE", all.x = T, all.y = F),
   list(urau_cities,
     urau_mcc[,c("URAU_CODE", "mcc_code", "cityname")],
-    urau_nuts[, c("URAU_CODE", "URAU_CATG", "NUTS3_2021")])
+    urau_nuts[, c("URAU_CODE", "URAU_CATG", "NUTS3_2016", "NUTS3_2021")])
 )
   
 #----- Select level
@@ -85,75 +86,89 @@ metadata <- metadata[!(substr(metadata$NUTS3_2021,1,3) == "UKI" &
     metadata$URAU_NAME != "London"),]
 metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
 
+# Remove overseas cities (Reykjavik !?)
+overseas <- c("PT004C1", "ES025C1", "ES524C1", "ES550C1", "ES029C1", "ES008C1", 
+  "ES074C1", "ES072C1", "IS001C1", "FR030C1", "FR520C1", "FR521C1", 
+  "PT007C1", "FR028C1")
+metadata <- metadata[!metadata$URAU_CODE %in% overseas,]
+
 #----- Add other NUTS level codes for easier merging
 metadata$NUTS2_2021 <- substr(metadata$NUTS3_2021, 1, 4)
 metadata$NUTS1_2021 <- substr(metadata$NUTS3_2021, 1, 3)
 
+# Do it also for the 2016 version
+metadata$NUTS2_2016 <- substr(metadata$NUTS3_2016, 1, 4)
+metadata$NUTS1_2016 <- substr(metadata$NUTS3_2016, 1, 3)
+
 #----- Order dataset
 metadata <- metadata[order(metadata$URAU_CODE),]
+
+#----- Prepare descriptive vector
+metasource <- c()
 
 #---------------------------
 #  Load Eurostat's Urban Audit data
 #---------------------------
+# No variable from urban audit will be used as more data is available in NUTS
 
-datasets <- c("popstr", "env")
-
-#----- Load the necessary datasets
-
-urb_dat <- lapply(datasets, function(dat){
-  # Load cities and greater cities dataset
-  read <- read.table(sprintf("%s/data/urb_c%s.tsv", path_urau, dat), 
-    header = T, sep = "\t", na.strings = ": ", check.names = F)
-  
-  # Separate city and variables in two columns
-  spl_city_var <- strsplit(read[[1]], ",")
-  read$var <- sapply(spl_city_var, "[", 1)
-  read$citycode <- sapply(spl_city_var, "[", 2)
-  read <- read[,-1]
-  
-  # Convert data into numeric
-  yearspl <- apply(read[,as.character(year)], 2, function(x){
-    sapply(strsplit(x, " "), "[", 1)
-  })
-  read[,as.character(year)] <- as.numeric(yearspl)
-  
-  # Mean of selected years
-  read$value <- rowMeans(read[,as.character(year)], na.rm = T)
-  
-  # Reshape data into wide
-  out <- reshape(read[,c("var", "citycode", "value")], timevar = "var", 
-    idvar = "citycode", ids = "value", direction = "wide")
-  names(out) <- gsub("^value\\.", "", names(out))
-  
-  out
-})
-names(urb_dat) <- datasets
-
-#----- Select variables used in the analysis
-
-# cpopstr: Sum prop of pop 65-74 and 74 above 
-urb_dat$popstr$prop65_URAU <- rowSums(urb_dat$popstr[,c("DE1028I", "DE1055I")])
-urb_dat$popstr <- urb_dat$popstr[,c("citycode", "prop65_URAU")]
-
-# cenv : built-up area
-urb_dat$env$builtup_URAU <- rowSums(urb_dat$env[,c("EN5200V", "EN5201V",
-  "EN5202V", "EN5203V", "EN5204V")])
-
-# cenv: climate and pollution
-urb_dat$env <- urb_dat$env[,c("citycode", "builtup_URAU", "EN1003V", "EN1004V", 
-  "EN1002V", "EN1005V", "EN2025V", "EN2026V", "EN2027V")]
-names(urb_dat$env)[-(1:2)] <- c("tmean_warm_URAU", "tmean_cold_URAU", 
-  "sunshine_URAU", "rainfall_URAU", "acc_o3_URAU", "meanno2_URAU", 
-  "meanpm10_URAU")
-
-
-# Merge the different urban audit datasets together
-urb_df <- Reduce(merge, urb_dat)
-
-#----- Merge to the list of cities 
-
-metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "citycode",
-  all.y = F, all.x = T, sort = F)
+# datasets <- c("popstr", "env")
+# 
+# #----- Load the necessary datasets
+# 
+# urb_dat <- lapply(datasets, function(dat){
+#   # Load cities and greater cities dataset
+#   read <- read.table(sprintf("%s/data/urb_c%s.tsv", path_urau, dat), 
+#     header = T, sep = "\t", na.strings = ": ", check.names = F)
+#   
+#   # Separate city and variables in two columns
+#   spl_city_var <- strsplit(read[[1]], ",")
+#   read$var <- sapply(spl_city_var, "[", 1)
+#   read$citycode <- sapply(spl_city_var, "[", 2)
+#   read <- read[,-1]
+#   
+#   # Convert data into numeric
+#   yearspl <- apply(read[,as.character(year)], 2, function(x){
+#     sapply(strsplit(x, " "), "[", 1)
+#   })
+#   read[,as.character(year)] <- as.numeric(yearspl)
+#   
+#   # Mean of selected years
+#   read$value <- rowMeans(read[,as.character(year)], na.rm = T)
+#   
+#   # Reshape data into wide
+#   out <- reshape(read[,c("var", "citycode", "value")], timevar = "var", 
+#     idvar = "citycode", ids = "value", direction = "wide")
+#   names(out) <- gsub("^value\\.", "", names(out))
+#   
+#   out
+# })
+# names(urb_dat) <- datasets
+# 
+# #----- Select variables used in the analysis
+# 
+# # cpopstr: Sum prop of pop 65-74 and 74 above 
+# urb_dat$popstr$prop65_URAU <- rowSums(urb_dat$popstr[,c("DE1028I", "DE1055I")])
+# urb_dat$popstr <- urb_dat$popstr[,c("citycode", "prop65_URAU")]
+# 
+# # cenv : built-up area
+# urb_dat$env$builtup_URAU <- rowSums(urb_dat$env[,c("EN5200V", "EN5201V",
+#   "EN5202V", "EN5203V", "EN5204V")])
+# 
+# # cenv: climate and pollution
+# urb_dat$env <- urb_dat$env[,c("citycode", "builtup_URAU", "EN1003V", "EN1004V", 
+#   "EN1002V", "EN1005V", "EN2025V", "EN2026V", "EN2027V")]
+# names(urb_dat$env)[-(1:2)] <- c("tmean_warm_URAU", "tmean_cold_URAU", 
+#   "sunshine_URAU", "rainfall_URAU", "acc_o3_URAU", "meanno2_URAU", 
+#   "meanpm10_URAU")
+# 
+# 
+# # Merge the different urban audit datasets together
+# urb_df <- Reduce(merge, urb_dat)
+# 
+# #----- Merge to the list of cities 
+# 
+# metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "citycode",
+#   all.y = F, all.x = T, sort = F)
   
 #---------------------------
 #  Load Eurostat's regional data
@@ -311,10 +326,20 @@ metadata <- Reduce(function(x, y){
 )
 
 # Add names
-namvec <- sprintf("%s_NUTS%i", names(load_desc), 
-  sapply(load_desc, "[[", "level"))
-names(metadata)[ncol(metadata) - length(load_desc):1 + 1] <- namvec
+names(metadata)[ncol(metadata) - length(load_desc):1 + 1] <- names(load_desc)
 
+# For NAs, search for a potential NUTS 2016 match
+for (nm in names(load_desc)){
+  nas <- is.na(metadata[,nm])
+  nv <- nuts_vars[[nm]]
+  metadata[nas,nm] <- nv[
+    match(metadata[nas, sprintf("NUTS%i_2016", attr(nv, "level"))], nv$geo),
+    "value"]
+}
+
+# Add source of variable
+metasource[names(load_desc)] <- sprintf("NUTS%i", 
+  sapply(load_desc, "[[", "level"))
 
 #----- Add social isolation from 2011 census
 read <- read.table(sprintf("%s/data/cens_11ms_r3.tsv", path_nuts), header = T,
@@ -348,11 +373,43 @@ select_prop <- by(select[,c("marsta", "value")], select$region, simplify = F,
     sum(x$value[x$marsta %in% c("DIV", "SIN", "WID")])
 })
 select_prop <- data.frame(region = names(select_prop), 
-  isol_NUTS3 = unlist(select_prop))
+  isol = unlist(select_prop))
 
 # Merge with dataset
 metadata <- merge(metadata, select_prop, by.x = "NUTS3_2021", by.y = "region",
   all.x = T, all.y = F, sort = F)
+
+metasource["isol"] <- "NUTS3"
+
+#----- Add regional typology
+
+# Load typology
+read_typo <- read.table(sprintf("%s/metadata/NUTS_AT_2021.csv", path_nuts), 
+  header = T, sep = ",", quote = "\"", na.strings = "0")
+type_vars <- grep("TYPE", names(read_typo), value = T)
+
+# Fill NUTS1 and NUTS2 levels with modal value (useful for London)
+# Compute modes
+nuts2_modes <- aggregate(read_typo[,type_vars], 
+  by = list(nuts2 = substr(read_typo[,"NUTS_ID"], 1, 4)), 
+  function(x) mfv(x, na_rm = T)[1])
+nuts1_modes <- aggregate(read_typo[,type_vars], 
+  by = list(nuts1 = substr(read_typo[,"NUTS_ID"], 1, 3)), 
+  function(x) mfv(x, na_rm = T)[1])
+# Fill
+nas <- apply(is.na(read_typo[,type_vars]), 1, any)
+nuts1inds <- nchar(read_typo[,"NUTS_ID"]) == 3
+nuts2inds <- nchar(read_typo[,"NUTS_ID"]) == 4
+read_typo[nas & nuts1inds, type_vars] <- nuts1_modes[
+  match(read_typo[nas & nuts1inds, "NUTS_ID"], nuts1_modes$nuts1), -1]
+read_typo[nas & nuts2inds, type_vars] <- nuts2_modes[
+  match(read_typo[nas & nuts2inds, "NUTS_ID"], nuts2_modes$nuts2), -1]
+
+# Merge with dataset
+metadata <- merge(metadata, read_typo[, c("NUTS_ID", type_vars)],
+  by.x = "NUTS3_2021", by.y = "NUTS_ID", all.x = T, all.y = F, sort = F)
+
+metasource[type_vars] <- "NUTS3"
 
 #---------------------------
 # Add Urban Centre Database
@@ -365,50 +422,38 @@ read_ucd <- read.table(
   sep = ",", header = T, quote = "\"")
 
 # Select variables
-var_sel <- c(tmean_UCD = "E_WR_T_14", greenness_UCD = "E_GR_AV14",
-  pm25_UCD = "E_CPM2_T14")
+var_sel <- c(tmean = "E_WR_T_14", greenness = "E_GR_AV14",
+  pm25 = "E_CPM2_T14")
 read_ucd <- read_ucd[,c("ID_HDC_G0", var_sel)]
 names(read_ucd)[-1] <- names(var_sel)
 
 # Merge with metadata
 metadata <- merge(metadata, read_ucd, all.x = T, all.y = F, sort = F)
 
+# Add info on the source
+metasource[names(var_sel)] <- "UCD"
+
 #---------------------------
 # Missing values imputation
 #---------------------------
 
-var_inds <- grep("(_URAU)$|(_NUTS[123])$|(_UCD)$", names(metadata))
+# Keep only metavariables
+vars <- names(metasource)
+metavar <- metadata[,vars]
 
-#----- Check number of missings
-# Missings for each variable
-attr(metadata, "miss_vars") <- apply(metadata[,var_inds], 2, 
-  function(x) sum(is.na(x)))
-
-attr(metadata, "miss_vars") / nrow(metadata) * 100
-
-# Missings for each city
-attr(metadata, "miss_city") <- apply(metadata[,var_inds], 1, 
-  function(x) sum(is.na(x)))
-names(attr(metadata, "miss_city")) <- metadata$URAU_NAME
-
-summary(attr(metadata, "miss_city")) / length(attr(metadata, "miss_vars")) * 100
+# Keep track of missings
+imputed <- is.na(metavar)
+nmis <- apply(imputed, 2, sum)
+propmis <- apply(imputed, 2, mean)
 
 #----- Impute
-# Create formula for aregImpute
-imp_form <- sprintf("~ %s", paste(names(metadata)[var_inds], collapse = " + "))
 
-# Reorder variables and recommended number of imputation
-up_form <- reformM(as.formula(imp_form), data = metadata)
+# Impute using cart because of complex interactions
+meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
 
-# Impute values
-meta_imp <- aregImpute(up_form, data = metadata, n.impute = 96)
-
-# Replace in dataset
-metavar <- metadata[,var_inds]
-rownames(metavar) <- metadata$URAU_CODE
-imputed <- is.na(metavar) # To keep track of imputed values
-for (i in seq_len(ncol(metavar))) metavar[is.na(metavar[,i]),i] <- 
-  rowMeans(meta_imp$imputed[[names(metavar)[i]]])
+# Get the imputed dataset (of iter_Sel)
+iter_sel <- 5
+metavar <- complete(meta_imp, iter_sel)
 
 #---------------------------
 # Load geographical data
@@ -437,10 +482,13 @@ metageo <- urau_points[match(metadata$URAU_CODE, urau_points$URAU_CODE),
 
 #----- Reorganize data
 # Description of metadata (meta^2 data)
-metadesc <- metadata[,-var_inds]
+metadesc <- metadata[,!names(metadata) %in% vars]
 
 # Add indicator for whther it is in MCC
 metadesc$inmcc <- !is.na(metadata$mcc_code)
+
+# Description of metavariables
+metavardesc <- data.frame(source = metasource, nmis = nmis, propmis = propmis)
 
 # Reorder and select mcc time series
 reord <- match(subset(metadesc, inmcc)$mcc_code, names(dlist))
@@ -448,5 +496,6 @@ dlist <- dlist[reord]
 cities <- cities[reord,]
 
 #----- Export
-save(dlist, cities, countries, metavar, metadesc, imputed, metageo, 
+save(dlist, cities, countries, metavar, metadesc, imputed, metageo, metasource,
+  metavardesc, meta_imp,
   file = "data/Alldata.RData")
