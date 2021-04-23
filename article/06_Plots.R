@@ -6,53 +6,59 @@
 #
 ################################################################################
 
-library(maps)
-library(mapdata)
 library(sf)
+library(eurostat)
+library(ggplot2)
 
 #---------------------------
 #  PCA
 #---------------------------
 
 #----- Screeplot
-screeplot(pcares, type = "l", main = "Screeplot",
-  pch = 16, col = 4, lwd = 2, cex = 1.2, xlab = "Component")
-box()
-abline(h = (summary(pcares)$importance[1, npc])^2, lty = 2)
+plot(summary(pcares)$importance[3,] * 100, type = "b", pch = 16, col = 4, 
+  ylab = "Cumulative variance proportion (%)", xlab = "Principal component")
+abline(h = (summary(pcares)$importance[3, npc] * 100), lty = 2)
+
+#----- Interpretation of PCs
+
+# Get eigenvectors
+loads <- pcares$rotation[,seq_len(npc)] 
+
+# Common scale
+ylims <- range(loads)
+
+# Plot sequentially
+x11(height = 15, width = 10)
+par(mfrow = c(4, 1), mar = c(1, 4, 3, 2) + .1, oma = c(7, 0, 0, 0))
+for (i in seq_len(npc)) {
+  largest <- rank(-abs(loads[,i])) <= 5
+  bp <- barplot(loads[,i], names.arg = "", ylim = ylims, 
+    main = sprintf("PC%i", i), col = adjustcolor(ifelse(largest, 2, 4), .5))
+  text(bp[largest,], loads[largest,i] / 2, rownames(loads)[largest], srt = 90,
+    adj = c(0.5, 0.5), cex = .9)
+  abline(h = 0)
+}
+axis(1, at = bp, labels = rownames(loads), las = 3)
 
 #---------------------------
 #  Maps
 #---------------------------
 
-#----- Cities
-# get the extent of cities in dataset
-# NB: here France is excluded only for extent computation because of overseas 
-# territories
-urauext <- st_bbox(subset(metageo, substr(URAU_CODE, 1, 2) != "FR"))
+#----- Objects used in all maps
 
-# Point size according to population
-maxsize <- 2
-popcuts <- c(0, 100000, 500000, 1000000, 5000000, 10000000)
+# Country layout
+euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
 
-poplabs <- sprintf("%s - %s", popcuts[-length(popcuts)], popcuts[-1])
-poplabs[1] <- sprintf("< %s", popcuts[2])
-poplabs[length(poplabs)] <- sprintf("> %s", popcuts[length(popcuts) - 1])
-ptsize <- maxsize * as.numeric(cut(metavar$pop_NUTS3, popcuts)) / 
-  (length(popcuts) - 1)
+# Extent of selected cities
+urauext <- st_bbox(metageo)
 
-# Draw country layout
-map("worldHires", mar = c(0, 0, 0, 0), col = grey(0.95),
-  myborder = 0, fill = T, border = grey(0.5), lwd = 0.3,
-  xlim = urauext[c(1,3)], ylim = urauext[c(2,4)])
+# Complete data.frame with all info
+metacomplete <- cbind(metadesc, metavar, do.call(rbind, metageo$geometry))
+names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
 
-# Add cities
-plot(metageo[!metadesc$inmcc,], add = T, col = adjustcolor(2, .5), 
-  pch = 16, cex = ptsize[!metadesc$inmcc])
-plot(metageo[metadesc$inmcc,], add = T, col = adjustcolor(4, .5), 
-  pch = 16, cex = ptsize[metadesc$inmcc])
+#----- Cities with population
 
-# Add legends
-leg <- legend("topleft", legend = poplabs, pch = 16, 
-  col = grey(.5), pt.cex = sort(unique(ptsize)), xpd = NA, inset = .02)
-legend(leg$rect$left, leg$rect$top - leg$rect$h, c("MCC", "Predict"),
-  pch = 16, col = adjustcolor(c(4,2), .5), xpd = NA)
+ggplot(data = metacomplete) + theme_classic() + 
+  geom_sf(data = euromap, fill = NA) + 
+  geom_point(aes(x = lon, y = lat, size = pop, col = inmcc)) + 
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)])

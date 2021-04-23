@@ -89,7 +89,7 @@ metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
 # Remove overseas cities (Reykjavik !?)
 overseas <- c("PT004C1", "ES025C1", "ES524C1", "ES550C1", "ES029C1", "ES008C1", 
   "ES074C1", "ES072C1", "IS001C1", "FR030C1", "FR520C1", "FR521C1", 
-  "PT007C1", "FR028C1")
+  "PT007C1", "FR028C1", "FR522C1")
 metadata <- metadata[!metadata$URAU_CODE %in% overseas,]
 
 #----- Add other NUTS level codes for easier merging

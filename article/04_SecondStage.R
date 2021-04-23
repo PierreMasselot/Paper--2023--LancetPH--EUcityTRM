@@ -36,10 +36,14 @@ coefs <- t(sapply(stage1res, "[[", "coef"))
 vcovs <- lapply(stage1res, "[[", "vcov")
 
 # meta data.frame
-stage2df <- data.frame(pc = pcvar[metadesc$inmcc,])
+stage2df <- data.frame(pcvar[metadesc$inmcc,], cities[,c("long", "lat")])
+
+# Create formula
+st2form <- sprintf("coefs ~ %s + ns(long, df = 2) + ns(lat, df = 2)",
+  paste(colnames(pcvar), collapse = " + "))
 
 # Apply meta regression model
-stage2res <- mixmeta(coefs ~ ., data = stage2df, S = vcovs) 
+stage2res <- mixmeta(as.formula(st2form), data = stage2df, S = vcovs) 
 # Convergence issues when adding a country level random effect
 # random = ~ 1|URAU_CODE/CNTR_CODE, data = subset(metadesc, inmcc))
 
