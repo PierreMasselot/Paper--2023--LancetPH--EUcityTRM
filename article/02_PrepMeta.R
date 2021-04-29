@@ -19,7 +19,7 @@ library(modeest)
 year <- as.character(2005:2015)
 
 # The priority of urban audit geographical levels
-level_priority <- c("CITY", "GREATERCITY", "FUA")
+level_priority <- c("K", "C", "F")
 
 # Projecttion for geo objects
 geoproj <- "4326"
@@ -53,7 +53,8 @@ metadata <- Reduce(
   function(x, y) merge(x, y, by = "URAU_CODE", all.x = T, all.y = F),
   list(urau_cities,
     urau_mcc[,c("URAU_CODE", "mcc_code", "cityname")],
-    urau_nuts[, c("URAU_CODE", "URAU_CATG", "NUTS3_2016", "NUTS3_2021")])
+    urau_nuts[, c("URAU_CODE", "URAU_CATG", "NUTS3_2016", "NUTS3_2021", 
+      "AREA_SQM")])
 )
   
 #----- Select level
@@ -66,9 +67,9 @@ keepmcc <- with(metadata, is.na(mcc_code) |
     sapply(strsplit(mcc_code, "\\."), "[", 2) %in% droplevels(countries$country))
 metadata <- metadata[keepmcc,]
 
-# Select either city or greater city if the former is unavailable
+# Select greater city or city if unavailable
 cityselect <- by(metadata, substr(metadata$URAU_CODE, 1, 5), function(x){
-  csel <- x$URAU_CATG == "C"
+  csel <- x$URAU_CATG == "K"
   if(sum(csel) > 0){
     x <- x[csel,]
   } 
@@ -79,6 +80,17 @@ metadata <- do.call(rbind, cityselect)
 # Remove potential remaining duplicates
 metadata <- metadata[!duplicated(metadata),]
 
+# Duplicates on the NUTS3 level: select the largest city
+nnuts3 <- tapply(metadata$NUTS3_2021, metadata$NUTS3_2021, length)
+nutsdup <- subset(metadata, NUTS3_2021 %in% names(nnuts3[nnuts3 > 1]))
+toremove <- by(nutsdup, nutsdup$NUTS3_2021, function(x){ 
+  ksel <- x$URAU_CATG == "K"
+  sel <- if (sum(ksel) > 0) x[ksel,] else x
+  sel <- sel[which.max(sel$AREA_SQM), "URAU_CODE"]
+  x$URAU_CODE[x$URAU_CODE != sel]
+})
+metadata <- subset(metadata, !URAU_CODE %in% unlist(toremove))
+
 #----- Manage specific cases
 
 # Remove London boroughs
@@ -86,11 +98,18 @@ metadata <- metadata[!(substr(metadata$NUTS3_2021,1,3) == "UKI" &
     metadata$URAU_NAME != "London"),]
 metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
 
-# Remove overseas cities (Reykjavik !?)
-overseas <- c("PT004C1", "ES025C1", "ES524C1", "ES550C1", "ES029C1", "ES008C1", 
-  "ES074C1", "ES072C1", "IS001C1", "FR030C1", "FR520C1", "FR521C1", 
-  "PT007C1", "FR028C1", "FR522C1", "ES055C1")
+# Remove overseas cities 
+overseas <- c("PT004C1", "PT007C1", 
+  "ES025K1", "ES524C1", "ES550K1", "ES029C1", "ES008C1", "ES074C1", "ES072C1",
+  "ES055C1", "ES045C1", # Spanish cities in Morocco
+  "IS001C1", # Reykjavik
+  "FR030C1", "FR520C1", "FR521C1", "FR028C1", "FR522C1"
+)
 metadata <- metadata[!metadata$URAU_CODE %in% overseas,]
+
+# Remove some duplicates due to older versions of city
+older <- c("ES552", "ES550", "UK008.1700", "UK006.1684")
+metadata <- metadata[!rownames(metadata) %in% older,]
 
 #----- Add other NUTS level codes for easier merging
 metadata$NUTS2_2021 <- substr(metadata$NUTS3_2021, 1, 4)

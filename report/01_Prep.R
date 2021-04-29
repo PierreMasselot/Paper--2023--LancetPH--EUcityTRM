@@ -25,13 +25,13 @@ age_labs <- c("main", "65p", "75p")
 #  List of BUAs
 #--------------------------
 
-# Lookup between Built-Up Areas and LSOAs
-buapath <- "V:/VolumeQ/AGteam/ONS/geography/lookup"
-# buapath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/geography/lookup"
+# Lookup between major cities and LSOAs
+citypath <- "V:/VolumeQ/AGteam/ONS/geography/lookup"
+# citypath <- "C:/Users/PierreMasselot/Filr/Net Folders/StorageOnDemand Q/AGteam/ONS/geography/lookup"
 
-bualookup <- read.table(paste0(buapath, "/Lower_Layer_Super_Output_Area__2011_",
-  "_to_Built-up_Area_Sub-division_to_Built-up_Area_to_Local_Authority",  
-  "_District_to_Region__December_2011__Lookup_in_England_and_Wales.csv"),
+citylookup <- read.table(paste0(citypath, "/Lower_Layer_Super_Output_Area", 
+  "_(2011)_to_Major_Towns_and_Cities_(December_2015)_Lookup_in", 
+  "_England_and_Wales.csv"),
   header = T, sep = ",", quote = "\"", fileEncoding = "UTF-8-BOM")
 
 # Load LSOA population
@@ -41,16 +41,16 @@ pop <- read.csv(paste0(poppath, "KS102EW.csv"))
 names(pop)[5] <- "Total"
 
 # Merge them
-pop <- merge(pop[,c(3,5)], bualookup[,c(1, 5:6)], 
+pop <- merge(pop[,c(3,5)], citylookup[,c(1, 3:4)], 
   by.x = "geography.code", by.y = "LSOA11CD")
-pop <- subset(pop, BUA11NM != "")
+pop <- subset(pop, TCITY15NM != "")
 
-# Total population by Built-Up Area
-buapop <- aggregate(Total ~ BUA11CD + BUA11NM, data = pop, sum)
+# Total population by Major city
+citypop <- aggregate(Total ~ TCITY15CD + TCITY15NM, data = pop, sum)
 
 # Keep BUAs with > 100,000 residents
-bualist <- subset(buapop, Total > 100000)
-bualookup <- subset(bualookup, BUA11CD %in% bualist$BUA11CD)
+citylist <- subset(citypop, Total > 100000)
+citylookup <- subset(citylookup, TCITY15CD %in% citylist$TCITY15CD)
 
 #--------------------------
 #  Load ONS mortality data
@@ -66,19 +66,30 @@ onsdeath <- as.data.table(readRDS(paste0(deathpath, "/ONSmortality.RDS")))
 onsdeath <- subset(onsdeath, DOD >= datestart & DOD <= dateend)
 onsdeath <- subset(onsdeath, ageinyrs >= min(age_cut))
 
-# Merg BUA info and keep only those in selected list
-onsdeath <- merge(onsdeath, bualookup[,c("LSOA11CD", "BUA11CD", "BUA11NM")],
+# Merge city info and keep only those in selected list
+onsdeath <- merge(onsdeath, 
+  citylookup[,c("LSOA11CD", "TCITY15CD", "TCITY15NM")],
   by.x = "lsoa", by.y = "LSOA11CD")
-onsdeath <- subset(onsdeath, BUA11CD %in% bualist$BUA11CD)
+onsdeath <- subset(onsdeath, TCITY15CD %in% citylist$TCITY15CD)
 
-# Aggregate by BUA, date, cause and age class 
+# Aggregate by city, date, cause and age class 
 outcome_list <- list()
 for (a in seq_along(age_labs)){
   # All causes
   vname <- sprintf("all_%s", age_labs[a])
   outcome_list[[vname]] <- onsdeath[
     ageinyrs >= age_cut[a], .N, 
-    by = list(city = BUA11CD, date = DOD)]
+    by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+  
+  # Natural causes
+  vname <- sprintf("nat_%s", age_labs[a])
+  outcome_list[[vname]] <- onsdeath[
+    ageinyrs >= age_cut[a] & 
+      ((dodyr <= 2000 & as.numeric(substr(cause, 1, 1)) >= 0 & 
+          as.numeric(substr(cause, 1, 1)) < 8) |
+          (dodyr > 2000 & substr(cause, 1, 1) %in% LETTERS[1:18])), 
+    .N, by = list(city = TCITY15CD, date = DOD)]
   setnames(outcome_list[[vname]], "N", vname)
   
   # Cardiovascular diseases
@@ -88,7 +99,7 @@ for (a in seq_along(age_labs)){
       ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 39 & 
         as.numeric(substr(cause, 1, 2)) < 46) |
         (dodyr > 2000 & substr(cause, 1, 1) == "I")), 
-    .N, by = list(city = BUA11CD, date = DOD)]
+    .N, by = list(city = TCITY15CD, date = DOD)]
   setnames(outcome_list[[vname]], "N", vname)
   
   # Respiratory diseases
@@ -98,7 +109,7 @@ for (a in seq_along(age_labs)){
       ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 46 & 
           as.numeric(substr(cause, 1, 2)) < 52) |
           (dodyr > 2000 & substr(cause, 1, 1) == "J")), 
-    .N, by = list(city = BUA11CD, date = DOD)]
+    .N, by = list(city = TCITY15CD, date = DOD)]
   setnames(outcome_list[[vname]], "N", vname)
   
   # Cardiorespiratory diseases
@@ -108,14 +119,14 @@ for (a in seq_along(age_labs)){
       ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 39 & 
           as.numeric(substr(cause, 1, 2)) < 52) |
           (dodyr > 2000 & substr(cause, 1, 1) %in% c("I", "J"))), 
-    .N, by = list(city = BUA11CD, date = DOD)]
+    .N, by = list(city = TCITY15CD, date = DOD)]
   setnames(outcome_list[[vname]], "N", vname)
 }
 
 # Merge all series with all possible combinations of date / city
 citydatgrid <- as.data.table(expand.grid(
   date = seq.Date(datestart, dateend, "days"),
-  city = bualist$BUA11CD))
+  city = citylist$TCITY15CD))
 alloutcomes <- Reduce(function(x,y) merge(x, y, all = T), 
   outcome_list, init = citydatgrid)
 
@@ -137,10 +148,10 @@ tmeanpath <- "V:/VolumeQ/AGteam/ONSmortality/processed/LSOA19812018/"
 # Dates of tmean data
 tmeandates <- seq(as.Date("1981/1/1"), as.Date("2018/12/31"), "days")
 
-#----- Load LSOA temp data for each BUA
+#----- Load LSOA temp data for each city
 for (i in seq_along(dlist)){
   # LSOAs inside the BUA
-  lsoalist <- unlist(subset(bualookup, BUA11CD == names(dlist)[i], LSOA11CD))
+  lsoalist <- unlist(subset(citylookup, TCITY15CD == names(dlist)[i], LSOA11CD))
   
   # Load and append them
   templist <- lapply(lsoalist, function(lsoa) {
@@ -163,29 +174,29 @@ for (i in seq_along(dlist)){
 #----- Load geographical information
 
 # Read BUA polygon shapefiles
-source <- "V:/VolumeQ/AGteam/ONS/geography/shapefiles/BUA"
-file <- "Built-up_Areas_(December_2011)_Boundaries_V2"
+source <- "V:/VolumeQ/AGteam/ONS/geography/shapefiles/MajorTownCities"
+file <- "Major_Towns_and_Cities_(December_2015)_Boundaries_V2"
 file.copy(paste0(source, "/", file, ".zip"), getwd())
 unzip(zipfile = paste0(file,".zip"), exdir = getwd())
-buashp <- st_read(paste0(file, ".shp"))[2]
+cityshp <- st_read(paste0(file, ".shp"))[2]
 file.remove(list.files()[grep(file, list.files(), fixed = T)])
 
 # Keep only the BUA above
-buashp <- subset(buashp, bua11cd %in% bualist$BUA11CD)
+cityshp <- subset(cityshp, TCITY15CD %in% citylist$TCITY15CD)
 
 # Compute centroid of each BUA
-buapt <- st_centroid(buashp)
+citypt <- st_centroid(cityshp)
 
 # Transofrm in lon/lat
-buapt <- st_transform(buapt, 4326)
-bualonlat <- st_coordinates(buapt)
-colnames(bualonlat) <- c("lon", "lat")
+citypt <- st_transform(citypt, 4326)
+citylonlat <- st_coordinates(citypt)
+colnames(citylonlat) <- c("lon", "lat")
 
 #----- Create city meta object
 
 cities <- data.frame(city = names(dlist), 
-  cityname = bualist$BUA11NM[match(names(dlist), bualist$BUA11CD)],
-  bualonlat[match(names(dlist), buapt$bua11cd),])
+  cityname = citylist$TCITY15NM[match(names(dlist), citylist$TCITY15CD)],
+  citylonlat[match(names(dlist), citypt$TCITY15CD),])
 
 
 #--------------------------
