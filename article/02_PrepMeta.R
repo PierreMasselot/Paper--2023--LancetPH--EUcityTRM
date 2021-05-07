@@ -187,7 +187,7 @@ indicde_list <- c("PC_Y0_4", "PC_Y5_9", "PC_Y10_14", "PC_Y15_19",
 varnames <- c("prop_0004", "prop_0509", "prop_1014", "prop_1519", 
   "prop_2024", "prop_2529", "prop_3034", "prop_3539", "prop_4044", 
   "prop_4549", "prop_5054", "prop_5559", "prop_6064", "prop_6569", 
-  "prop_7074", "prop_7579", "prop_8084", "prop_85p", "prop_65p")
+  "prop_7074", "prop_7579", "prop_8084", "prop_8599", "prop_65p")
 
 # Load variables from eurostat
 popstr <- get_eurostat("demo_r_pjanind3", time_format = "num",
@@ -437,7 +437,7 @@ names(deaths)[match(sprintf("values.%s", age_list), names(deaths))] <-
   varnames
 
 # Sum 85-89 and ge90 to match population
-deaths$death_85p <- deaths$death_8589 + deaths$death_90p
+deaths$death_8599 <- deaths$death_8589 + deaths$death_90p
 
 # Remove variables
 deaths[c("values.UNK", "death_8589", "death_90p")] <- NULL
