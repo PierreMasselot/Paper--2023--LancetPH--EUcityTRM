@@ -18,9 +18,6 @@ library(modeest)
 # Years selected. Averaged if several
 year <- as.character(2005:2015)
 
-# The priority of urban audit geographical levels
-level_priority <- c("K", "C", "F")
-
 # Projecttion for geo objects
 geoproj <- "4326"
 
@@ -122,286 +119,269 @@ metadata$NUTS1_2016 <- substr(metadata$NUTS3_2016, 1, 3)
 #----- Order dataset
 metadata <- metadata[order(metadata$URAU_CODE),]
 
-#----- Prepare descriptive vector
-metasource <- c()
+# List of description variables
+desc_vars <- names(metadata)
 
 #---------------------------
 #  Load Eurostat's Urban Audit data
 #---------------------------
-# No variable from urban audit will be used as more data is available in NUTS
 
-# datasets <- c("popstr", "env")
-# 
+# # List of datasets that should be downloaded
+# datasets <- list(pop1 = c(pop_tot = "DE1001V", pop_0004 = "DE1040V", 
+#   pop_0509 = "DE1074V", pop_1014 = "DE1077V", pop_1519 = "DE1046V", 
+#   pop_2024 = "DE1049V", pop_2534 = "DE1058V", pop_3544 = "DE1061V", 
+#   pop_4554 = "DE1064V", pop_5564 = "DE1025V", pop_6574 = "DE1028V", 
+#   pop75p = "DE1055V"))
+#  
 # #----- Load the necessary datasets
+# urb_dat <- lapply(sprintf("urb_c%s", names(datasets)), get_eurostat, 
+#   time_format = "num")
+# names(urb_dat) <- names(datasets)
 # 
-# urb_dat <- lapply(datasets, function(dat){
-#   # Load cities and greater cities dataset
-#   read <- read.table(sprintf("%s/data/urb_c%s.tsv", path_urau, dat), 
-#     header = T, sep = "\t", na.strings = ": ", check.names = F)
-#   
-#   # Separate city and variables in two columns
-#   spl_city_var <- strsplit(read[[1]], ",")
-#   read$var <- sapply(spl_city_var, "[", 1)
-#   read$citycode <- sapply(spl_city_var, "[", 2)
-#   read <- read[,-1]
-#   
-#   # Convert data into numeric
-#   yearspl <- apply(read[,as.character(year)], 2, function(x){
-#     sapply(strsplit(x, " "), "[", 1)
-#   })
-#   read[,as.character(year)] <- as.numeric(yearspl)
-#   
-#   # Mean of selected years
-#   read$value <- rowMeans(read[,as.character(year)], na.rm = T)
-#   
-#   # Reshape data into wide
-#   out <- reshape(read[,c("var", "citycode", "value")], timevar = "var", 
-#     idvar = "citycode", ids = "value", direction = "wide")
-#   names(out) <- gsub("^value\\.", "", names(out))
-#   
-#   out
+# # Keep only cities selected above
+# urb_dat <- lapply(urb_dat, subset, cities %in% metadata$URAU_CODE)
+# 
+# # Keep only selected variables
+# urb_dat <- Map(function(x, y) subset(x, indic_ur %in% y),
+#   urb_dat, datasets)
+# 
+# # Keep only selected years and aggregate
+# urb_dat <- lapply(urb_dat, subset, time %in% year)
+# agg_dat <- lapply(urb_dat, function(x){
+#   aggregate(values ~ indic_ur + cities, data = x, mean, na.rm = T)
 # })
-# names(urb_dat) <- datasets
 # 
-# #----- Select variables used in the analysis
+# # Reshape as wide
+# res_dat <- lapply(agg_dat, reshape, timevar = "indic_ur", idvar = "cities",
+#   ids = "values", direction = "wide")
 # 
-# # cpopstr: Sum prop of pop 65-74 and 74 above 
-# urb_dat$popstr$prop65_URAU <- rowSums(urb_dat$popstr[,c("DE1028I", "DE1055I")])
-# urb_dat$popstr <- urb_dat$popstr[,c("citycode", "prop65_URAU")]
+# # Merge
+# urb_df <- Reduce(function(x, y) merge(x, y, all = T, by = "cities"), 
+#   res_dat)
 # 
-# # cenv : built-up area
-# urb_dat$env$builtup_URAU <- rowSums(urb_dat$env[,c("EN5200V", "EN5201V",
-#   "EN5202V", "EN5203V", "EN5204V")])
+# # Rename
+# namevec <- unlist(unname(datasets))
+# names(urb_df) <- gsub("values\\.", "", names(urb_df))
+# names(urb_df)[match(namevec, names(urb_df))] <- names(namevec)
 # 
-# # cenv: climate and pollution
-# urb_dat$env <- urb_dat$env[,c("citycode", "builtup_URAU", "EN1003V", "EN1004V", 
-#   "EN1002V", "EN1005V", "EN2025V", "EN2026V", "EN2027V")]
-# names(urb_dat$env)[-(1:2)] <- c("tmean_warm_URAU", "tmean_cold_URAU", 
-#   "sunshine_URAU", "rainfall_URAU", "acc_o3_URAU", "meanno2_URAU", 
-#   "meanpm10_URAU")
+# #----- Create additional variables
 # 
+# # Prop or population 65+
+# urb_df$prop65_URAU <- rowSums(urb_df[,c("pop_6574", "pop75p")]) / 
+#   urb_df[,"pop_tot"]
 # 
-# # Merge the different urban audit datasets together
-# urb_df <- Reduce(merge, urb_dat)
+# #----- Merge to the list of cities
 # 
-# #----- Merge to the list of cities 
-# 
-# metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "citycode",
-#   all.y = F, all.x = T, sort = F)
+# metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "cities",
+#   all.x = T, all.y = F, sort = F)
   
 #---------------------------
 #  Load Eurostat's regional data
 #---------------------------
 
-#----- List loaded variables
-# For each variable, contains:
-#   level: the NUTS level
-#   file: the file in which the variable is found
-#   desc: A description of the variable
-#   select: the criteria of selection inside the file
-#   (optional) fun: to aggregate several categories
-load_desc <- list(
-  prop65 = list(
-    level = 3,
-    file = "demo_r_pjanind3",
-    desc = "Proportion of population aged 65 and older",
-    select = c(indic_de = "PC_Y65_MAX", unit = "PC")
-  ),
-  lifexp = list(
-    level = 2,
-    file = "demo_r_mlifexp",
-    desc = "Life expectancy at birth",
-    select = c(sex = "T", age = "Y_LT1")
-  ),
-  gdp = list(
-    level = 3,
-    file = "nama_10r_3gdp",
-    desc = "GDP per capita",
-    select = c(unit = "EUR_HAB")
-  ),
-  educ = list(
-    level = 2,
-    file = "edat_lfse_04",
-    desc = paste0("Proportion of active population (25-64)", 
-      " with ISCED level 5 and above (tertiary)"),
-    select = c(isced11 = "ED5-8", sex = "T", age = "Y25-64")
-  ),
-  unempl = list(
-    level = 2,
-    file = "lfst_r_lfu3rt",
-    desc = "Unemployment rate in active population (20-64)",
-    select = c(sex = "T", age = "Y20-64")
-  ),
-  depriv = list(
-    level = 2,
-    file = "ilc_mddd21",
-    desc = "Severe material deprivation rate",
-    select = c(unit = "PC")
-  ),
-  bedrates = list(
-    level = 2,
-    file = "hlth_rs_bdsrg",
-    desc = "Total number of hospital beds / 100 000 hab",
-    select = c(unit = "P_HTHAB", facility = "HBEDT")
-  ),
-  pop = list(
-    level = 3, 
-    file = "demo_r_pjangrp3",
-    desc = "Total population",
-    select = c(sex = "T", age = "TOTAL")
-  ),
-  popdens = list(
-    level = 3,
-    file = "demo_r_d3dens",
-    desc = "Population density (person / km2)",
-    select = c(unit = "PER_KM2")
-  ),
-  urbshare = list(
-    level = 2,
-    file = "lan_lcv_art",
-    desc = "Share of land covered by artificial surface",
-    select = c(unit = "PC", landcover = "LCA")
-  ),
-  greenshare = list(
-    level = 2,
-    file = "lan_lcv_ovw",
-    desc = paste0("Share of land covered by green areas: cropland,",
-      "woodland, shrubland or grassland"),
-    select = list(unit = "PC", landcover = c("LCB", "LCC", "LCD", "LCE")),
-    fun = "sum"
-  ),
-  blueshare = list(
-    level = 2,
-    file = "lan_lcv_ovw",
-    desc = "Share of land covered by water",
-    select = c(unit = "PC", landcover = "LCG")
-  ),
-  cooldegdays = list(
-    level = 3,
-    file = "nrg_chddr2_a",
-    desc = "Cooling degree days (above 24)",
-    select = c(unit = "NR", indic_nrg = "CDD")
-  ),
-  heatdegdays = list(
-    level = 3,
-    file = "nrg_chddr2_a",
-    desc = "Heating degree days (below 15)",
-    select = c(unit = "NR", indic_nrg = "HDD")
-  )
-)
+#----- Population structure
+indicde_list <- c("PC_Y0_4", "PC_Y5_9", "PC_Y10_14", "PC_Y15_19", 
+  "PC_Y20_24", "PC_Y25_29", "PC_Y30_34", "PC_Y35_39", "PC_Y40_44", 
+  "PC_Y45_49", "PC_Y50_54", "PC_Y55_59", "PC_Y60_64", "PC_Y65_69", 
+  "PC_Y70_74", "PC_Y75_79", "PC_Y80_84", "PC_Y85_MAX", "PC_Y65_MAX")
+varnames <- c("prop_0004", "prop_0509", "prop_1014", "prop_1519", 
+  "prop_2024", "prop_2529", "prop_3034", "prop_3539", "prop_4044", 
+  "prop_4549", "prop_5054", "prop_5559", "prop_6064", "prop_6569", 
+  "prop_7074", "prop_7579", "prop_8084", "prop_85p", "prop_65p")
 
-#----- Load variables according to the list
-nuts_vars <- lapply(load_desc, function(x){
-  # Read data
-  read <- read.table(sprintf("%s/data/%s.tsv", path_nuts, x$file), header = T,
-    sep = "\t", na.strings = c(": ", ":"), check.names = F)
-  
-  # Select years
-  avail_year <- which(names(read) %in% year)
-  read <- read[,c(1,avail_year)] 
-  
-  # Coerce values into numeric (if necessary)
-  yearspl <- apply(read[,-1, drop = F], 2, function(y){
-    sapply(strsplit(as.character(y), " "), "[", 1)
-  })
-  read[,-1] <- as.numeric(yearspl)
-  
-  # If necessary average several years
-  read$value <- rowMeans(read[,-1, drop = F], na.rm = T)
-  
-  # Split first column
-  colspl <- do.call("rbind", strsplit(read[[1]], ","))
-  colnames(colspl) <- strsplit(strsplit(names(read)[1], "\\\\")[[1]][1],
-    ",")[[1]]
-  read <- cbind(read, colspl)
-  
-  # Select variable
-  conds <- Map(function(var, val) read[,var] %in% val, 
-    names(x$select), x$select)
-  cond <- Reduce("&", conds)
-  read_sel <- read[cond,]
-  
-  # Eventually aggregate if several vaiables have to
-  if (!is.null(x$fun)){
-    res <- aggregate(value ~ geo, data = read_sel, x$fun)
-  } else {
-    res <- read_sel[,c("geo", "value")]
-  }
-  
-  # Output result
-  attr(res, "level") <- x$level
-  res
-})
+# Load variables from eurostat
+popstr <- get_eurostat("demo_r_pjanind3", time_format = "num",
+  filters = list(indic_de = indicde_list, time = year))
 
-#----- Merge everything together
-
-# Merge NUTS variables with MCC
-metadata <- Reduce(function(x, y){
-    merge(x, y, 
-      by.x = sprintf("NUTS%i_2021", attr(y, "level")), by.y = "geo",
-      sort = F, all.x = T, all.y = F)
-  }, 
-  nuts_vars, init = metadata
-)
-
-# Add names
-names(metadata)[ncol(metadata) - length(load_desc):1 + 1] <- names(load_desc)
-
-# For NAs, search for a potential NUTS 2016 match
-for (nm in names(load_desc)){
-  nas <- is.na(metadata[,nm])
-  nv <- nuts_vars[[nm]]
-  metadata[nas,nm] <- nv[
-    match(metadata[nas, sprintf("NUTS%i_2016", attr(nv, "level"))], nv$geo),
-    "value"]
-}
-
-# Add source of variable
-metasource[names(load_desc)] <- sprintf("NUTS%i", 
-  sapply(load_desc, "[[", "level"))
-
-#----- Add social isolation from 2011 census
-read <- read.table(sprintf("%s/data/cens_11ms_r3.tsv", path_nuts), header = T,
-  sep = "\t", na.strings = c(": ", ":"), check.names = F)
+# Average years
+popstr <- aggregate(values ~ indic_de + geo, data = popstr, mean)
 
 # Reshape
-res_read <- reshape(read, direction = "long", v.names = "value",
-  varying = list(region = 2:ncol(read)), times = names(read)[-1], 
-  timevar = "region", idvar = 1, ids = read[,1])
+popstr <- reshape(popstr, timevar = "indic_de", idvar = "geo",
+  ids = "values", direction = "wide")
+names(popstr)[match(sprintf("values.%s", indicde_list), names(popstr))] <- 
+  varnames
 
-# Coerce value variable into numeric
-valspl <- apply(res_read[,3, drop = F], 2, function(x){
-  sapply(strsplit(as.character(x), " "), "[", 1)
-})
-res_read[,3] <- as.numeric(sapply(strsplit(res_read[,3], " "), "[", 1))
-
-# Split first variable
-colspl <- do.call("rbind", strsplit(res_read[[1]], ","))
-colnames(colspl) <- c("age", "sex", "marsta", "unit", "time")
-prep_read <- cbind(res_read[,-1], colspl)
-
-# Select total sex and age
-select <- prep_read[prep_read$age == "TOTAL" & prep_read$sex == "T", 
-  -c(3, 4, 6, 7)]
-
-# Compute proportions of each marital status
-#   and select single, divorced and widowed
-select_prop <- by(select[,c("marsta", "value")], select$region, simplify = F, 
-  function(x) {
-    x$value <- x$value / x$value[x$marsta == "TOTAL"]
-    sum(x$value[x$marsta %in% c("DIV", "SIN", "WID")])
-})
-select_prop <- data.frame(region = names(select_prop), 
-  isol = unlist(select_prop))
-
-# Merge with dataset
-metadata <- merge(metadata, select_prop, by.x = "NUTS3_2021", by.y = "region",
+# Merge with metadata
+metadata <- merge(metadata, popstr, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
-metasource["isol"] <- "NUTS3"
+#----- Total population
+# Load variables from eurostat
+totpop <- get_eurostat("demo_r_pjangrp3", time_format = "num",
+  filters = list(sex = "T", age = "TOTAL", time = year)
+)
 
-#----- Add regional typology
+# Average years
+totpop <- aggregate(values ~ geo, data = totpop, mean)
+names(totpop)[-1] <- "pop"
 
+# Merge with metadata
+metadata <- merge(metadata, totpop, by.x = "NUTS3_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Population density
+popdens <- get_eurostat("demo_r_d3dens", time_format = "num",
+  filters = list(unit = "PER_KM2", time = year)
+)
+
+# Average years
+popdens <- aggregate(values ~ geo, data = popdens, mean)
+names(popdens)[-1] <- "popdens"
+
+# Merge with metadata
+metadata <- merge(metadata, popdens, by.x = "NUTS3_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Life expectancy
+lifexp <- get_eurostat("demo_r_mlifexp", time_format = "num",
+  filters = list(sex = "T", age = "Y_LT1", time = year)
+)
+
+# Average years
+lifexp <- aggregate(values ~ geo, data = lifexp, mean)
+names(lifexp)[-1] <- "lifexp"
+
+# Merge with metadata
+metadata <- merge(metadata, lifexp, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- GDP per capita
+gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
+  filters = list(unit = "EUR_HAB", time = year)
+)
+
+# Average years
+gdp <- aggregate(values ~ geo, data = gdp, mean)
+names(gdp)[-1] <- "gdp"
+
+# Merge with metadata
+metadata <- merge(metadata, gdp, by.x = "NUTS3_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Proportion of active population (25-64) with ISCED level 5 and above
+educ <- get_eurostat("edat_lfse_04", time_format = "num",
+  filters = list(isced11 = "ED5-8", sex = "T", age = "Y25-64", time = year)
+)
+
+# Average years
+educ <- aggregate(values ~ geo, data = educ, mean)
+names(educ)[-1] <- "educ"
+
+# Merge with metadata
+metadata <- merge(metadata, educ, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Unemployment rate
+unempl <- get_eurostat("lfst_r_lfu3rt", time_format = "num",
+  filters = list(isced11 = "TOTAL", sex = "T", age = "Y20-64", time = year)
+)
+
+# Average years
+unempl <- aggregate(values ~ geo, data = unempl, mean)
+names(unempl)[-1] <- "unempl"
+
+# Merge with metadata
+metadata <- merge(metadata, unempl, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Severe material deprivation rate
+depriv <- get_eurostat("ilc_mddd21", time_format = "num",
+  filters = list(unit = "PC", time = year)
+)
+
+# Average years
+depriv <- aggregate(values ~ geo, data = depriv, mean)
+names(depriv)[-1] <- "depriv"
+
+# Merge with metadata
+metadata <- merge(metadata, depriv, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Hospital bed rates
+bedrates <- get_eurostat("hlth_rs_bdsrg", time_format = "num",
+  filters = list(unit = "P_HTHAB", facility = "HBEDT", time = year)
+)
+
+# Average years
+bedrates <- aggregate(values ~ geo, data = bedrates, mean)
+names(bedrates)[-1] <- "bedrates"
+
+# Merge with metadata
+metadata <- merge(metadata, bedrates, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Share of urbanised land
+urbshare <- get_eurostat("lan_lcv_art", time_format = "num",
+  filters = list(unit = "PC", landcover = "LCA", time = year)
+)
+
+# Average years
+urbshare <- aggregate(values ~ geo, data = urbshare, mean)
+names(urbshare)[-1] <- "urbshare"
+
+# Merge with metadata
+metadata <- merge(metadata, urbshare, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Landcover
+landshare <- get_eurostat("lan_lcv_ovw", time_format = "num",
+  filters = list(unit = "PC", landcover = c("LCB", "LCC", "LCD", "LCE", "LCG"), 
+    time = year)
+)
+
+# Average years
+landshare <- aggregate(values ~ geo + landcover, data = landshare, mean)
+
+# Reshape
+landshare <- reshape(landshare, timevar = "landcover", idvar = "geo",
+  ids = "values", direction = "wide")
+names(landshare)[6] <- "blueshare"
+
+# Sum components of greenshare
+landshare$greenshare <- rowSums(landshare[,2:5])
+landshare <- landshare[,-(2:5)]
+
+# Merge with metadata
+metadata <- merge(metadata, landshare, by.x = "NUTS2_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Degree days
+degdays <- get_eurostat("nrg_chddr2_a", time_format = "num",
+  filters = list(unit = "NR", indic_nrg = c("CDD", "HDD"), 
+    time = year)
+)
+
+# Average years
+degdays <- aggregate(values ~ geo + indic_nrg, data = degdays, mean)
+
+# Reshape
+degdays <- reshape(degdays, timevar = "indic_nrg", idvar = "geo",
+  ids = "values", direction = "wide")
+names(degdays)[-1] <- c("cooldegdays", "heatdegdays")
+
+# Merge with metadata
+metadata <- merge(metadata, degdays, by.x = "NUTS3_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
+
+#----- Social isolation from 2011 census
+isol <- get_eurostat("cens_11ms_r3", time_format = "num",
+  filters = list(age = "TOTAL", sex = "T", time = year))
+
+# Compute prop of marital status
+isol <- by(isol[,c("marsta", "values")], isol$geo, simplify = F, 
+  function(x) {
+    x$values <- x$values / x$values[x$marsta == "TOTAL"]
+    sum(x$values[x$marsta %in% c("DIV", "SIN", "WID")])
+})
+isol <- data.frame(region = names(isol), isol = unlist(isol))
+
+# Merge with dataset
+metadata <- merge(metadata, isol, by.x = "NUTS3_2021", by.y = "region",
+  all.x = T, all.y = F, sort = F)
+
+#----- Regional typology
+# (Didn't find how to get it from eurostat R package)
 # Load typology
 read_typo <- read.table(sprintf("%s/metadata/NUTS_AT_2021.csv", path_nuts), 
   header = T, sep = ",", quote = "\"", na.strings = "0")
@@ -425,10 +405,46 @@ read_typo[nas & nuts2inds, type_vars] <- nuts2_modes[
   match(read_typo[nas & nuts2inds, "NUTS_ID"], nuts2_modes$nuts2), -1]
 
 # Merge with dataset
-metadata <- merge(metadata, read_typo[, c("NUTS_ID", type_vars)],
+read_typo <- read_typo[, c("NUTS_ID", type_vars)]
+names(read_typo)[names(read_typo) %in% type_vars] <- tolower(type_vars)
+metadata <- merge(metadata, read_typo,
   by.x = "NUTS3_2021", by.y = "NUTS_ID", all.x = T, all.y = F, sort = F)
 
-metasource[type_vars] <- "NUTS3"
+#----- Death rate
+age_list <- c("Y_LT5", "Y5-9", "Y10-14", "Y15-19", 
+  "Y20-24", "Y25-29", "Y30-34", "Y35-39", "Y40-44", 
+  "Y45-49", "Y50-54", "Y55-59", "Y60-64", "Y65-69", 
+  "Y70-74", "Y75-79", "Y80-84", "Y85-89", "Y_GE90", 
+  "TOTAL")
+varnames <- c("death_0004", "death_0509", "death_1014", "death_1519", 
+  "death_2024", "death_2529", "death_3034", "death_3539", "death_4044", 
+  "death_4549", "death_5054", "death_5559", "death_6064", "death_6569", 
+  "death_7074", "death_7579", "death_8084", "death_8589", "death_90p",
+  "death_tot")
+
+# Load
+deaths <- get_eurostat("demo_r_magec3", time_format = "num",
+  filters = list(sex = "T")
+)
+
+# Average years
+deaths <- aggregate(values ~ age + geo, data = deaths, mean)
+
+# Reshape
+deaths <- reshape(deaths, timevar = "age", idvar = "geo",
+  ids = "values", direction = "wide")
+names(deaths)[match(sprintf("values.%s", age_list), names(deaths))] <- 
+  varnames
+
+# Sum 85-89 and ge90 to match population
+deaths$death_85p <- deaths$death_8589 + deaths$death_90p
+
+# Remove variables
+deaths[c("values.UNK", "death_8589", "death_90p")] <- NULL
+
+# Merge with metadata
+metadata <- merge(metadata, deaths, by.x = "NUTS3_2021", by.y = "geo",
+  all.x = T, all.y = F, sort = F)
 
 #---------------------------
 # Add Urban Centre Database
@@ -449,16 +465,12 @@ names(read_ucd)[-1] <- names(var_sel)
 # Merge with metadata
 metadata <- merge(metadata, read_ucd, all.x = T, all.y = F, sort = F)
 
-# Add info on the source
-metasource[names(var_sel)] <- "UCD"
-
 #---------------------------
 # Missing values imputation
 #---------------------------
 
 # Keep only metavariables
-vars <- names(metasource)
-metavar <- metadata[,vars]
+metavar <- metadata[,!names(metadata) %in% desc_vars]
 
 # Keep track of missings
 imputed <- is.na(metavar)
@@ -472,7 +484,7 @@ meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
 
 # Get the imputed dataset (of iter_Sel)
 iter_sel <- 5
-metavar <- complete(meta_imp, iter_sel)
+metadata[,!names(metadata) %in% desc_vars] <- complete(meta_imp, iter_sel)
 
 #---------------------------
 # Load geographical data
@@ -500,21 +512,15 @@ metageo <- urau_points[match(metadata$URAU_CODE, urau_points$URAU_CODE),
 #---------------------------
 
 #----- Reorganize data
-# Description of metadata (meta^2 data)
-metadesc <- metadata[,!names(metadata) %in% vars]
 
-# Add indicator for whther it is in MCC
-metadesc$inmcc <- !is.na(metadata$mcc_code)
-
-# Description of metavariables
-metavardesc <- data.frame(source = metasource, nmis = nmis, propmis = propmis)
+# Add indicator for whether it is in MCC
+metadata$inmcc <- !is.na(metadata$mcc_code)
 
 # Reorder and select mcc time series
-reord <- match(subset(metadesc, inmcc)$mcc_code, names(dlist))
+reord <- match(subset(metadata, inmcc)$mcc_code, names(dlist))
 dlist <- dlist[reord]
 cities <- cities[reord,]
 
 #----- Export
-save(dlist, cities, countries, metavar, metadesc, imputed, metageo, metasource,
-  metavardesc, meta_imp,
+save(dlist, cities, countries, metadata, imputed, metageo, meta_imp,
   file = "data/Alldata.RData")

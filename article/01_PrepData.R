@@ -10,22 +10,36 @@
 #  Load MCC data
 #---------------------------
 
-path <- "V:/VolumeQ/AGteam/MCCdata/data/MCC_all"
+path <- "V:/VolumeQ/AGteam/MCCdata/data"
 # path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
 #   "StorageOnDemand Q/AGteam/MCCdata/data/MCC_all")
 
-load(sprintf("%s/MCCdata_20200907.RData", path))
+#----- Load age causes MCC dataset
+load(sprintf("%s/MCC_age_classes/MCC_AgeCause_20200907.RData", path))
 
-#----- Select european countries -----
+# Select countries
+sel_country <- sort(c('cze9415', 'est9718', 'fnl9411', 'fra0014',  
+  'grc0110', 'irl8407', 'ita0110', 'nor6916', 'por8012', 
+  'spa0913', 'sui9513', 'swe9016', 'uk9016'))
+
+dlist_eu <- dlist[cities$country %in% sel_country]
+cities_eu <- cities[cities$country %in% sel_country,]
+countries_eu <- countries[countries$country %in% sel_country,]
+
+#----- Add countries with all age group
+load(sprintf("%s/MCC_all/MCCdata_20210407.RData", path))
+
 # We do not select mld0110 because absent in eurostat data
-# We use only cities 
-sel_country <- sort(c('cze9415', 'est9718', 'fnl9414', 'fra0014', 'ger9315', 
-  'grc0110', 'irl8407', 'ita0615', 'net9516c', 'nor6918', 'por8018', 
-  'rom9416', 'spa9014', 'sui9513', 'swe9016', 'uk9016'))
+sel_country <- sort(c('ger9315', 'net9516c', 'rom9416'))
 
-dlist <- dlist[cities$country %in% sel_country]
-cities <- cities[cities$country %in% sel_country,]
-countries <- countries[countries$country %in% sel_country,]
+dlist_noage <- dlist[cities$country %in% sel_country]
+cities_noage <- cities[cities$country %in% sel_country,]
+countries_noage <- countries[countries$country %in% sel_country,]
+
+# Put everything together
+dlist <- c(dlist_eu, dlist_noage)
+cities <- rbind(cities_eu, cities_noage[,names(cities_eu)])
+countries <- rbind(countries_eu, countries_noage[,names(countries_eu)])
 
 #----- Exclusions
 
@@ -47,7 +61,7 @@ dlist <- dlist[ord]
 countries <- countries[order(as.character(countries$countryname)),]
 
 # Remove unused levels in factors
-ind1 <- c("cityname","country","countryname", "kgclzone","kgclzone1","kgclzone2")
+ind1 <- c("cityname","country","countryname")
 cities[ind1] <- lapply(cities[ind1], droplevels)
 
 #---------------------------
