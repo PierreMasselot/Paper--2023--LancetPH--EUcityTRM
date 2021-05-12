@@ -10,6 +10,8 @@ library(sf)
 library(eurostat)
 library(ggplot2)
 library(colorspace)
+library(fields)
+library(scales)
 
 #---------------------------
 #  PCA
@@ -53,7 +55,7 @@ dev.print(pdf, file = "figures/PCs.pdf")
 euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
 
 # Complete data.frame with all info
-metacomplete <- cbind(metadesc, metavar, do.call(rbind, metageo$geometry))
+metacomplete <- cbind(metadata, do.call(rbind, metageo$geometry))
 names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
 
 #----- Cities with population
@@ -76,7 +78,7 @@ ggplot(data = cityres) + theme_void() +
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limit = c(50, 100)) + 
+    name = "MMP", limit = c(50, 100), oob = squish) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
 ggsave("figures/cities_mmp.pdf", device = pdf)
@@ -138,3 +140,27 @@ ggplot(data = bggrid) + theme_void() +
     name = sprintf("RR at percentile %i", resultper[2]))
 
 ggsave("figures/bg_rrheat.pdf", device = pdf)
+
+
+#---------------------------
+# Exposure response functions
+#---------------------------
+
+#----- Average ERF for different ages
+
+pal <- rev(viridis(length(agepred)))
+
+# Retrieve overall ERF
+ageERF <- sapply(agecp, "[[", "allRRfit")
+
+# Plot all for ages
+layout(matrix(1:2, ncol = 2), width = c(4, 1))
+matplot(predper, ageERF, type = "l", lwd = 2, col = pal, 
+  xlab = "Temperature percentile", ylab = "RR", lty = 1)
+abline(h = 1)
+par(mar = c(5, 0, 4, 0) + .1)
+plot.new()
+legend("topleft", legend = agepred, col = pal, lty = 1, lwd = 2, 
+  title = "Age", bty = "n")
+
+dev.print(pdf, file = "figures/AgeERF.pdf")

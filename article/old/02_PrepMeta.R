@@ -10,6 +10,7 @@ library(readxl)
 library(mice)
 library(sf)
 library(modeest)
+library(eurostat)
 
 #---------------------------
 #  Parameters
