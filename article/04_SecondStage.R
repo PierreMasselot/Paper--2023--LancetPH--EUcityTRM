@@ -71,6 +71,7 @@ bnlat <- urauext[c(2,4)]
 stage2df <- data.frame(pcs, citycoords, age = agevals, 
   city = metadata[repmcc, "URAU_CODE"], country = metadata[repmcc, "CNTR_CODE"])
 
+#### SUBSET BY CONVERGENCE
 # Create formula
 st2form <- sprintf("coefs ~ %s + ns(lon, df = 2, Boundary.knots = bnlon) + 
     ns(lat, df = 2, Boundary.knots = bnlat) + ns(age, knots = c(50, 75))",

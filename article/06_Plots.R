@@ -71,17 +71,17 @@ ggplot(data = metacomplete) + theme_void() +
 ggsave("figures/urau_cities.pdf", device = pdf)
 
 #----- City predictions
-# MMP
+# MMT
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = metavar$pop, fill = mmp), 
+  geom_point(aes(x = lon, y = lat, size = metavar$pop, fill = mmt), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limit = c(50, 100), oob = squish) + 
+    name = "MMT", limit = c(15, 30), oob = squish) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
-ggsave("figures/cities_mmp.pdf", device = pdf)
+ggsave("figures/cities_mmt.pdf", device = pdf)
 
 # Cold
 ggplot(data = cityres) + theme_void() + 

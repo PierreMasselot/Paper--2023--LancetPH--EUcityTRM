@@ -86,17 +86,23 @@ firstpred <- ov_basis %*% sapply(citycoefs, "[[", "fit")
 # Find MMP
 inrange <- predper >= mmprange[1] & predper <= mmprange[2]
 citymmp <- predper[inrange][apply(firstpred[inrange,], 2, which.min)]
+citymmt <- mapply(quantile, x = lapply(era5series, "[[", "era5landtmean"), 
+  probs = citymmp / 100)
 
 # Predict RR at specifiec percentiles
-cityrr <- Map(function(b, mm){
-    cp <- crosspred(ov_basis, coef = b$fit, vcov = b$vcov, cen = mm, model.link="log",
-      at = resultper)
+cityrr <- Map(function(b, mm, era5){
+    tmeanper <- quantile(era5$era5landtmean, predper / 100)
+    bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
+      knots = quantile(era5$era5landtmean, c(10, 75, 90) / 100))
+    cp <- crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mm, 
+      model.link="log", at = quantile(era5$era5landtmean, resultper / 100))
     t(rbind(RR = cp$allRRfit, low = cp$allRRlow, high = cp$allRRhigh))
-  }, citycoefs, citymmp)
+  }, citycoefs, citymmt, era5series)
 
 # Create sumary object
 cityres <- allpreddf
 cityres$mmp <- citymmp
+cityres$mmt <- citymmt
 cityres$rr <- t(sapply(cityrr, "[", , 1))
 
 #---------------------------

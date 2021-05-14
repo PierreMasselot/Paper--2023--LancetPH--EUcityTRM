@@ -58,15 +58,15 @@ vardegree <- 2
 
 # Lag-response parameters
 # Change here for sensitivity analysis
-# maxlag <- 10
 lagfun <- "ns"
+# maxlag <- 10
 # lagknots <- logknots(maxlag, 2)
 # Suggestions for sensitivity:
-# maxlag <- 3
-# lagknots <- 1
+maxlag <- 3
+lagknots <- 1
 #
-maxlag <- 21
-lagknots <- logknots(21, 3)
+# maxlag <- 21
+# lagknots <- logknots(21, 3)
 
 # Seasonality / trend degrees of freedom
 nkseas <- 7
