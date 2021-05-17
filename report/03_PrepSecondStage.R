@@ -6,18 +6,21 @@
 #
 ################################################################################
 
-# Lag list
-lags <- c(10, 3, 21)
-
 # List all result files
 fillist <- list.files("results") 
 
+# Lag list
+lags <- c(10, 3, 21)
+
 # Prepare objects storing all data
-allouts <- vector("list", 4)
+allages <- vector("list", 3)
+names(allages) <- c("main", "65p", "75p")
+
+allouts <- rep(list(allages), 4)
 names(allouts) <- c("all", "cvd", "resp", "cvresp")
 
 allstage1 <- rep(list(allouts), 3)
-names(allstage1) <- c(10, 3, 21)
+names(allstage1) <- lags
 
 
 #-------------------------------
@@ -34,68 +37,78 @@ for(i in 1){
   
   #----- Extract results
   # All cause
-  getallcause <- lapply(stage1res, function(x){
-    out <- x$all_main
-    out$age <- 1
-    out
-  })
-  names(getallcause) <- sprintf("%s.%s", names(getallcause), "all_main")
-  getallcause2 <- lapply(stage2res, function(x){
-    out <- x[c("all_65p", "all_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 2:3)
-    out
-  })
-  allstage1[[i]]$all <- c(allstage1[[i]]$all, getallcause, 
-    unlist(getallcause2, recursive = F))
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "all_main"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage2res, "[[", "all_65p"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage2res, "[[", "all_75p"))
   
   # CVD
-  getcvd <- lapply(stage1res, function(x){
-    out <- x$cvd_main
-    out$age <- 1
-    out
-  })
-  names(getcvd) <- sprintf("%s.%s", names(getcvd), "cvd_main")
-  getcvd2 <- lapply(stage2res, function(x){
-    out <- x[c("cvd_65p", "cvd_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 2:3)
-    out
-  })
-  allstage1[[i]]$cvd <- c(allstage1[[i]]$cvd, getcvd, 
-    unlist(getcvd2, recursive = F))
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "cvd_main"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage2res, "[[", "cvd_65p"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage2res, "[[", "cvd_75p"))
   
   # Respiratory
-  getresp <- lapply(stage1res, function(x){
-    out <- x$resp_main
-    out$age <- 1
-    out
-  })
-  names(getresp) <- sprintf("%s.%s", names(getresp), "resp_main")
-  getresp2 <- lapply(stage2res, function(x){
-    out <- x[c("resp_65p", "resp_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 2:3)
-    out
-  })
-  allstage1[[i]]$resp <- c(allstage1[[i]]$resp, getresp, 
-    unlist(getresp2, recursive = F))
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "resp_main"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage2res, "[[", "resp_65p"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage2res, "[[", "resp_75p"))
   
   # Cardiopulmonary
-  getcvresp <- lapply(stage1res, function(x){
-    out <- x$cvresp_main
-    out$age <- 1
-    out
-  })
-  names(getcvresp) <- sprintf("%s.%s", names(getcvresp), "cvresp_main")
-  getcvresp2 <- lapply(stage2res, function(x){
-    out <- x[c("cvresp_65p", "cvresp_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 2:3)
-    out
-  })
-  allstage1[[i]]$cvresp <- c(allstage1[[i]]$cvresp, getcvresp, 
-    unlist(getcvresp2, recursive = F))
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "cvresp_main"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage2res, "[[", "cvresp_65p"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage2res, "[[", "cvresp_75p"))
+}
+
+for(i in 2:3){
+  # Get right file
+  fil <- grep(sprintf("Germany_lag%i", lags[i]), fillist, value = T)
+  
+  # Load it
+  load(sprintf("results/%s", fil[1]))
+  load(sprintf("results/%s", fil[2]))
+  
+  #----- Extract results
+  # All cause
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage3res, "[[", "all_main"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage4res, "[[", "all_65p"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage4res, "[[", "all_75p"))
+  
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage3res, "[[", "cvd_main"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage4res, "[[", "cvd_65p"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage4res, "[[", "cvd_75p"))
+  
+  # Respiratory
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage3res, "[[", "resp_main"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage4res, "[[", "resp_65p"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage4res, "[[", "resp_75p"))
+  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage3res, "[[", "cvresp_main"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage4res, "[[", "cvresp_65p"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage4res, "[[", "cvresp_75p"))
 }
 
 # Extract city
@@ -114,40 +127,28 @@ for(i in seq_along(lags)){
   load(sprintf("results/%s", fil))
   
   # All cause
-  getallcause <- unlist(lapply(stage1res, function(x){
-    out <- x[c("alltm", "tm65")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:2)
-    out
-  }), recursive = F)
-  allstage1[[i]]$all <- c(allstage1[[i]]$all, getallcause)
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "alltm"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage1res, "[[", "tm65"))
   
-  # Cardiovascular
-  getcvd <- unlist(lapply(stage1res, function(x){
-    out <- x[c("allcm", "cm65")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:2)
-    out
-  }), recursive = F)
-  allstage1[[i]]$cvd <- c(allstage1[[i]]$cvd, getcvd)
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "allcm"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage1res, "[[", "cm65"))
   
   # Respiratory
-  getresp <- unlist(lapply(stage1res, function(x){
-    out <- x[c("allrm", "rm65")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:2)
-    out
-  }), recursive = F)
-  allstage1[[i]]$resp <- c(allstage1[[i]]$resp, getresp)  
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "allrm"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage1res, "[[", "rm65"))
   
-  # Cardiorespiratory
-  getcpm <- unlist(lapply(stage1res, function(x){
-    out <- x[c("allcpm", "cpm65")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:2)
-    out
-  }), recursive = F)
-  allstage1[[i]]$cvresp <- c(allstage1[[i]]$cvresp, getcpm)  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "allcpm"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage1res, "[[", "cpm65"))
 }
 
 # Get city description
@@ -166,40 +167,36 @@ for(i in seq_along(lags)){
   load(sprintf("results/%s", fil))
   
   # All cause
-  getallcause <- unlist(lapply(stage1res, function(x){
-    out <- x[c("nat", "nat.65", "nat.75")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  }), recursive = F)
-  allstage1[[i]]$all <- c(allstage1[[i]]$all, getallcause)
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "nat"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage1res, "[[", "nat.65"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage1res, "[[", "nat.75"))
   
-  # Cardiovascular
-  getcvd <- unlist(lapply(stage1res, function(x){
-    out <- x[c("cvd", "cvd.65", "cvd.75")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  }), recursive = F)
-  allstage1[[i]]$cvd <- c(allstage1[[i]]$cvd, getcvd)
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "cvd"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage1res, "[[", "cvd.65"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage1res, "[[", "cvd.75"))
   
   # Respiratory
-  getresp <- unlist(lapply(stage1res, function(x){
-    out <- x[c("resp", "resp.65", "resp.75")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  }), recursive = F)
-  allstage1[[i]]$resp <- c(allstage1[[i]]$resp, getresp)  
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "resp"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage1res, "[[", "resp.65"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage1res, "[[", "resp.75"))
   
-  # Cardiorespiratory
-  getcpm <- unlist(lapply(stage1res, function(x){
-    out <- x[c("cvdresp", "cvdresp.65", "cvdresp.75")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  }), recursive = F)
-  allstage1[[i]]$cvresp <- c(allstage1[[i]]$cvresp, getcpm)  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "cvdresp"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage1res, "[[", "cvdresp.65"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage1res, "[[", "cvdresp.75"))
 }
 
 # Get city description
@@ -216,50 +213,39 @@ for(i in seq_along(lags)){
   
   # Load it
   load(sprintf("results/%s", fil))
+  names(stage1res) <- cities$cityname
   
   # All cause
-  getallcause <- lapply(stage1res, function(x){
-    out <- x[c("nall", "n65p", "n75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getallcause) <- cities$cityname
-  allstage1[[i]]$all <- c(allstage1[[i]]$all, 
-    unlist(getallcause, recursive = F))
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "nall"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage1res, "[[", "n65p"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage1res, "[[", "n75p"))
   
-  # Cardiovascular
-  getcvd <- lapply(stage1res, function(x){
-    out <- x[c("call", "c65p", "c75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getcvd) <- cities$cityname
-  allstage1[[i]]$cvd <- c(allstage1[[i]]$cvd, 
-    unlist(getcvd, recursive = F))
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "call"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage1res, "[[", "c65p"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage1res, "[[", "c75p"))
   
   # Respiratory
-  getresp <- lapply(stage1res, function(x){
-    out <- x[c("pall", "p65p", "p75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getresp) <- cities$cityname
-  allstage1[[i]]$resp <- c(allstage1[[i]]$resp, 
-    unlist(getresp, recursive = F))  
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "pall"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage1res, "[[", "p65p"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage1res, "[[", "p75p"))
   
-  # Cardiorespiratory
-  getcpm <- lapply(stage1res, function(x){
-    out <- x[c("cpall", "cp65p", "cp75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getcpm) <- cities$cityname
-  allstage1[[i]]$cvresp <- c(allstage1[[i]]$cvresp, 
-    unlist(getcpm, recursive = F))  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "cpall"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage1res, "[[", "cp65p"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage1res, "[[", "cp75p"))
 }
 
 # Get city description
@@ -276,50 +262,39 @@ for(i in seq_along(lags)){
   
   # Load it
   load(sprintf("results/%s", fil))
+  names(stage1res) <- cities$cityname
   
   # All cause
-  getallcause <- lapply(stage1res, function(x){
-    out <- x[c("all_main", "all_65p", "all_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getallcause) <- cities$cityname[match(names(getallcause), cities$city)]
-  allstage1[[i]]$all <- c(allstage1[[i]]$all, 
-    unlist(getallcause, recursive = F))
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "all_main"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage1res, "[[", "all_65p"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage1res, "[[", "all_75p"))
   
-  # Cardiovascular
-  getcvd <- lapply(stage1res, function(x){
-    out <- x[c("cvd_main", "cvd_65p", "cvd_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getcvd) <- cities$cityname[match(names(getcvd), cities$city)]
-  allstage1[[i]]$cvd <- c(allstage1[[i]]$cvd, 
-    unlist(getcvd, recursive = F))
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "cvd_main"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage1res, "[[", "cvd_65p"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage1res, "[[", "cvd_75p"))
   
   # Respiratory
-  getresp <- lapply(stage1res, function(x){
-    out <- x[c("resp_main", "resp_65p", "resp_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getresp) <- cities$cityname[match(names(getresp), cities$city)]
-  allstage1[[i]]$resp <- c(allstage1[[i]]$resp, 
-    unlist(getresp, recursive = F))  
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "resp_main"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage1res, "[[", "resp_65p"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage1res, "[[", "resp_75p"))
   
-  # Cardiorespiratory
-  getcpm <- lapply(stage1res, function(x){
-    out <- x[c("cvresp_main", "cvresp_65p", "cvresp_75p")]
-    out <- Map(function(o, a) {o$age <- a; o}, 
-      out, 1:3)
-    out
-  })
-  names(getcpm) <- cities$cityname[match(names(getcpm), cities$city)]
-  allstage1[[i]]$cvresp <- c(allstage1[[i]]$cvresp, 
-    unlist(getcpm, recursive = F))  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "cvresp_main"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage1res, "[[", "cvresp_65p"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage1res, "[[", "cvresp_75p"))
 }
 
 # Get city description

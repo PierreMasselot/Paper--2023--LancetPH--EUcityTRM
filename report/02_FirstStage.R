@@ -164,5 +164,5 @@ names(stage1res) <- cities$city
 
 # Export
 # Please replace 'country' by your country
-save(dlist, cities, stage1res, 
+save(cities, stage1res, 
   file = sprintf("results/FirstStage_UK_lag%i.RData", maxlag))

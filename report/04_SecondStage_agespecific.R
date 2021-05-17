@@ -31,33 +31,30 @@ stage2res <- foreach(i = iter(seq_along(lags)),
   # Loop on outcomes
   for (j in seq_along(allouts)){
     
-    st1list <- allstage1[[i]][[j]]
+    for (k in seq_along(allages)){
     
-    #----- Extract variables
-    # First stage coefficients
-    coefs <- t(sapply(st1list, "[[", "coef"))
-    
-    # Coefs variance-covariance matrices
-    vcovs <- lapply(st1list, "[[", "vcov")
-    
-    # Which model converged
-    convs <- sapply(st1list, "[[", "conv")
-    
-    # Age category
-    ages <- factor(sapply(st1list, "[[", "age"),
-      levels = 1:3, labels = c("main", "65p", "75p"))
-    
-    # City
-    city <- sapply(strsplit(names(st1list), "\\."), "[", 1)
-    
-    # Country
-    country <- droplevels(
-      citydesc[match(city, citydesc$cityname), "countryname"])
-    contrasts(country) <- contr.sum(nlevels(country))
-    
-    #----- Apply meta-analytical model
-    outres[[j]] <- mixmeta(coefs ~ ages + country, random = ~ 1|city, 
-      S = vcovs, subset = convs)
+      st1list <- allstage1[[i]][[j]][[k]]
+      
+      #----- Extract variables
+      # First stage coefficients
+      coefs <- t(sapply(st1list, "[[", "coef"))
+      
+      # Coefs variance-covariance matrices
+      vcovs <- lapply(st1list, "[[", "vcov")
+      
+      # Which model converged
+      convs <- sapply(st1list, "[[", "conv")
+      
+      # City
+      city <- names(st1list)
+      
+      # Country
+      country <- citydesc[match(city, citydesc$cityname), "countryname"]
+      
+      #----- Apply meta-analytical model
+      outres[[j]][[k]] <- mixmeta(coefs, random = ~ 1|country/city, 
+        S = vcovs, subset = convs, control = list(showiter = T))
+    }
   }
   
   outres
@@ -68,3 +65,6 @@ stopCluster(cl)
 
 # Rename
 names(stage2res) <- lags
+
+# Save
+save(stage2res, file = "results/SecondStage.RData")
