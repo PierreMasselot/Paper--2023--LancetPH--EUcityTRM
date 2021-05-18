@@ -21,6 +21,9 @@ dateend <- as.Date("2016/12/31")
 age_cut <- c(0, 65, 75)
 age_labs <- c("main", "65p", "75p")
 
+# Define sex labs
+sex_labs <- c("m", "f")
+
 #--------------------------
 #  List of BUAs
 #--------------------------
@@ -116,6 +119,56 @@ for (a in seq_along(age_labs)){
   vname <- sprintf("cvresp_%s", age_labs[a])
   outcome_list[[vname]] <- onsdeath[
     ageinyrs >= age_cut[a] & 
+      ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 39 & 
+          as.numeric(substr(cause, 1, 2)) < 52) |
+          (dodyr > 2000 & substr(cause, 1, 1) %in% c("I", "J"))), 
+    .N, by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+}
+
+# Aggregate by city, date, cause and sex
+for (s in 1:2){
+  # All causes
+  vname <- sprintf("all_%s", sex_labs[s])
+  outcome_list[[vname]] <- onsdeath[
+    sex == s, .N, 
+    by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+  
+  # Natural causes
+  vname <- sprintf("nat_%s", sex_labs[s])
+  outcome_list[[vname]] <- onsdeath[
+    sex == s & 
+      ((dodyr <= 2000 & as.numeric(substr(cause, 1, 1)) >= 0 & 
+          as.numeric(substr(cause, 1, 1)) < 8) |
+          (dodyr > 2000 & substr(cause, 1, 1) %in% LETTERS[1:18])), 
+    .N, by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+  
+  # Cardiovascular diseases
+  vname <- sprintf("cvd_%s", sex_labs[s])
+  outcome_list[[vname]] <- onsdeath[
+    sex == s & 
+      ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 39 & 
+        as.numeric(substr(cause, 1, 2)) < 46) |
+        (dodyr > 2000 & substr(cause, 1, 1) == "I")), 
+    .N, by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+  
+  # Respiratory diseases
+  vname <- sprintf("resp_%s", sex_labs[s])
+  outcome_list[[vname]] <- onsdeath[
+    sex == s & 
+      ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 46 & 
+          as.numeric(substr(cause, 1, 2)) < 52) |
+          (dodyr > 2000 & substr(cause, 1, 1) == "J")), 
+    .N, by = list(city = TCITY15CD, date = DOD)]
+  setnames(outcome_list[[vname]], "N", vname)
+  
+  # Cardiorespiratory diseases
+  vname <- sprintf("cvresp_%s", sex_labs[s])
+  outcome_list[[vname]] <- onsdeath[
+    sex == s & 
       ((dodyr <= 2000 & as.numeric(substr(cause, 1, 2)) >= 39 & 
           as.numeric(substr(cause, 1, 2)) < 52) |
           (dodyr > 2000 & substr(cause, 1, 1) %in% c("I", "J"))), 

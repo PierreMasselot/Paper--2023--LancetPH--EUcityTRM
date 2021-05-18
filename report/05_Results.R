@@ -38,6 +38,9 @@ mmprange <- c(1, 99)
 # Create basis for overall relationship
 ov_basis <- onebasis(predper, fun = "bs", degree = 2, knots = c(10, 75, 90))
 
+# Acceptable grid points for MMT
+inrange <- predper >= mmprange[1] & predper <= mmprange[2]
+
 # Function to compute ERF
 erf <- function(blup){
   firstpred <- ov_basis %*% blup$blup

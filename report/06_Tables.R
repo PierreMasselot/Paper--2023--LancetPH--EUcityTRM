@@ -27,7 +27,7 @@ tab <- data.frame(
     sprintf("%2.1f (%2.1f)", mean(d$resp_main), sd(d$resp_main))})
 )
 
-write.table(tab, file = "results/UKdeathdesc.csv", sep = ",", quote = F,
+write.table(tab, file = "figures/UKdeathdesc.csv", sep = ",", quote = F,
   row.names = F, col.names = T)
 
 #-------------------------------
@@ -61,7 +61,7 @@ table8 <- cbind(c("Continental", unique(as.character(citydesc$countryname))),
   table8)
 
 # Save
-write.table(table8, file = "results/Table8.csv", sep = ",", quote = F,
+write.table(table8, file = "figures/Table8.csv", sep = ",", quote = F,
   row.names = F)
 
 #----- Table 9
@@ -77,5 +77,5 @@ table9 <- cbind(c("Continental", unique(as.character(citydesc$countryname))),
   table9)
 
 # Save
-write.table(table9, file = "results/Table9.csv", sep = ",", quote = F,
+write.table(table9, file = "figures/Table9.csv", sep = ",", quote = F,
   row.names = F)

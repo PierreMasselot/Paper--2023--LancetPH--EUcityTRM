@@ -47,9 +47,11 @@ library(doParallel)
 
 # Outcome variables
 # This can be changed to match your variable names (please put the total 1st)
-outcome_vars <- c("all_main", "cvd_main", "resp_main", "cvresp_main", 
-  "all_65p", "cvd_65p", "resp_65p", "cvresp_65p", 
-  "all_75p", "cvd_75p", "resp_75p", "cvresp_75p")
+outcome_vars <- c("nat_main", "cvd_main", "resp_main", "cvresp_main", 
+  "nat_65p", "cvd_65p", "resp_65p", "cvresp_65p", 
+  "nat_75p", "cvd_75p", "resp_75p", "cvresp_75p", 
+  "nat_m", "cvd_m", "resp_m", "cvresp_m", 
+  "nat_f", "cvd_f", "resp_f", "cvresp_f")
 
 # Exposure-response parameters
 varfun <- "bs"
@@ -62,11 +64,11 @@ lagfun <- "ns"
 # maxlag <- 10
 # lagknots <- logknots(maxlag, 2)
 # Suggestions for sensitivity:
-maxlag <- 3
-lagknots <- 1
+# maxlag <- 3
+# lagknots <- 1
 #
-# maxlag <- 21
-# lagknots <- logknots(21, 3)
+maxlag <- 21
+lagknots <- logknots(21, 3)
 
 # Seasonality / trend degrees of freedom
 nkseas <- 7

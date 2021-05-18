@@ -67,4 +67,4 @@ stopCluster(cl)
 names(stage2res) <- lags
 
 # Save
-save(stage2res, file = "results/SecondStage.RData")
+save(stage2res, citydesc, file = "results/SecondStage.RData")

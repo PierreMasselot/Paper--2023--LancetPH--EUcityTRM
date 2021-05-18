@@ -7,6 +7,8 @@
 ################################################################################
 
 library(RColorBrewer)
+library(eurostat)
+library(ggplot2)
 
 #-------------------------------
 # Parameters
@@ -22,6 +24,29 @@ lagcol <- brewer.pal(4, "Greens")[c(3,2,4)]
 # Parameters for ages
 agecol <- brewer.pal(4, "Blues")[2:4]
 agelab <- c("All", "65+", "75+")
+
+# Parameters for sex
+sexcol <- c(4, 2)
+sexlab <- c("M", "F")
+
+#-------------------------------
+# Locations
+#-------------------------------
+
+# Country layout
+euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
+
+# Plot map
+ggplot(data = citydesc) + theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, size = pop), 
+    alpha = .6, col = "cornflowerblue") + 
+  coord_sf(xlim = c(-10, 30), ylim = c(35, 65)) + 
+  scale_size(breaks = c(10^5, 5*10^5, 10^6, 5*10^6), 
+    name = "Population")
+
+ggsave("figures/Map.pdf", device = pdf)
+
 
 #-------------------------------
 # Figure 3: Continental ERF
@@ -51,7 +76,7 @@ plot.new()
 legend("topleft", legend = outlab, col = outcol, lwd = 2, bty = "n")
 
 # Save
-dev.print(pdf, file = "results/Figure3.pdf")
+dev.print(pdf, file = "figures/Figure3.pdf")
 
 
 #-------------------------------
@@ -91,7 +116,7 @@ legend("topleft", legend = sort(as.numeric(names(continentERF))),
   title = "Maximum lag")
 
 # Save
-dev.print(pdf, file = "results/Figure5.pdf")
+dev.print(pdf, file = "figures/Figure5.pdf")
 
 #-------------------------------
 # Figure 6: Age specific results
@@ -114,7 +139,7 @@ for (i in 1:4){
     main = outlab[i])
   
   # loop on lags
-  for (j in seq_along(ageERFs)){
+  for (j in 1:3){
     lines(ageERFs[[j]], col = agecol[j], lwd = 2)
   }
   
@@ -129,4 +154,80 @@ legend("topleft", legend = agelab, col = agecol, lwd = 2, bty = "n",
   title = "Age group")
 
 # Save
-dev.print(pdf, file = "results/Figure6.pdf")
+dev.print(pdf, file = "figures/Figure6.pdf")
+
+#-------------------------------
+# Figure 6: Age specific results
+#-------------------------------
+
+# Initialize plot
+layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
+
+#----- Loop on outcomes
+for (i in 1:4){
+  # Extract ERFs
+  ageERFs <- continentERF[["10"]][[i]]
+  
+  # Max RR
+  maxRR <- max(sapply(ageERFs, "[[", "allRRfit"))
+  
+  # Initialize plot
+  plot(NA, xlim = c(0, 100), ylim = c(1, maxRR), 
+    xlab = "Temperature percentile", ylab = "RR",
+    main = outlab[i])
+  
+  # loop on lags
+  for (j in 1:3){
+    lines(ageERFs[[j]], col = agecol[j], lwd = 2)
+  }
+  
+  # Add ref
+  abline(h = 1)
+}
+
+# Add legend
+par(mar = c(5, 0, 4, 0))
+plot.new()
+legend("topleft", legend = agelab, col = agecol, lwd = 2, bty = "n",
+  title = "Age group")
+
+# Save
+dev.print(pdf, file = "figures/Figure6.pdf")
+
+#-------------------------------
+# Figure 7: Sex specific results
+#-------------------------------
+
+# Initialize plot
+layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
+
+#----- Loop on outcomes
+for (i in 1:4){
+  # Extract ERFs
+  sexERFs <- continentERF[["10"]][[i]]
+  
+  # Max RR
+  maxRR <- max(sapply(sexERFs, "[[", "allRRfit"))
+  
+  # Initialize plot
+  plot(NA, xlim = c(0, 100), ylim = c(1, maxRR), 
+    xlab = "Temperature percentile", ylab = "RR",
+    main = outlab[i])
+  
+  # loop on lags
+  for (j in 4:5){
+    lines(sexERFs[[j]], col = sexcol[j - 3], lwd = 2)
+  }
+  
+  # Add ref
+  abline(h = 1)
+}
+
+# Add legend
+par(mar = c(5, 0, 4, 0))
+plot.new()
+legend("topleft", legend = sexlab, col = sexcol, lwd = 2, bty = "n",
+  title = "Sex")
+
+# Save
+dev.print(pdf, file = "figures/Figure7.pdf")
