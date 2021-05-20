@@ -61,14 +61,14 @@ vardegree <- 2
 # Lag-response parameters
 # Change here for sensitivity analysis
 lagfun <- "ns"
-# maxlag <- 10
-# lagknots <- logknots(maxlag, 2)
+maxlag <- 10
+lagknots <- logknots(maxlag, 2)
 # Suggestions for sensitivity:
 # maxlag <- 3
 # lagknots <- 1
 #
-maxlag <- 21
-lagknots <- logknots(21, 3)
+# maxlag <- 21
+# lagknots <- logknots(21, 3)
 
 # Seasonality / trend degrees of freedom
 nkseas <- 7
@@ -93,17 +93,9 @@ registerDoParallel(cl)
 
 stage1res <- foreach(i = iter(seq(dlist)), 
   .packages = c("dlnm", "splines")) %dopar% {
-  
+
   # Extract data
   dat <- dlist[[i]]
-  
-  # Check that all variables are there
-  varlist <- c(outcome_vars, "tmean", "date")
-  if (any(!varlist %in% names(dat))){
-    stop(sprintf("Missing variables (%s) in city %s",
-      paste(setdiff(varlist, names(dat)), collapse = ", "),
-      cities$cityname[i]))
-  }
   
   # Coerce date and extract month, doy, year and dow
   dat$date <- as.Date(dat$date)
@@ -120,10 +112,6 @@ stage1res <- foreach(i = iter(seq(dlist)),
   tsum["Range"] <- tsum["Max."] - tsum["Min."]
   out$tsum <- tsum
   
-  # Mortality summary
-  dsumlist <- summary(dat[,outcome_vars])
-  out$dsumlist <- dsumlist
-  
   # Period
   out$period <- range(na.omit(dat)$year)
   
@@ -133,8 +121,20 @@ stage1res <- foreach(i = iter(seq(dlist)),
       knots = quantile(dat$tmean, varper / 100, na.rm = T)),
     arglag = list(fun = lagfun, knots = lagknots))
   
+  # Initialize outcome res
+  outlist <- vector("list", length(outcome_vars))
+  names(outlist) <- outcome_vars
+  out <- c(out, outlist)
+  
+  # Detrmine which outcome are there
+  outi <- names(dat)[names(dat) %in% outcome_vars]
+  
+  # Mortality summary
+  dsumlist <- summary(dat[,outi])
+  out$dsumlist <- dsumlist
+  
   #----- Run model for each outcome
-  for (outcome in outcome_vars){
+  for (outcome in outi){
     # Extract outcome
     y <- dat[, outcome]
     
@@ -167,4 +167,4 @@ names(stage1res) <- cities$city
 # Export
 # Please replace 'country' by your country
 save(cities, stage1res, 
-  file = sprintf("results/FirstStage_UK_lag%i.RData", maxlag))
+  file = sprintf("results/FirstStage_MCC_lag%i.RData", maxlag))

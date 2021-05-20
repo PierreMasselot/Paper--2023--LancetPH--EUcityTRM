@@ -45,7 +45,7 @@ pcvar <- pcares$x[, seq_len(npc)]
 # Put all city and age results in a big list
 unlistresults <- unlist(sapply(stage1res, "[[", "modelres"), recursive = F)
 
-# Get coefs, vcov and average age
+# Get coefs, vcov, average age and convergence
 coefs <- t(sapply(unlistresults, "[[", "coef"))
 vcovs <- lapply(unlistresults, "[[", "vcov")
 agevals <- sapply(unlistresults, "[[", "ageval")
@@ -69,9 +69,9 @@ bnlat <- urauext[c(2,4)]
 
 # Create stage 2 data.frame
 stage2df <- data.frame(pcs, citycoords, age = agevals, 
-  city = metadata[repmcc, "URAU_CODE"], country = metadata[repmcc, "CNTR_CODE"])
+  city = metadata[repmcc, "URAU_CODE"], 
+  country = as.factor(metadata[repmcc, "CNTR_CODE"]))
 
-#### SUBSET BY CONVERGENCE
 # Create formula
 st2form <- sprintf("coefs ~ %s + ns(lon, df = 2, Boundary.knots = bnlon) + 
     ns(lat, df = 2, Boundary.knots = bnlat) + ns(age, knots = c(50, 75))",
@@ -79,7 +79,7 @@ st2form <- sprintf("coefs ~ %s + ns(lon, df = 2, Boundary.knots = bnlon) +
 
 # Apply meta regression model
 stage2res <- mixmeta(as.formula(st2form), data = stage2df, 
-  S = vcovs, random = ~ 1|city) 
+  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
 
 ## Waaaaaaaaaaaaaaaaaaaaaay too long
 # stage2res <- mixmeta(as.formula(st2form), data = stage2df,

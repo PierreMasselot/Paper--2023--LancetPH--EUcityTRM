@@ -14,7 +14,7 @@ library(doParallel)
 #---------------------------
 
 ncores <- detectCores()
-cl <- makeCluster(max(1, ncores - 2))
+cl <- makeCluster(max(1, ncores - 2), outfile = "stage2track.txt")
 registerDoParallel(cl)
 
 #-------------------------------
@@ -32,8 +32,15 @@ stage2res <- foreach(i = iter(seq_along(lags)),
   for (j in seq_along(allouts)){
     
     for (k in seq_along(allages)){
-    
+      
+      # Monitor loop
+      print(sprintf("i = %i, j = %i, k = %i", i, j, k))
+      
+      # Extract results
       st1list <- allstage1[[i]][[j]][[k]]
+      
+      # Remove nulls (cities for which we did not have data)
+      st1list <- st1list[!sapply(st1list, is.null)]
       
       #----- Extract variables
       # First stage coefficients
@@ -53,7 +60,7 @@ stage2res <- foreach(i = iter(seq_along(lags)),
       
       #----- Apply meta-analytical model
       outres[[j]][[k]] <- mixmeta(coefs, random = ~ 1|country/city, 
-        S = vcovs, subset = convs, control = list(showiter = T))
+        S = vcovs, subset = convs)
     }
   }
   

@@ -6,11 +6,25 @@
 #
 ################################################################################
 
+
+# Load metadata from article version
+load("../article/data/Alldata.Rdata")
+rm(cities, dlist, era5series, imputed, meta_imp, metageo)
+
 # List all result files
 fillist <- list.files("results") 
 
 # Lag list
 lags <- c(10, 3, 21)
+
+# Regions
+regions <- c(Germany = "Central-Western", Greece = "Mediterranean", 
+  Italy = "Mediterranean", Norway = "Scandinavian", UK = "Central-Western",
+  'Czech Republic' = "Central-Western", Estonia = "Scandinavian", 
+  Finland = "Scandinavian", France = "Central-Western", 
+  Ireland = "Central-Western", Portugal = "Mediterranean", 
+  Spain = "Mediterranean", Sweden = "Scandinavian", 
+  Switzerland = "Central-Western")
 
 # Prepare objects storing all data
 allages <- vector("list", 5)
@@ -366,7 +380,60 @@ for(i in seq_along(lags)){
 # Get city description
 cities$countryname <- "UK"
 citydesc <- rbind(citydesc, cities[,c("cityname", "countryname", "lon", "lat")])
-citydesc$pop <- c(3.52, 0.55, 0.54, 0.58, 0.61, 0.73, 1.78, 0.53, 1.06, 0.56, 
+
+#-------------------------------
+# Load results for MCC
+#-------------------------------
+
+for(i in seq_along(lags)){
+  # Get right file
+  fil <- grep(sprintf("MCC_lag%i", lags[i]), fillist, value = T)
+  
+  # Load it
+  load(sprintf("results/%s", fil))
+  names(stage1res) <- cities$cityname
+  
+  # All cause
+  allstage1[[i]][["all"]][["main"]] <- c(allstage1[[i]][["all"]][["main"]],
+    lapply(stage1res, "[[", "nat_main"))
+  allstage1[[i]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+    lapply(stage1res, "[[", "nat_65p"))
+  allstage1[[i]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+    lapply(stage1res, "[[", "nat_75p"))
+  
+  # CVD
+  allstage1[[i]][["cvd"]][["main"]] <- c(allstage1[[i]][["cvd"]][["main"]],
+    lapply(stage1res, "[[", "cvd_main"))
+  allstage1[[i]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+    lapply(stage1res, "[[", "cvd_65p"))
+  allstage1[[i]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+    lapply(stage1res, "[[", "cvd_75p"))
+  
+  # Respiratory
+  allstage1[[i]][["resp"]][["main"]] <- c(allstage1[[i]][["resp"]][["main"]],
+    lapply(stage1res, "[[", "resp_main"))
+  allstage1[[i]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+    lapply(stage1res, "[[", "resp_65p"))
+  allstage1[[i]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+    lapply(stage1res, "[[", "resp_75p"))
+  
+  # Cardiopulmonary
+  allstage1[[i]][["cvresp"]][["main"]] <- c(allstage1[[i]][["cvresp"]][["main"]],
+    lapply(stage1res, "[[", "cvresp_main"))
+  allstage1[[i]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+    lapply(stage1res, "[[", "cvresp_65p"))
+  allstage1[[i]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+    lapply(stage1res, "[[", "cvresp_75p"))
+}
+
+# Get city description
+names(cities)[names(cities) == "long"] <- "lon"
+citydesc <- rbind(citydesc, cities[,c("cityname", "countryname", "lon", "lat")])
+
+#---- Add other information
+
+# Add population
+citydesc$pop <- c(c(3.52, 0.55, 0.54, 0.58, 0.61, 0.73, 1.78, 0.53, 1.06, 0.56, 
   1.45, 0.62, 0.49, 0.58, 0.51, 0.06, 0.15, 0.06, 0.01, 0.17, 0.32, 0.09, 0.33, 
   0.31, 0.05, 0.13, 0.67, 0.05, 2.86, 0.67, 0.67, 0.28, 0.2, 0.14, 0.11, 0.11, 
   1.14, 0.12, 0.15, 0.18, 0.2, 0.35, 0.24, 0.57, 0.15, 0.35, 0.16, 0.19, 0.13, 
@@ -374,7 +441,10 @@ citydesc$pop <- c(3.52, 0.55, 0.54, 0.58, 0.61, 0.73, 1.78, 0.53, 1.06, 0.56,
   0.5, 0.41, 0.57, 8.73, 0.22, 0.12, 0.55, 0.18, 0.18, 0.28, 0.13, 0.23, 0.19, 
   0.31, 0.12, 0.16, 0.17, 0.27, 0.16, 0.23, 0.13, 0.26, 0.11, 0.11, 0.54, 0.16, 
   0.11, 0.27, 0.18, 0.1, 0.11, 0.28, 0.18, 0.11, 0.18, 0.19, 0.15, 0.17, 0.14, 
-  0.1, 0.24, 0.1, 0.11, 0.16) * 10^6
+  0.1, 0.24, 0.1, 0.11, 0.16) * 10^6,
+  metadata$pop[match(cities$city, metadata$mcc_code)]
+)
+citydesc$pop[is.na(citydesc$pop)] <- mean(citydesc$pop, na.rm = T)
   
-  
-  
+# Add region
+citydesc$region <- regions[citydesc$countryname]

@@ -49,11 +49,11 @@ ggsave("figures/Map.pdf", device = pdf)
 
 
 #-------------------------------
-# Figure 3: Continental ERF
+# Figure 2: Continental ERF
 #-------------------------------
 
 # Determine maximum RR
-mainERFs <- lapply(continentERF[["10"]], "[[", "main")
+mainERFs <- lapply(continentERF_mmp[["10"]], "[[", "main")
 maxRR <- max(sapply(mainERFs, "[[", "allRRfit"))
 ylim = c(1, maxRR)
 
@@ -76,11 +76,11 @@ plot.new()
 legend("topleft", legend = outlab, col = outcol, lwd = 2, bty = "n")
 
 # Save
-dev.print(pdf, file = "figures/Figure3.pdf")
+dev.print(pdf, file = "figures/Figure2.pdf")
 
 
 #-------------------------------
-# Figure 5: Lag sensitivity analysis
+# Figure 3: Lag sensitivity analysis
 #-------------------------------
 
 # Initialize plot
@@ -89,7 +89,7 @@ layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
 #----- Loop on outcomes
 for (i in 1:4){
   # Extract ERFs
-  lagERFs <- lapply(continentERF, function(x) x[[i]]$main)
+  lagERFs <- lapply(continentERF_mmp, function(x) x[[i]]$main)
   
   # Max RR
   maxRR <- max(sapply(lagERFs, "[[", "allRRfit"))
@@ -100,7 +100,7 @@ for (i in 1:4){
     main = outlab[i])
   
   # loop on lags
-  for (j in seq_along(continentERF)){
+  for (j in seq_along(continentERF_mmp)){
     lines(lagERFs[[j]], col = lagcol[j], lwd = 2)
   }
   
@@ -111,15 +111,15 @@ for (i in 1:4){
 # Add legend
 par(mar = c(5, 0, 4, 0))
 plot.new()
-legend("topleft", legend = sort(as.numeric(names(continentERF))), 
-  col = lagcol[order(as.numeric(names(continentERF)))], lwd = 2, bty = "n",
+legend("topleft", legend = sort(as.numeric(names(continentERF_mmp))), 
+  col = lagcol[order(as.numeric(names(continentERF_mmp)))], lwd = 2, bty = "n",
   title = "Maximum lag")
 
 # Save
-dev.print(pdf, file = "figures/Figure5.pdf")
+dev.print(pdf, file = "figures/Figure3.pdf")
 
 #-------------------------------
-# Figure 6: Age specific results
+# Figure 4: Age specific results
 #-------------------------------
 
 # Initialize plot
@@ -128,7 +128,7 @@ layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
 #----- Loop on outcomes
 for (i in 1:4){
   # Extract ERFs
-  ageERFs <- continentERF[["10"]][[i]]
+  ageERFs <- continentERF_mmp[["10"]][[i]]
   
   # Max RR
   maxRR <- max(sapply(ageERFs, "[[", "allRRfit"))
@@ -154,48 +154,11 @@ legend("topleft", legend = agelab, col = agecol, lwd = 2, bty = "n",
   title = "Age group")
 
 # Save
-dev.print(pdf, file = "figures/Figure6.pdf")
+dev.print(pdf, file = "figures/Figure4.pdf")
+
 
 #-------------------------------
-# Figure 6: Age specific results
-#-------------------------------
-
-# Initialize plot
-layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
-
-#----- Loop on outcomes
-for (i in 1:4){
-  # Extract ERFs
-  ageERFs <- continentERF[["10"]][[i]]
-  
-  # Max RR
-  maxRR <- max(sapply(ageERFs, "[[", "allRRfit"))
-  
-  # Initialize plot
-  plot(NA, xlim = c(0, 100), ylim = c(1, maxRR), 
-    xlab = "Temperature percentile", ylab = "RR",
-    main = outlab[i])
-  
-  # loop on lags
-  for (j in 1:3){
-    lines(ageERFs[[j]], col = agecol[j], lwd = 2)
-  }
-  
-  # Add ref
-  abline(h = 1)
-}
-
-# Add legend
-par(mar = c(5, 0, 4, 0))
-plot.new()
-legend("topleft", legend = agelab, col = agecol, lwd = 2, bty = "n",
-  title = "Age group")
-
-# Save
-dev.print(pdf, file = "figures/Figure6.pdf")
-
-#-------------------------------
-# Figure 7: Sex specific results
+# Figure 5: Sex specific results
 #-------------------------------
 
 # Initialize plot
@@ -204,7 +167,7 @@ layout(cbind(matrix(1:4, 2, 2), 5), width = c(2, 2, 1))
 #----- Loop on outcomes
 for (i in 1:4){
   # Extract ERFs
-  sexERFs <- continentERF[["10"]][[i]]
+  sexERFs <- continentERF_mmp[["10"]][[i]]
   
   # Max RR
   maxRR <- max(sapply(sexERFs, "[[", "allRRfit"))
@@ -230,4 +193,4 @@ legend("topleft", legend = sexlab, col = sexcol, lwd = 2, bty = "n",
   title = "Sex")
 
 # Save
-dev.print(pdf, file = "figures/Figure7.pdf")
+dev.print(pdf, file = "figures/Figure5.pdf")
