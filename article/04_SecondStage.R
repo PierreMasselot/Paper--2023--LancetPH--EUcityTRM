@@ -62,26 +62,25 @@ stage2df <- data.frame(citycoords, age = agevals,
 #  PCA/PLS on metavariables
 #---------------------------
 
-# Select meta predictors
-metavar <- metadata[, metaprednames]
-
-# Perform PCA on metavariables
-pcares <- prcomp(metavar, center = TRUE, scale = TRUE)
-
-# Extract principal components
-pcvar <- pcares$x[, seq_len(npc)]
-
 # # Select meta predictors
-# metavar <- scale(metadata[, metaprednames])
-# metapls <- metavar[repmcc,]
+# metavar <- metadata[, metaprednames]
 # 
-# # Compute PLSR (basic PLS computed as a linear model)
-# plsres <- plsr(coefs ~ metapls, center = F)
+# # Perform PCA on metavariables
+# pcares <- prcomp(metavar, center = TRUE, scale = TRUE)
 # 
-# # Extract scores for all cities
-# pcvar <- metavar %*% plsres$projection[,1:npc]
-# pcvar <- predict(plsres, newdata = metavar, ncomp = 1:npc, type = "scores")
-# colnames(pcvar) <- sprintf("pls%i", seq_len(ncol(pcvar)))
+# # Extract principal components
+# pcvar <- pcares$x[, seq_len(npc)]
+
+# Select meta predictors
+metavar <- scale(metadata[, metaprednames])
+metapls <- metavar[repmcc,]
+
+# Compute PLSR (basic PLS computed as a linear model)
+plsres <- plsr(coefs ~ metapls, center = F)
+
+# Extract scores for all cities
+pcvar <- predict(plsres, newdata = metavar, ncomp = 1:npc, type = "scores")
+colnames(pcvar) <- sprintf("pls%i", seq_len(ncol(pcvar)))
 
 # Add to second stage dataset
 stage2df <- cbind(stage2df, pcvar[repmcc,])
