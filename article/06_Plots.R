@@ -12,6 +12,7 @@ library(ggplot2)
 library(colorspace)
 library(fields)
 library(scales)
+library(viridis)
 
 #---------------------------
 #  PCA
@@ -74,11 +75,11 @@ ggsave("figures/urau_cities.pdf", device = pdf)
 # MMT
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = metavar$pop, fill = mmt), 
+  geom_point(aes(x = lon, y = lat, size = metadata$pop, fill = mmt), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMT", limit = c(15, 30), oob = squish) + 
+    name = "MMT", limit = c(0, 30), oob = squish) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
 ggsave("figures/cities_mmt.pdf", device = pdf)
@@ -86,7 +87,7 @@ ggsave("figures/cities_mmt.pdf", device = pdf)
 # Cold
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rr[,1], size = metavar$pop), 
+  geom_point(aes(x = lon, y = lat, fill = rrcold, size = metadata$pop), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = "white", high = "darkblue", 
@@ -98,7 +99,7 @@ ggsave("figures/cities_rrcold.pdf", device = pdf)
 # Heat
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rr[,2], size = metavar$pop), 
+  geom_point(aes(x = lon, y = lat, fill = rrheat, size = metadata$pop), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = "white", high = "darkred", 
@@ -164,3 +165,24 @@ legend("topleft", legend = agepred, col = pal, lty = 1, lwd = 2,
   title = "Age", bty = "n")
 
 dev.print(pdf, file = "figures/AgeERF.pdf")
+
+#----- All ERF
+
+pdf("figures/ERFcities.pdf", width = 9, height = 13)
+layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
+par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
+
+# Loop on all cities
+for(i in seq_along(cityERF)){
+  # Part of the curve above MMP
+  heatind <- predper >= cityres[i, "mmp"] 
+  
+  # Plot cold and heat separately
+  plot(cityERF[[i]], xlab = "Temperature (°C)", ylab = "RR", 
+    main = metadata[i, "URAU_NAME"], col = 4, lwd = 2)
+  lines(cityERF[[i]]$predvar[heatind], cityERF[[i]]$allRRfit[heatind], 
+    col = 2, lwd = 2)
+  abline(v = cityres[i, "mmt"], lty = 2)
+}
+
+dev.off()

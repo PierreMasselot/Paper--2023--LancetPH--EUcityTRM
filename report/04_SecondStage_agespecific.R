@@ -58,9 +58,12 @@ stage2res <- foreach(i = iter(seq_along(lags)),
       # Country
       country <- citydesc[match(city, citydesc$cityname), "countryname"]
       
+      # Region
+      region <- citydesc[match(city, citydesc$cityname), "region"]
+      
       #----- Apply meta-analytical model
-      outres[[j]][[k]] <- mixmeta(coefs, random = ~ 1|country/city, 
-        S = vcovs, subset = convs)
+      outres[[j]][[k]] <- mixmeta(coefs, random = ~ 1|region/country/city, 
+        S = vcovs, subset = convs, control = list(showiter = T))
     }
   }
   

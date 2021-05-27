@@ -37,6 +37,20 @@ tab <- data.frame(
 write.table(tab, file = "figures/MCCdeathdesc.csv", sep = ",", quote = F,
   row.names = F, col.names = T)
 
+tabtmean <- data.frame(
+  name = cities$cityname,
+  period = sapply(dlist, function(d) sprintf("%i - %i", 
+    min(d$year), max(d$year))),
+  mean = sapply(dlist, function(d){
+    sprintf("%2.1f (%2.1f)", mean(d$tmean, na.rm = T), 
+      sd(d$tmean, na.rm = T))}),
+  summary = t(sapply(dlist, function(d) sprintf("%2.1f",
+    quantile(d$tmean, c(0, .25, .5, .75, 1), na.rm = T))))
+)
+
+write.table(tabtmean, file = "figures/MCCtmean.csv", sep = ",", quote = F,
+  row.names = F, col.names = T)
+
 #-------------------------------
 # Table 7: cold effect of main model
 #-------------------------------
