@@ -73,17 +73,13 @@ matchall <- match(subset(metadata, is.na(mcc_code), URAU_CODE, drop = T),
   urau_mcc_all$URAU_CODE)
 metadata[is.na(metadata$mcc_code), c("mcc_code", "cityname")] <- 
   urau_mcc_all[matchall, c("mcc_code", "cityname")]
-  
-#----- Select level
+
+#----- Select URAU level
 
 # Discard functional urban areas because they are huge
 metadata <- metadata[metadata$URAU_CATG != "F",]
 
-# Reject MCC matches that are not in selected MCC countries
-metadata <- subset(metadata, is.na(mcc_code) | 
-    (sapply(strsplit(mcc_code, "\\."), "[", 2) %in% mcc_countries))
-
-# Select greater city or city if unavailable
+# Select greater city when available
 cityselect <- by(metadata, substr(metadata$URAU_CODE, 1, 5), function(x){
   csel <- x$URAU_CATG == "K"
   if(sum(csel) > 0){
@@ -93,8 +89,24 @@ cityselect <- by(metadata, substr(metadata$URAU_CODE, 1, 5), function(x){
 })
 metadata <- do.call(rbind, cityselect)
 
-# Remove potential remaining duplicates
+# Remove potential remaining level duplicates
 metadata <- metadata[!duplicated(metadata),]
+
+#----- Select MCC cities
+
+# Reject MCC matches that are not in selected MCC country datasets
+metadata <- subset(metadata, is.na(mcc_code) | 
+    (sapply(strsplit(mcc_code, "\\."), "[", 2) %in% mcc_countries))
+
+# Remove mismatch between large UK conurbation and smaller cities
+#   Manchester/Wigan, Liverpool/Birkenhead
+torm <- c(
+  with(metadata, which(URAU_CODE == "UK008K1" & mcc_code == "wign.uk9016")),
+  with(metadata, which(URAU_CODE == "UK006K2" & mcc_code == "brkn.uk9016"))
+)
+metadata <- metadata[-torm,]
+
+#----- Remove specific cases
 
 # Duplicates on the NUTS3 level: select the largest city
 nnuts3 <- tapply(metadata$NUTS3_2021, metadata$NUTS3_2021, length)
@@ -107,20 +119,10 @@ toremove <- by(nutsdup, nutsdup$NUTS3_2021, function(x){
 })
 metadata <- subset(metadata, !URAU_CODE %in% unlist(toremove))
 
-#----- Manage specific cases
-
 # Remove London boroughs
 metadata <- metadata[!(substr(metadata$NUTS3_2021,1,3) == "UKI" & 
     metadata$URAU_NAME != "London"),]
 metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
-
-# Remove mismatch between large UK conurbation and smaller cities
-#   Manchester/Wigan, Liverpool/Birkenhead
-torm <- c(
-  with(metadata, which(URAU_CODE == "UK008K1" & mcc_code == "wign.uk9016")),
-  with(metadata, which(URAU_CODE == "UK006K2" & mcc_code == "brkn.uk9016"))
-)
-metadata <- metadata[-torm,]
 
 # Remove overseas cities 
 overseas <- c("PT004C1", "PT007C1", 
