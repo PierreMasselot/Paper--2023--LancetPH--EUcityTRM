@@ -104,7 +104,7 @@ stage1res <- foreach(i = iter(seq(dlist)),
     }
     
     # Reduction to overall cumulative
-    redall <- crossreduce(cb, res, cen = 10)
+    redall <- crossreduce(cb, res, cen = median(dat$era5landtmean))
     
     # Output
     ageres[[a]] <- list(coef = coef(redall), vcov = vcov(redall), 

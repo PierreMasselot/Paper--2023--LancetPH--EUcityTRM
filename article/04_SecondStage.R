@@ -32,7 +32,12 @@ metaprednames <- c("prop_65p", "lifexp", "gdp", "educ", "unempl", "depriv",
 
 # Put all city and age results in a big list and keep only model which converged
 unlistresults <- unlist(sapply(stage1res, "[[", "modelres"), recursive = F)
+
+# Exclude models that did not converge
 unlistresults <- unlistresults[sapply(unlistresults, "[[", "conv")]
+
+# Exclude groups with mean age < 5
+unlistresults <- unlistresults[sapply(unlistresults, "[[", "ageval") > 5]
 
 # Get coefs, vcov, average age and convergence
 coefs <- t(sapply(unlistresults, "[[", "coef"))

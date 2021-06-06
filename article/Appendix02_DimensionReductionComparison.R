@@ -10,7 +10,9 @@
 library(mixmeta)
 library(splines)
 library(rsample)
-library(CCA)
+library(doParallel)
+library(pls)
+library(dlnm)
 
 ## Execute the prepare data part of second stage meta-analysis
 
@@ -19,104 +21,227 @@ library(CCA)
 #---------------------------
 
 # Maximum number of components
-maxk <- 10
+maxk <- 15
 
 #---------------------------
 # Prepare cross validation
 #---------------------------
 
-#----- Split data
+#----- Prepare objects
+
+# Split data
 splitinds <- vfold_cv(data.frame(1:nrow(stage2df)))
 
-#----- Basic formula and model
 # baseline formula
 basicform <- coefs ~ ns(lon, df = 2, Boundary.knots = bnlon) + 
   ns(lat, df = 2, Boundary.knots = bnlat) + ns(age, knots = c(50, 75))
 
-# Baseline scores (without any meta predictor component)
-basicscores <- score_mixmeta(basicform, stage2df, splitinds$splits)
+# Select meta predictors
+metavar <- data.matrix(metadata[repmcc, metaprednames])
 
-#----- Function to apply mixmeta and extract scores
-score_mixmeta <- function(formula, data, splits){
-  # First model to obtain I2 stat
-  resall <- mixmeta(formula, data = data, S = vcovs, random = ~ 1|city) 
+# Prepare object to store results
+i2scores <- aicscores <- cvscores <- list()
+
+#----- Prepare parallelization
+
+ncores <- detectCores()
+cl <- makeCluster(max(1, ncores - 2))
+registerDoParallel(cl)
+
+#---------------------------
+# Baseline model (no component)
+#---------------------------
+
+#----- On all data 
+
+# Fit mixmeta model
+mixbasic <- mixmeta(basicform, data = stage2df, S = vcovs, random = ~ 1|city) 
+
+# Extract scores
+i2scores$basic <- summary(mixbasic)$i2stat[1] 
+aicscores$basic <- summary(mixbasic)$AIC
+
+#----- Cross-validation 
+cvres <- foreach(i = iter(seq(splitinds$splits)), .combine = c,
+  .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+{
   
-  # Cross-validation
-  mse <- rep(NA, length(splits))
-  for (i in seq_along(splits)){
-    data$train <- seq_len(nrow(data)) %in% analysis(splits[[i]])[,1]
-    valid <- assessment(splits[[i]])[,1]
-    rmm <- mixmeta(formula, data = data, S = vcovs, random = ~ 1|city,
-      subset = train)
-    pred <- predict(rmm, newdata = data[valid,])
-    err <- coefs[valid,] - pred
-    mse[i] <- sum(err^2, na.rm = T)
-  }
+  # Get training and validation fold indices
+  trainind <- analysis(splitinds$splits[[i]])[,1]
+  validind <- assessment(splitinds$splits[[i]])[,1]
   
-  # Output
-  list(cv = c(mean = mean(mse), sd = sd(mse)), 
-    I2 = summary(resall)$i2stat[1], AIC = summary(resall)$AIC)
+  # Add object to global environment for mixmeta
+  .GlobalEnv$basicform <- basicform
+  .GlobalEnv$coefs <- coefs
+  .GlobalEnv$bnlon <- bnlon
+  .GlobalEnv$bnlat <- bnlat
+  .GlobalEnv$trainind <- trainind
+  
+  # Apply mixmeta model on training fold
+  resi <- mixmeta(basicform, data = stage2df, S = vcovs, random = ~ 1|city,
+    subset = trainind)
+  
+  # Predict for validation data
+  pred <- predict(resi, newdata = stage2df[validind,])
+  
+  # Compute RMSE
+  err <- coefs[validind,] - pred
+  sqrt(sum(err^2, na.rm = T))
 }
 
-#----- Select meta predictors
-metavar <- metadata[, metaprednames]
+cvscores$basic <- c(cvm = mean(cvres), 
+  cvsd = sqrt(var(cvres) / length(splitinds$splits)))
 
 #---------------------------
 # PCA
 #---------------------------
 
-#----- Perform PCA
+#----- Perform PCA (unsupervised therefore OK to perform beforehand)
 
 # Perform PCA on metavariables
 pcares <- prcomp(metavar, center = TRUE, scale = TRUE)
 
 # Add all PCs to data.frame
-pcdf <- cbind(stage2df, pcares$x[repmcc,])
+pcdf <- cbind(stage2df, pcares$x)
 
-#----- For each number of PCs, fit model
-
-# Initialize formula and resul object
+# Initialize formula and result object
 pcform <- basicform
-pcscores <- vector("list", maxk)
+i2scores$PCA <- aicscores$PCA <- vector("numeric", maxk)
 
-# Loop
+#----- apply on all data 
+
+# Store model results for later use
+mixpca <- vector("list", maxk)
+
+# Loop on number of components
 for (i in seq_len(maxk)){
+  
   print(sprintf("PCA : %i / %i", i, maxk))
   
   # Update formula
   pcform <- update(pcform, as.formula(sprintf("~ . + PC%i", i)))
   
-  # Perform CV
-  pcscores[[i]] <- score_mixmeta(pcform, pcdf, splitinds$splits)
+  # Fit mixmeta model
+  mixpca[[i]] <- mixmeta(pcform, data = pcdf, S = vcovs, random = ~ 1|city)
+  
+  # Extract scores
+  i2scores$PCA[i] <- summary(mixpca[[i]])$i2stat[1] 
+  aicscores$PCA[i] <- summary(mixpca[[i]])$AIC
+}
+ 
+#----- Cross-validation 
+pccvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
+  .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+{
+  # Initialize formula
+  pcform <- basicform
+  
+  # Get training and validation fold indices
+  trainind <- analysis(splitinds$splits[[i]])[,1]
+  validind <- assessment(splitinds$splits[[i]])[,1]
+  
+  # Add object to global environment for mixmeta
+  .GlobalEnv$coefs <- coefs
+  .GlobalEnv$bnlon <- bnlon
+  .GlobalEnv$bnlat <- bnlat
+  .GlobalEnv$trainind <- trainind
+  
+  # Loop on number of components
+  rmse <- vector("numeric", maxk)
+  
+  for (j in seq_len(maxk)){
+    # Update formula
+    pcform <- update(pcform, as.formula(sprintf("~ . + PC%i", j)))
+    
+    # Fit mixmeta model
+    .GlobalEnv$pcform <- pcform
+    pcresj <- mixmeta(pcform, data = pcdf, S = vcovs, random = ~ 1|city,
+      subset = trainind)
+    
+    # Predict for validation data
+    pred <- predict(pcresj, newdata = pcdf[validind,])
+    
+    # Compute RMSE
+    err <- coefs[validind,] - pred
+    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+  }
+  
+  # Export
+  rmse
 }
 
-#----- Stepwise on PCs
+cvscores$PCA <- cbind(cvm = apply(pccvres, 1, mean), 
+  cvsd = apply(pccvres, 1, function(x) sqrt(var(x) / length(splitinds$splits))))
 
+
+#---------------------------
+# Stepwise on PCs
+#---------------------------
+
+# Initialize formula and result object
 stepform <- basicform
-stepscores <- vector("list", maxk)
-remain <- seq_along(metavar)
+i2scores$step <- aicscores$step <- vector("numeric", maxk)
+cvscores$step <- matrix(NA, nrow = maxk, ncol = 2, 
+  dimnames = list(NULL, c("cvm", "cvsd")))
+remain <- seq_len(ncol(pcares$x))
+mixstep <- vector("list", maxk)
 
 # Loop
 for (i in seq_len(maxk)){
   print(sprintf("PC stepwise : %i / %i", i, maxk))
   
-  # Loop on remaining 
+  #----- Loop on remaining PCs
   jform <- jscores <- vector("list", length(remain))
   for (j in seq_along(remain)){
     # Update formula
-    jform[[j]] <- update(stepform, as.formula(sprintf("~ . + PC%i", remain[j])))
+    jform[[j]] <- jf <- 
+      update(stepform, as.formula(sprintf("~ . + PC%i", remain[j])))
     
-    # Perform CV
-    jscores[[j]] <- score_mixmeta(jform[[j]], pcdf, splitinds$splits)
+    #----- Perform CV
+    jres <- foreach(k = iter(seq(splitinds$splits)), .combine = c,
+      .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+    {
+      # Get training and validation fold indices
+      trainind <- analysis(splitinds$splits[[k]])[,1]
+      validind <- assessment(splitinds$splits[[k]])[,1]
+      
+      # Add object to global environment for mixmeta
+      .GlobalEnv$coefs <- coefs
+      .GlobalEnv$bnlon <- bnlon
+      .GlobalEnv$bnlat <- bnlat
+      .GlobalEnv$trainind <- trainind
+      .GlobalEnv$jf <- jf
+        
+      # Fit mixmeta model
+      stepresk <- mixmeta(jf, data = pcdf, S = vcovs, random = ~ 1|city,
+        subset = trainind)
+        
+      # Predict for validation data
+      pred <- predict(stepresk, newdata = pcdf[validind,])
+        
+      # Compute RMSE
+      err <- coefs[validind,] - pred
+      sqrt(sum(err^2, na.rm = T))
+    }
+    
+    jscores[[j]] <- c(cvm = mean(jres), 
+      cvsd = sqrt(var(jres) / length(splitinds$splits)))
   }
   
   # Select the best one
-  jsel <- which.min(sapply(jscores, function(x) x$cv[1]))
+  jsel <- which.min(sapply(jscores, "[", 1))
  
   # Update
   stepform <- jform[[jsel]]
-  stepscores[[i]] <- jscores[[jsel]]
+  cvscores$step[i,] <- jscores[[jsel]]
   remain <- remain[-jsel]
+  
+  #----- Fit with all data for AIC and I2
+  mixstep[[i]] <- mixmeta(stepform, data = pcdf, S = vcovs, random = ~ 1|city)
+  
+  # Extract scores
+  i2scores$step[i] <- summary(mixstep[[i]])$i2stat[1] 
+  aicscores$step[i] <- summary(mixstep[[i]])$AIC
 }
 
 
@@ -124,73 +249,198 @@ for (i in seq_len(maxk)){
 # CCA
 #---------------------------
 
-#----- Perform CCA
+#----- apply on all data 
 
-# Find the directions
-ccares <- cc(data.matrix(metavar[repmcc,]), coefs)
+# Apply CCA
+ccares <- cancor(metavar, coefs)
 
 # Create new metavariables
-ccavar <- ccares$scores$xscores
+ccavar <- scale(metavar) %*% ccares$xcoef
 ccadf <- cbind(stage2df, cca = ccavar)
 
-#----- For each number of CCA variables, fit model
-
-# Initialize formula and resul object
+# Initialize formula and result object
 ccaform <- basicform
-ncca <- min(maxk, ncol(coefs))
-ccascores <- vector("list", ncca)
+i2scores$CCA <- aicscores$CCA <- vector("numeric", maxk)
+mixcca <- vector("list", maxk)
 
-
-# Loop
-for (i in seq_len(ncca)){
-  print(sprintf("CCA : %i / %i", i, ncca))
+# Loop on number of components
+for (i in seq_len(maxk)){
+  
+  print(sprintf("CCA : %i / %i", i, maxk))
   
   # Update formula
   ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", i)))
   
-  # Perform CV
-  ccascores[[i]] <- score_mixmeta(ccaform, ccadf, splitinds$splits)
+  # Fit mixmeta model
+  mixcca[[i]] <- mixmeta(ccaform, data = ccadf, S = vcovs, random = ~ 1|city)
+  
+  # Extract scores
+  i2scores$CCA[i] <- summary(mixcca[[i]])$i2stat[1] 
+  aicscores$CCA[i] <- summary(mixcca[[i]])$AIC
 }
+ 
+#----- Cross-validation 
+ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
+  .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+{
+  # Initialize formula
+  ccaform <- update(basicform, coeftrain ~ .)
+  
+  # Get training and validation fold indices
+  trainind <- analysis(splitinds$splits[[i]])[,1]
+  validind <- assessment(splitinds$splits[[i]])[,1]
+  
+  # Subset
+  coeftrain <- coefs[trainind,]
+  metatrain <- metavar[trainind,]
+  
+  # Create CCA variable on training sample only
+  ccares <- cancor(metatrain, coeftrain)
+  ccadf <- cbind(stage2df[trainind,], cca = scale(metatrain) %*% ccares$xcoef)
+  
+  # Add object to global environment for mixmeta
+  .GlobalEnv$bnlon <- bnlon
+  .GlobalEnv$bnlat <- bnlat
+  .GlobalEnv$coeftrain <- coeftrain
+  
+  # Loop on number of components
+  rmse <- vector("numeric", maxk)
+  
+  for (j in seq_len(maxk)){
+    # Update formula
+    ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", j)))
+    
+    # Fit mixmeta model
+    .GlobalEnv$ccaform <- ccaform
+    ccaresj <- mixmeta(ccaform, data = ccadf, S = vcovs[trainind], 
+      random = ~ 1|city)
+    
+    # Predict CCA scores on validation data
+    ccapred <- scale(metavar[validind,], center = ccares$xcenter) %*% 
+      ccares$xcoef
+    
+    # Predict coefs with new scores
+    pred <- predict(ccaresj, 
+      newdata = cbind(stage2df[validind,], cca = ccapred))
+    
+    # Compute RMSE
+    err <- coefs[validind,] - pred
+    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+  }
+  
+  # Export
+  rmse
+}
+
+cvscores$CCA <- cbind(cvm = apply(ccacvres, 1, mean), 
+  cvsd = apply(ccacvres, 1, 
+    function(x) sqrt(var(x) / length(splitinds$splits))))
+
 
 #---------------------------
 # PLS
 #---------------------------
 
-#----- Perform PLS to obtain scores
-
-metapls <- data.matrix(metavar[repmcc,])
+#----- apply on all data 
 
 # Compute PLSR
-plsres <- plsr(coefs ~ metapls, scale = T)
+plsres <- plsr(coefs ~ metavar, scale = T)
 
 # Extract scores
 plsvar <- scores(plsres)
 colnames(plsvar) <- sprintf("pls%i", seq_len(ncol(plsvar)))
 plsdf <- cbind(stage2df, unclass(plsvar))
 
-#----- For each number of PLS variables, fit model
-
-# Initialize formula and resul object
+# Initialize formula and result object
 plsform <- basicform
-plsscores <- vector("list", maxk)
+i2scores$PLS <- aicscores$PLS <- vector("numeric", maxk)
+mixpls <- vector("list", maxk)
 
-# Loop
-for (i in seq_len(maxlag)){
+# Loop on number of components
+for (i in seq_len(maxk)){
+  
   print(sprintf("PLS : %i / %i", i, maxk))
   
   # Update formula
   plsform <- update(plsform, as.formula(sprintf("~ . + pls%i", i)))
   
-  # Perform CV
-  plsscores[[i]] <- score_mixmeta(plsform, plsdf, splitinds$splits)
+  # Fit mixmeta model
+  mixpls[[i]] <- mixmeta(plsform, data = plsdf, S = vcovs, random = ~ 1|city)
+  
+  # Extract scores
+  i2scores$PLS[i] <- summary(mixpls[[i]])$i2stat[1] 
+  aicscores$PLS[i] <- summary(mixpls[[i]])$AIC
+}
+ 
+#----- Cross-validation 
+plscvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
+  .packages = c("mixmeta", "rsample", "splines", "pls")) %dopar% 
+{
+  # Initialize formula
+  plsform <- update(basicform, coeftrain ~ .)
+  
+  # Get training and validation fold indices
+  trainind <- analysis(splitinds$splits[[i]])[,1]
+  validind <- assessment(splitinds$splits[[i]])[,1]
+  
+  # Subset
+  coeftrain <- coefs[trainind,]
+  metatrain <- metavar[trainind,]
+  
+  # Create PLS variable on training sample only
+  plsres <- plsr(coeftrain ~ metatrain, scale = T)
+  plsvar <- scores(plsres)
+  colnames(plsvar) <- sprintf("pls%i", seq_len(ncol(plsvar)))
+  plsdf <- cbind(stage2df[trainind,], unclass(plsvar))
+  
+  # Predict PLS scores on validation data
+  plspred <- predict(plsres, newdata = metavar[validind,], ncomp = 1:maxk, 
+    type = "scores")
+  colnames(plspred) <- sprintf("pls%i", seq_len(ncol(plspred)))
+  validdf <- cbind(stage2df[validind,], plspred)
+  
+  # Add object to global environment for mixmeta
+  .GlobalEnv$bnlon <- bnlon
+  .GlobalEnv$bnlat <- bnlat
+  .GlobalEnv$coeftrain <- coeftrain
+  
+  # Loop on number of components
+  rmse <- vector("numeric", maxk)
+  
+  for (j in seq_len(maxk)){
+    # Update formula
+    plsform <- update(plsform, as.formula(sprintf("~ . + pls%i", j)))
+    
+    # Fit mixmeta model
+    .GlobalEnv$plsform <- plsform
+    plsresj <- mixmeta(plsform, data = plsdf, S = vcovs[trainind], 
+      random = ~ 1|city)
+    
+    # Predict coefs with new scores
+    pred <- predict(plsresj, newdata = validdf)
+    
+    # Compute RMSE
+    err <- coefs[validind,] - pred
+    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+  }
+  
+  # Export
+  rmse
 }
 
+cvscores$PLS <- cbind(cvm = apply(plscvres, 1, mean), 
+  cvsd = apply(plscvres, 1, 
+    function(x) sqrt(var(x) / length(splitinds$splits))))
 
 #---------------------------
 # Save results
 #---------------------------
 
-save(basicscores, pcscores, stepscores, ccascores, plsscores, splitinds,
+# Stop cluster
+stopCluster(cl)
+
+# Save results
+save(cvscores, i2scores, aicscores, splitinds,
   file = "results/CVcomparison.RData")
 
 #---------------------------
@@ -200,37 +450,16 @@ save(basicscores, pcscores, stepscores, ccascores, plsscores, splitinds,
 #----- Extract scores values for each method
 
 # CV
-allcv <- list()
-allcv$pc <- sapply(pcscores, "[[", "cv")[1,]
-allcv$step <- sapply(stepscores, "[[", "cv")[1,]
-allcv$cca <- sapply(ccascores, "[[", "cv")[1,]
-allcv$pls <- sapply(plsscores, "[[", "cv")[1,]
-
-cvmat <- do.call(cbind, lapply(allcv, function(x) 
-  c(x, rep(NA, maxk - length(x)))))
-cvmat <- rbind(basicscores$cv[1], cvmat)
+cvmat <- do.call(cbind, lapply(cvscores[-1], "[", , 1))
+cvmat <- rbind(cvscores[[1]][1], cvmat)
 
 #----- Extract AIC values for each method
-allaic <- list()
-allaic$pc <- sapply(pcscores, "[[", "AIC")
-allaic$step <- sapply(stepscores, "[[", "AIC")
-allaic$cca <- sapply(ccascores, "[[", "AIC")
-allaic$pls <- sapply(plsscores, "[[", "AIC")
-
-aicmat <- do.call(cbind, lapply(allaic, function(x) 
-  c(x, rep(NA, maxk - length(x)))))
-aicmat <- rbind(basicscores$AIC, aicmat)
+aicmat <- do.call(cbind, aicscores[-1])
+aicmat <- rbind(aicscores[[1]], aicmat)
 
 #----- Extract I2 values for each method
-alli2 <- list()
-alli2$pc <- sapply(pcscores, "[[", "I2")
-alli2$step <- sapply(stepscores, "[[", "I2")
-alli2$cca <- sapply(ccascores, "[[", "I2")
-alli2$pls <- sapply(plsscores, "[[", "I2")
-
-i2mat <- do.call(cbind, lapply(alli2, function(x) 
-  c(x, rep(NA, maxk - length(x)))))
-i2mat <- rbind(basicscores$I2, i2mat)
+i2mat <- do.call(cbind, i2scores[-1])
+i2mat <- rbind(i2scores[[1]], i2mat)
 
 #----- Plot the values
 
@@ -239,17 +468,17 @@ x11(height = 10)
 layout(cbind(1:3, 4), width = c(4, 1))
 
 # CV
-matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_along(allcv), 
+matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_len(ncol(cvmat)) + 1,
   xlim = c(0, maxk), xlab = "", ylab = "Cross-validated MSE",
   main = "CV")
 
 # AIC
-matplot(0:maxk, aicmat, type = "b", pch = 16, col = seq_along(allaic), 
+matplot(0:maxk, aicmat, type = "b", pch = 16, col = seq_len(ncol(aicmat)) + 1,
   xlim = c(0, maxk), xlab = "", ylab = "AIC",
   main = "AIC")
 
 # I2
-matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_along(alli2), 
+matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_len(ncol(i2mat)) + 1,
   xlim = c(0, maxk), xlab = "", ylab = "I2",
   main = "I2")
 
@@ -257,7 +486,7 @@ matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_along(alli2),
 par(mar = c(5, 0, 4, 0))
 plot.new()
 legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
-  col = seq_along(allcv), pch = 16, lty = seq_along(allcv),
+  pch = 16, lty = seq_len(ncol(cvmat)), col = seq_len(ncol(cvmat)) + 1,
   bty = "n", title = "Method")
 
 # Save
@@ -308,3 +537,57 @@ legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
 
 # Save
 dev.print(pdf, file = "figures/FigS2_2_Loadings.pdf")
+
+
+#---------------------------
+# Show predicted curves 
+#---------------------------
+
+#----- Parameters
+
+# Select which to predict
+whichcurve <- 226
+
+# Prediction percentiles
+predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
+
+# Select models with which to predict
+modlist <- list(basic = mixbasic, PCA = mixpca[[5]], CCA = mixcca[[5]],
+  PLS = mixpls[[5]])
+
+#----- Predict curves from models
+
+# Create basis
+loc <- paste(strsplit(names(unlistresults)[whichcurve], "\\.")[[1]][1:2],
+  collapse = ".")
+tseries <- dlist[[loc]]$era5landtmean
+tmeanper <- quantile(tseries, predper / 100)
+bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
+  knots = quantile(tseries, c(10, 75, 90) / 100))
+
+# Predict coefs
+predcoefs <- lapply(modlist, function(x) predict(x, vcov = T)[[whichcurve]])
+
+# Construct curves
+predcurves <- sapply(predcoefs, function(b){
+  crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = median(tseries), 
+    model.link = "log", at = tmeanper)$allRRfit
+})
+
+# First-stage curve
+s1coefs <- unlistresults[[whichcurve]]$coef
+s1vcov <- unlistresults[[whichcurve]]$vcov
+s1curve <- crosspred(bvar, coef = s1coefs, vcov = s1vcov, cen = median(tseries), 
+  model.link = "log", at = tmeanper)$allRRfit
+
+#----- Plot
+
+# Plot stage1 curve
+plot(tmeanper, s1curve, type = "l", xlab = "Temperature", ylab = "RR", lwd = 2,
+  ylim = range(c(predcurves, s1curve)))
+
+# Add predicted curves
+matlines(tmeanper, predcurves, lty = 1, lwd = 2, 
+  col = seq_along(predcurves) + 1)
+
+abline(h = 1)
