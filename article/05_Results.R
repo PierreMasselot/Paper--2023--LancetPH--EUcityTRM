@@ -8,6 +8,8 @@
 
 library(mixmeta)
 library(dlnm)
+library(MASS)
+library(doParallel)
 
 #---------------------------
 # Parameters
@@ -25,8 +27,12 @@ resultper <- c(1, 99)
 # Number of grid point for background surface
 ngrid <- 50
 
-# Age sequence for ERF
-agepred <- c(seq(45,85, by = 10))
+# Age breaks: predictions at mid-ranges
+agebreaks <- c(40, 65, 75, 85)
+agepred <- (c(0, agebreaks) + c(agebreaks, 100)) / 2
+
+# Number of simulations for AN/AF
+nsim <- 500
 
 #---------------------------
 # Prepare objects
@@ -68,15 +74,22 @@ agecp <- Map(crosspred, basis = list(ov_basis),
   model.link = "log", cen = agemmp, at = list(predper))
 
 #---------------------------
-# Dose response predictions
+# Dose response predictions for all cities at different ages
 #---------------------------
 
 #----- Predict coefficients for each city
 
-# Prepare prediction data.frame
+# Lon-lat df
 allcitycoords <- do.call(rbind, metageo$geometry)
 colnames(allcitycoords) <- c("lon", "lat")
-allpreddf <- data.frame(pcvar, allcitycoords, age = 65)
+
+# Grid between cities and age
+cityagegrid <- expand.grid(seq_len(nrow(allcitycoords)), agepred)
+nca <- nrow(cityagegrid)
+
+# Prediction data.frame
+allpreddf <- data.frame(pcvar[cityagegrid[,1],], 
+  allcitycoords[cityagegrid[,1],], age = cityagegrid[,2])
 
 # Predict coefficients
 citycoefs <- predict(stage2res, allpreddf, vcov = T)
@@ -98,13 +111,15 @@ cityERF <- Map(function(b, era5){
     # Final prediction centred on the MMT
     crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
       model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-  }, citycoefs, era5series)
+  }, citycoefs, era5series[cityagegrid[,1]])
 names(cityERF) <- metadata$URAU_CODE
 
 #----- Create summary object
 
 # Start with metapredictor component valued
 cityres <- allpreddf
+cityres$age <- rep(paste(c(0, agebreaks), c(agebreaks, 99), sep = "-"), 
+  each = nrow(allcitycoords))
 
 # MMP & MMT
 cityres$mmt <- sapply(cityERF, "[[", "cen")
@@ -124,10 +139,81 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
   predper == resultper[2],]
 
 #---------------------------
-# Attributable fraction and number
+# Attributable fraction and number for city and age group
 #---------------------------
 
+#----- Construct deaths for each city / age group
 
+# Get age group death data
+citydeaths <- metadata[,grep("death_[[:digit:]]{4}", names(metadata))]
+
+# Sum by group
+agegrpind <- cut(as.numeric(substr(names(citydeaths), 7, 8)), 
+  c(0, agebreaks, 100), right = F)
+cityagedeaths <- tapply(as.list(citydeaths), agegrpind, 
+  function(x) rowSums(do.call(cbind, x)))
+deathlist <- unlist(cityagedeaths)
+
+#----- Prepare simulation
+
+set.seed(12345)
+
+# Simulate metacoefficients from multivariate normal distribution
+metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
+
+# Recreate model matrix with the city / age grid
+cityageXdes <- model.matrix(delete.response(terms(stage2res)), allpreddf)
+
+#----- Prepare parallelisation
+ncores <- detectCores()
+cl <- makeCluster(max(1, ncores - 2))
+registerDoParallel(cl)
+
+#----- Compute AN / AF
+attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
+  
+  # Get object for this city age
+  era5 <- era5series[[cityagegrid[i,1]]]$era5landtmean
+  cityagecoefs <- citycoefs[[i]]
+  cityagemmt <- cityres$mmt[i] 
+  
+  # Basis value for each day
+  bvar <- onebasis(era5, fun = "bs", degree = 2, 
+    knots = quantile(era5, c(10, 75, 90) / 100))
+  cenvec <- onebasis(cityagemmt, fun = "bs", degree = 2, 
+    knots = quantile(era5, c(10, 75, 90) / 100))
+  bvarcen <- scale(bvar, center = cenvec, scale = F)
+  
+  # Compute daily AF and AN (naively)
+  afday <- (1 - exp(-bvarcen %*% cityagecoefs$fit))
+  anday <- afday * deathlist[i] / 365.25
+  
+  # Indicator of heat days
+  heatind <- era5 >= cityagemmt
+  
+  # Sum all
+  anlist <- c(total = sum(anday), cold = sum(anday[!heatind]),
+    heat = sum(anday[heatind]))
+  
+  # Simulations for CI
+  coefsim <- metacoefsim %*% (cityageXdes[i,] %x% diag(ncol(coefs)))
+  andaysim <- (1 - exp(-bvarcen %*% t(coefsim))) * deathlist[i] / 365.25
+  ansimlist <- cbind(total = colSums(andaysim), 
+    cold = colSums(andaysim[!heatind,]), 
+    heat = colSums(andaysim[heatind,]))
+  ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
+  
+  # Output
+  rbind(anlist, ansimCI)
+}
+
+# Put together point estimates and CIs
+allcityan <- t(sapply(attrlist, "c"))
+colnames(allcityan) <- sprintf("an_%s", t(outer(c("total", "cold", "heat"), 
+  c("est", "low", "hi"), FUN = "paste", sep = "_")))
+
+# Add to result summary object
+cityres <- cbind(cityres, allcityan)
 
 #---------------------------
 # 'Background' effect

@@ -21,10 +21,12 @@ load("results/FirstStage.RData")
 npc <- 7
 
 # Metapredictors
-metaprednames <- c("prop_65p", "lifexp", "gdp", "educ", "unempl", "depriv",
-  "bedrates", "pop", "popdens", "urbshare", "greenshare", "blueshare",
-  "cooldegdays", "heatdegdays", "isol", "mount_type", "urbn_type", 
-  "coast_type", "tmean", "greenness", "pm25")
+metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
+  "lifexp", "bedrates", "gdp", "educ", "unempl", "depriv", # Socio economic
+  "urbshare", "greenshare", "blueshare", "mount_type", "urbn_type", 
+    "coast_type", # Land
+  "cooldegdays", "heatdegdays", "tmean", "greenness", "pm25" # Environment
+)
 
 #---------------------------
 #  Prepare stage 2 dataset
@@ -77,14 +79,15 @@ stage2df <- data.frame(citycoords, age = agevals,
 # pcvar <- pcares$x[, seq_len(npc)]
 
 # Select meta predictors
-metavar <- scale(metadata[, metaprednames])
-metapls <- metavar[repmcc,]
+metavar <- metadata[, metaprednames]
+metapls <- scale(metavar)[repmcc,]
 
 # Compute PLSR (basic PLS computed as a linear model)
 plsres <- plsr(coefs ~ metapls, center = F)
 
 # Extract scores for all cities
-pcvar <- predict(plsres, newdata = metavar, ncomp = 1:npc, type = "scores")
+pcvar <- predict(plsres, newdata = scale(metavar), ncomp = 1:npc, 
+  type = "scores")
 colnames(pcvar) <- sprintf("pls%i", seq_len(ncol(pcvar)))
 
 # Add to second stage dataset

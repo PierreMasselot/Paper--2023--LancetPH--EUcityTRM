@@ -16,8 +16,11 @@ library(eurostat)
 #  Parameters
 #---------------------------
 
-# Years selected. Averaged if several
+# Years selected for metapredictors. Averaged if several
 year <- as.character(2005:2015)
+
+# Starting year for analysis
+yearstart <- 1990
 
 # Projecttion for geo objects
 geoproj <- "4326"
@@ -154,6 +157,9 @@ desc_vars <- names(metadata)
 # Add indicator for whether it is in MCC
 metadata$inmcc <- !is.na(metadata$mcc_code)
 
+#----- Prepare meta-metadata
+metadesc <- data.frame(metavar = c(), label = c(), source = c())
+
 #---------------------------
 #  Load Eurostat's Urban Audit data
 #---------------------------
@@ -238,6 +244,12 @@ names(popstr)[match(sprintf("values.%s", indicde_list), names(popstr))] <-
 metadata <- merge(metadata, popstr, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = varnames, 
+  label = sprintf("Proportion of population in ages %s", 
+    substr(varnames, 6, 10)),
+  source = "NUTS3"))
+
 #----- Total population
 # Load variables from eurostat
 totpop <- get_eurostat("demo_r_pjangrp3", time_format = "num",
@@ -252,6 +264,10 @@ names(totpop)[-1] <- "pop"
 metadata <- merge(metadata, totpop, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "pop", 
+  label = "Population", source = "NUTS3"))
+
 #----- Population density
 popdens <- get_eurostat("demo_r_d3dens", time_format = "num",
   filters = list(unit = "PER_KM2", time = year)
@@ -264,6 +280,10 @@ names(popdens)[-1] <- "popdens"
 # Merge with metadata
 metadata <- merge(metadata, popdens, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "popdens", 
+  label = "Population density", source = "NUTS3"))
 
 #----- Life expectancy
 lifexp <- get_eurostat("demo_r_mlifexp", time_format = "num",
@@ -278,6 +298,10 @@ names(lifexp)[-1] <- "lifexp"
 metadata <- merge(metadata, lifexp, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "lifexp", 
+  label = "Life expectancy", source = "NUTS3"))
+
 #----- GDP per capita
 gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
   filters = list(unit = "EUR_HAB", time = year)
@@ -290,6 +314,10 @@ names(gdp)[-1] <- "gdp"
 # Merge with metadata
 metadata <- merge(metadata, gdp, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "gdp", 
+  label = "GDP", source = "NUTS3"))
 
 #----- Proportion of active population (25-64) with ISCED level 5 and above
 educ <- get_eurostat("edat_lfse_04", time_format = "num",
@@ -304,6 +332,10 @@ names(educ)[-1] <- "educ"
 metadata <- merge(metadata, educ, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "educ", 
+  label = "Education level", source = "NUTS2"))
+
 #----- Unemployment rate
 unempl <- get_eurostat("lfst_r_lfu3rt", time_format = "num",
   filters = list(isced11 = "TOTAL", sex = "T", age = "Y20-64", time = year)
@@ -316,6 +348,10 @@ names(unempl)[-1] <- "unempl"
 # Merge with metadata
 metadata <- merge(metadata, unempl, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "unempl", 
+  label = "Unemployment rate", source = "NUTS2"))
 
 #----- Severe material deprivation rate
 depriv <- get_eurostat("ilc_mddd21", time_format = "num",
@@ -330,6 +366,10 @@ names(depriv)[-1] <- "depriv"
 metadata <- merge(metadata, depriv, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "depriv", 
+  label = "Deprivation rate", source = "NUTS2"))
+
 #----- Hospital bed rates
 bedrates <- get_eurostat("hlth_rs_bdsrg", time_format = "num",
   filters = list(unit = "P_HTHAB", facility = "HBEDT", time = year)
@@ -343,6 +383,10 @@ names(bedrates)[-1] <- "bedrates"
 metadata <- merge(metadata, bedrates, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "bedrates", 
+  label = "Hospital bed rates", source = "NUTS3"))
+
 #----- Share of urbanised land
 urbshare <- get_eurostat("lan_lcv_art", time_format = "num",
   filters = list(unit = "PC", landcover = "LCA", time = year)
@@ -355,6 +399,10 @@ names(urbshare)[-1] <- "urbshare"
 # Merge with metadata
 metadata <- merge(metadata, urbshare, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "urbshare", 
+  label = "Share of urban area", source = "NUTS2"))
 
 #----- Landcover
 landshare <- get_eurostat("lan_lcv_ovw", time_format = "num",
@@ -378,6 +426,10 @@ landshare <- landshare[,-(2:5)]
 metadata <- merge(metadata, landshare, by.x = "NUTS2_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = c("blueshare", "greenshare"), 
+  label = sprintf("Share of %s", c("water", "green area")), source = "NUTS2"))
+
 #----- Degree days
 degdays <- get_eurostat("nrg_chddr2_a", time_format = "num",
   filters = list(unit = "NR", indic_nrg = c("CDD", "HDD"), 
@@ -396,6 +448,10 @@ names(degdays)[-1] <- c("cooldegdays", "heatdegdays")
 metadata <- merge(metadata, degdays, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = c("cooldegdays", "heatdegdays"), 
+  label = sprintf("%s degree days", c("Cooling", "Heating")), source = "NUTS3"))
+
 #----- Social isolation from 2011 census
 isol <- get_eurostat("cens_11ms_r3", time_format = "num",
   filters = list(age = "TOTAL", sex = "T", time = year))
@@ -411,6 +467,10 @@ isol <- data.frame(region = names(isol), isol = unlist(isol))
 # Merge with dataset
 metadata <- merge(metadata, isol, by.x = "NUTS3_2021", by.y = "region",
   all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = "isol", 
+  label = "Isolation rate", source = "NUTS3 2011 census"))
 
 #----- Regional typology
 # (Didn't find how to get it from eurostat R package)
@@ -441,6 +501,11 @@ read_typo <- read_typo[, c("NUTS_ID", type_vars)]
 names(read_typo)[names(read_typo) %in% type_vars] <- tolower(type_vars)
 metadata <- merge(metadata, read_typo,
   by.x = "NUTS3_2021", by.y = "NUTS_ID", all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = type_vars, 
+  label = sprintf("%s region type", c("Mountain", "Urban", "Coastal")), 
+  source = "NUTS3"))
 
 #----- Death rate
 age_list <- c("Y_LT5", "Y5-9", "Y10-14", "Y15-19", 
@@ -478,6 +543,11 @@ deaths[c("values.UNK", "death_8589", "death_90p")] <- NULL
 metadata <- merge(metadata, deaths, by.x = "NUTS3_2021", by.y = "geo",
   all.x = T, all.y = F, sort = F)
 
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = varnames, 
+  label = sprintf("Deaths in ages %s", substr(varnames, 6, 10)),
+  source = "NUTS3"))
+
 #---------------------------
 # Add Urban Centre Database
 #---------------------------
@@ -496,6 +566,11 @@ names(read_ucd)[-1] <- names(var_sel)
 
 # Merge with metadata
 metadata <- merge(metadata, read_ucd, all.x = T, all.y = F, sort = F)
+
+# Add description
+metadesc <- rbind(metadesc, cbind(metavar = names(var_sel), 
+  label = c("Mean temperature", "NDVI", "PM25"), 
+  source = "Urban Center Databse"))
 
 #---------------------------
 # Missing values imputation
@@ -552,8 +627,10 @@ names(URAU_LB_2020_ERA5_land_df)[4:5] <- c("date", "era5landtmean")
 URAU_LB_2020_ERA5_land_df <- subset(URAU_LB_2020_ERA5_land_df,
   Locn_code %in% metadata$URAU_CODE)
 
-# Transform date
+# Transform date and select period
 URAU_LB_2020_ERA5_land_df$date <- as.Date(URAU_LB_2020_ERA5_land_df$date)
+URAU_LB_2020_ERA5_land_df <- subset(URAU_LB_2020_ERA5_land_df, 
+  format(date, "%Y") >= yearstart)
 
 # Split by location
 era5series <- split(URAU_LB_2020_ERA5_land_df[,c("date", "era5landtmean")],

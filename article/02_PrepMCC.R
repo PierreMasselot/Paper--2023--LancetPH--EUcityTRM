@@ -35,8 +35,8 @@ cities <- rbind(cities_eu, cities_noage[,names(cities_eu)])
 
 #----- Tidy data
 
-# Include only 1985 on
-for(i in seq(dlist)) dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= 1985,]
+# Exclude everything before starting year
+for(i in seq(dlist)) dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= yearstart,]
 
 # Reorder as in metadata
 ord <- match(na.omit(metadata$mcc_code), cities$city)
@@ -86,5 +86,5 @@ for(nm in cities$city) {
 #  Save all data
 #---------------------------
 
-save(dlist, cities, metadata, imputed, metageo, meta_imp, era5series,
+save(dlist, cities, metadata, metadesc, imputed, metageo, meta_imp, era5series,
   file = "data/Alldata.RData")

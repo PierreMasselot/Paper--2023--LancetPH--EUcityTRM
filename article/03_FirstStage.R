@@ -124,6 +124,6 @@ stopCluster(cl)
 names(stage1res) <- cities$city
 
 # Export
-save(dlist, cities, stage1res, era5series,
+save(dlist, cities, stage1res, era5series, metadesc,
   metadata, metageo, imputed, 
   file = "results/FirstStage.RData")

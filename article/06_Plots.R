@@ -13,27 +13,29 @@ library(colorspace)
 library(fields)
 library(scales)
 library(viridis)
+library(corrplot)
 
 #---------------------------
-#  PCA
+#  Metavariable components
 #---------------------------
 
 #----- Screeplot
-plot(summary(pcares)$importance[3,] * 100, type = "b", pch = 16, col = 4, 
-  ylab = "Cumulative variance proportion (%)", xlab = "Principal component")
-abline(h = (summary(pcares)$importance[3, npc] * 100), lty = 2)
+# plot(summary(pcares)$importance[3,] * 100, type = "b", pch = 16, col = 4, 
+#   ylab = "Cumulative variance proportion (%)", xlab = "Principal component")
+# abline(h = (summary(pcares)$importance[3, npc] * 100), lty = 2)
 
 #----- Interpretation of PCs
 
 # Get eigenvectors
-loads <- pcares$rotation[,seq_len(npc)] 
+# loads <- pcares$rotation[,seq_len(npc)]
+loads <- loadings(plsres)[,1:npc]
 
 # Common scale
 ylims <- range(loads)
 
 # Plot sequentially
 x11(height = 15, width = 10)
-par(mfrow = c(4, 1), mar = c(1, 4, 3, 2) + .1, oma = c(7, 0, 0, 0))
+par(mfrow = c(7, 1), mar = c(1, 4, 3, 2) + .1, oma = c(7, 0, 0, 0))
 for (i in seq_len(npc)) {
   largest <- rank(-abs(loads[,i])) <= 5
   bp <- barplot(loads[,i], names.arg = "", ylim = ylims, 
@@ -44,7 +46,11 @@ for (i in seq_len(npc)) {
 }
 axis(1, at = bp, labels = rownames(loads), las = 3)
 
-dev.print(pdf, file = "figures/PCs.pdf")
+dev.print(pdf, file = "figures/PCs_bp.pdf")
+
+# Plot as a corplot
+x11(width = 10)
+corrplot(t(loads), method = "square", is.corr = F, cl.lim = c(-1, 1))
 
 #---------------------------
 #  Maps
@@ -75,38 +81,89 @@ ggsave("figures/urau_cities.pdf", device = pdf)
 # MMT
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = metadata$pop, fill = mmt), 
+  geom_point(aes(x = lon, y = lat, 
+    size = rep(metadata$pop, length(agepred)), fill = mmt), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
     name = "MMT", limit = c(0, 30), oob = squish) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
+  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  theme(strip.text = element_text(size = 15))
 
-ggsave("figures/cities_mmt.pdf", device = pdf)
+ggsave("figures/cities_mmt.pdf", device = pdf, width = 15, height = 10)
 
 # Cold
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrcold, size = metadata$pop), 
+  geom_point(aes(x = lon, y = lat, fill = rrcold, 
+    size = rep(metadata$pop, length(agepred))), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = "white", high = "darkblue", 
     name = sprintf("RR at percentile %i", resultper[1])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
+  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  theme(strip.text = element_text(size = 15))
 
 ggsave("figures/cities_rrcold.pdf", device = pdf)
 
 # Heat
 ggplot(data = cityres) + theme_void() + 
   geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrheat, size = metadata$pop), 
+  geom_point(aes(x = lon, y = lat, fill = rrheat, 
+    size = rep(metadata$pop, length(agepred))), 
     alpha = .9, pch = 21) +
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
   scale_fill_gradient(low = "white", high = "darkred", 
     name = sprintf("RR at percentile %i", resultper[2])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
+  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  theme(strip.text = element_text(size = 15))
 
 ggsave("figures/cities_rrheat.pdf", device = pdf)
+
+#----- Attributable number
+
+# Sum attributable number across all ages
+ansum <- aggregate(cbind(an_total_est, an_cold_est, an_heat_est) ~ lon + lat, 
+  data = cityres, sum)
+
+# Plot total AN
+ggplot(data = ansum) + theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = an_total_est, size = metadata$pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_viridis(option = "inferno", oob = squish, name = "Total AN", 
+    limits = c(0, quantile(ansum$an_total_est, .99))) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+
+ggsave("figures/cities_ANtot.pdf", device = pdf)
+
+# Plot cold AN
+ggplot(data = ansum) + theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = an_cold_est, size = metadata$pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkblue", oob = squish,
+    name = "Cold AN", limits = c(0, quantile(ansum$an_cold_est, .99))) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+
+ggsave("figures/cities_ANcold.pdf", device = pdf)
+
+# Plot heat AN
+ggplot(data = ansum) + theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = an_heat_est, size = metadata$pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkred", oob = squish,
+    name = "Heat AN", limits = c(0, quantile(ansum$an_heat_est, .99))) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+
+ggsave("figures/cities_ANheat.pdf", device = pdf)
 
 #----- Background effect
 
@@ -186,3 +243,4 @@ for(i in seq_along(cityERF)){
 }
 
 dev.off()
+
