@@ -86,7 +86,7 @@ cvres <- foreach(i = iter(seq(splitinds$splits)), .combine = c,
   
   # Compute RMSE
   err <- coefs[validind,] - pred
-  sqrt(sum(err^2, na.rm = T))
+  sqrt(mean(err^2, na.rm = T))
 }
 
 cvscores$basic <- c(cvm = mean(cvres), 
@@ -163,7 +163,7 @@ pccvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
     
     # Compute RMSE
     err <- coefs[validind,] - pred
-    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+    rmse[j] <- sqrt(mean(err^2, na.rm = T))
   }
   
   # Export
@@ -221,7 +221,7 @@ for (i in seq_len(maxk)){
         
       # Compute RMSE
       err <- coefs[validind,] - pred
-      sqrt(sum(err^2, na.rm = T))
+      sqrt(mean(err^2, na.rm = T))
     }
     
     jscores[[j]] <- c(cvm = mean(jres), 
@@ -325,7 +325,7 @@ ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
     
     # Compute RMSE
     err <- coefs[validind,] - pred
-    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+    rmse[j] <- sqrt(mean(err^2, na.rm = T))
   }
   
   # Export
@@ -421,7 +421,7 @@ plscvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
     
     # Compute RMSE
     err <- coefs[validind,] - pred
-    rmse[j] <- sqrt(sum(err^2, na.rm = T))
+    rmse[j] <- sqrt(mean(err^2, na.rm = T))
   }
   
   # Export
@@ -469,7 +469,7 @@ layout(cbind(1:3, 4), width = c(4, 1))
 
 # CV
 matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_len(ncol(cvmat)) + 1,
-  xlim = c(0, maxk), xlab = "", ylab = "Cross-validated MSE",
+  xlim = c(0, maxk), xlab = "", ylab = "Cross-validated RMSE",
   main = "CV")
 
 # AIC
