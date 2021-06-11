@@ -545,49 +545,57 @@ dev.print(pdf, file = "figures/FigS2_2_Loadings.pdf")
 
 #----- Parameters
 
-# Select which to predict
-whichcurve <- 226
-
 # Prediction percentiles
 predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
 
 # Select models with which to predict
-modlist <- list(basic = mixbasic, PCA = mixpca[[5]], CCA = mixcca[[5]],
-  PLS = mixpls[[5]])
+modlist <- list(NoPred = mixbasic, PCA4 = mixpca[[4]], PLS4 = mixpls[[4]])
+
+# Acceptable MMP values 
+inrange <- predper >= mmprange[1] & predper <= mmprange[2]
 
 #----- Predict curves from models
 
-# Create basis
-loc <- paste(strsplit(names(unlistresults)[whichcurve], "\\.")[[1]][1:2],
-  collapse = ".")
-tseries <- dlist[[loc]]$era5landtmean
-tmeanper <- quantile(tseries, predper / 100)
-bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
-  knots = quantile(tseries, c(10, 75, 90) / 100))
+# Stage 1
+st1curves <- Map(function(b, vc, era5){
+  tmeanper <- quantile(era5$era5landtmean, predper / 100)
+  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+    knots = quantile(era5$era5landtmean, varper / 100))
+  firstpred <- bvar %*% b
+  mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
+  crosspred(bvar, coef = b, vcov = vc, cen = mmt, 
+    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+}, as.data.frame(t(coefs)), vcovs, era5series[repmcc])
 
-# Predict coefs
-predcoefs <- lapply(modlist, function(x) predict(x, vcov = T)[[whichcurve]])
-
-# Construct curves
-predcurves <- sapply(predcoefs, function(b){
-  crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = median(tseries), 
-    model.link = "log", at = tmeanper)$allRRfit
+# Fitted
+fittedcurves <- lapply(modlist, function(x){
+  Map(function(b, era5){
+    tmeanper <- quantile(era5$era5landtmean, predper / 100)
+    bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+      knots = quantile(era5$era5landtmean, varper / 100))
+    firstpred <- bvar %*% b$fit
+    mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
+    crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
+      model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+  }, predict(x, vcov = T), era5series[repmcc])
 })
 
-# First-stage curve
-s1coefs <- unlistresults[[whichcurve]]$coef
-s1vcov <- unlistresults[[whichcurve]]$vcov
-s1curve <- crosspred(bvar, coef = s1coefs, vcov = s1vcov, cen = median(tseries), 
-  model.link = "log", at = tmeanper)$allRRfit
-
 #----- Plot
+pdf("figures/FigS2_2_fittedERF.pdf", width = 9, height = 13, pointsize = 8)
+layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
+par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
 
-# Plot stage1 curve
-plot(tmeanper, s1curve, type = "l", xlab = "Temperature", ylab = "RR", lwd = 2,
-  ylim = range(c(predcurves, s1curve)))
+# Loop on all cities
+for(i in seq_along(st1curves)){
+  # Plot cold and heat separately
+  plot(st1curves[[i]], xlab = "Temperature (°C)", ylab = "RR", 
+    main = rownames(coefs)[i], lwd = 2, ylim = c(.5, 3))
+  for (j in seq_along(modlist))
+    lines(fittedcurves[[j]][[i]], col = 1 + j, lwd = 2)
+  abline(h = 1, lty = 2)
+  legend("bottomleft", legend = c("Stage 1", names(modlist)),
+    lwd = 2, col = seq_len(length(modlist) + 1), bty = "n",
+    ncol = length(modlist) + 1, cex = .8)
+}
 
-# Add predicted curves
-matlines(tmeanper, predcurves, lty = 1, lwd = 2, 
-  col = seq_along(predcurves) + 1)
-
-abline(h = 1)
+dev.off()

@@ -17,8 +17,8 @@ load("results/FirstStage.RData")
 #  Parameters
 #---------------------------
 
-# Number of principal components (should be checked by screeplot)
-npc <- 7
+# Number of metapredictor components
+npc <- 4
 
 # Metapredictors
 metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
@@ -39,7 +39,7 @@ unlistresults <- unlist(sapply(stage1res, "[[", "modelres"), recursive = F)
 unlistresults <- unlistresults[sapply(unlistresults, "[[", "conv")]
 
 # Exclude groups with mean age < 5
-unlistresults <- unlistresults[sapply(unlistresults, "[[", "ageval") > 5]
+# unlistresults <- unlistresults[sapply(unlistresults, "[[", "ageval") > 5]
 
 # Get coefs, vcov, average age and convergence
 coefs <- t(sapply(unlistresults, "[[", "coef"))

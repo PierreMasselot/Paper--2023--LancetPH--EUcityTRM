@@ -9,8 +9,30 @@
 library(dlnm)
 library(splines)
 library(doParallel)
+library(MESS)
 
 load("data/Alldata.RData")
+
+#---------------------------
+#  First-stage parameters
+#---------------------------
+
+#----- DLNM parameters
+
+# Exposure dimension
+varfun <- "bs"
+varper <- c(10,75,90)
+vardegree <- 2
+
+# Lag dimension
+maxlag <- 21
+lagfun <- "ns"
+lagknots <- logknots(maxlag, 3)
+
+#----- Other parameters
+
+# Minimum number of deaths for being considered
+mindeath <- 10000
 
 #---------------------------
 #  Prepare loop
@@ -44,7 +66,7 @@ colnames(agedeaths) <- ageseq
 #---------------------------
 
 stage1res <- foreach(i = iter(seq(dlist)), 
-  .packages = c("dlnm", "splines")) %dopar% {
+  .packages = c("dlnm", "splines", "MESS")) %dopar% {
   
   #----- Extract data
   # City data
@@ -52,10 +74,10 @@ stage1res <- foreach(i = iter(seq(dlist)),
   
   #----- Prepare model
   # Define crossbasis
-  argvar <- list(fun = "bs", degree = 2, 
-    knots = quantile(dat$era5landtmean, c(.1, .75, .9), na.rm = T))
-  cb <- crossbasis(dat$era5landtmean, lag = 21, argvar = argvar,
-    arglag = list(knots = logknots(21, 3)))
+  argvar <- list(fun = varfun, degree = vardegree, 
+    knots = quantile(dat$era5landtmean, varper / 100, na.rm = T))
+  cb <- crossbasis(dat$era5landtmean, lag = maxlag, argvar = argvar,
+    arglag = list(fun = lagfun, knots = lagknots))
   
   # Select outcome: if no age classes select only total age
   #   If no all-cause, select non-external (natural)
@@ -63,20 +85,28 @@ stage1res <- foreach(i = iter(seq(dlist)),
   yvars <- grep(sprintf("%s_", outtype), names(dat), value = T)
   if (length(yvars) == 0) yvars <- outtype
   
-  #----- Loop on age classes
+  # Compute cumulative age groupings
+  ytot <- apply(dat[,yvars, drop = F], 2, sum, na.rm = T)
+  cumgroups <- cumsumbinning(ytot, mindeath, cutwhenpassed = TRUE)
+  
+  #----- Loop on each cumulative group
   ageres <- list()
-  for (a in seq_along(yvars)){
+  for (a in unique(cumgroups)){
+    
+    # Outcome in this cumulative group
+    avars <- yvars[cumgroups == a]
+    
     # Extract outcome
-    y <- dat[,yvars[a]]
+    y <- rowSums(dat[,avars, drop = F])
     
     # Determine age range
-    agerange <- strsplit(yvars[a], "_")[[1]][2]
+    agerange <- sapply(strsplit(avars, "_"), "[", 2)
     if (is.na(agerange)){
       amin <- "00"
       amax <- "99"
     } else {
-      amin <- substr(agerange, 1, 2)
-      amax <- substr(agerange, 3, 4)
+      amin <- substr(agerange[1], 1, 2)
+      amax <- substr(tail(agerange, 1), 3, 4)
     }
     
     # Select concerned range
@@ -110,7 +140,7 @@ stage1res <- foreach(i = iter(seq(dlist)),
     ageres[[a]] <- list(coef = coef(redall), vcov = vcov(redall), 
       totdeath = sum(y, na.rm = T), conv = res$converged, ageval = meanage
     )
-    names(ageres)[a] <- paste0(amin,amax)
+    names(ageres)[a] <- paste0(amin, amax)
   }
   
   # Output

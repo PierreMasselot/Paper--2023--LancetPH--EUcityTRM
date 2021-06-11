@@ -39,7 +39,7 @@ nsim <- 500
 #---------------------------
 
 # Create basis for overall relationship
-ov_basis <- onebasis(predper, fun = "bs", degree = 2, knots = c(10, 75, 90))
+ov_basis <- onebasis(predper, fun = varfun, degree = vardegree, knots = varper)
 
 # Acceptable MMP values 
 inrange <- predper >= mmprange[1] & predper <= mmprange[2]
@@ -101,8 +101,8 @@ cityERF <- Map(function(b, era5){
     tmeanper <- quantile(era5$era5landtmean, predper / 100)
     
     # Basis for overall
-    bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
-      knots = quantile(era5$era5landtmean, c(10, 75, 90) / 100))
+    bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+      knots = quantile(era5$era5landtmean, varper / 100))
     
     # MMT
     firstpred <- bvar %*% b$fit
@@ -178,10 +178,10 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   cityagemmt <- cityres$mmt[i] 
   
   # Basis value for each day
-  bvar <- onebasis(era5, fun = "bs", degree = 2, 
-    knots = quantile(era5, c(10, 75, 90) / 100))
-  cenvec <- onebasis(cityagemmt, fun = "bs", degree = 2, 
-    knots = quantile(era5, c(10, 75, 90) / 100))
+  bvar <- onebasis(era5, fun = varfun, degree = vardegree, 
+    knots = quantile(era5, varper / 100))
+  cenvec <- onebasis(cityagemmt, fun = varfun, degree = vardegree, 
+    knots = quantile(era5, varper / 100))
   bvarcen <- scale(bvar, center = cenvec, scale = F)
   
   # Compute daily AF and AN (naively)

@@ -25,7 +25,8 @@ repind <- rep(1:nrow(stage2df), ncoefs)
 st2df_long <- cbind(coef = rep(sprintf("b%i", seq_len(ncoefs)), nrow(stage2df)),
   residual = c(res), fitted = c(yhat), obs = c(coefs), 
   nmiss = apply(imputed[,names(metavar)], 1, sum)[repmcc][repind],
-  stage2df[repind,], metavar[repmcc,][repind,])
+  stage2df[repind,], metavar[repmcc,][repind,], 
+  totdeath = sapply(unlistresults, "[[", "totdeath"))
 
 #---------------------------
 # Residual plots
@@ -45,7 +46,7 @@ ggplot(data = st2df_long) + theme_void() +
   scale_fill_gradient2(trans = pseudo_log_trans(base = 10)) + 
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_1_ResMap.pdf", names(metavar)[i]), device = pdf)
+ggsave("figures/FigS3_1_ResMap.pdf", device = pdf)
 
 #----- Fitted vs Obs -----
 
@@ -57,7 +58,7 @@ ggplot(st2df_long) + theme_classic() +
   xlab("Stage 1 coefficient") + ylab("Fitted coefficient") + 
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_2_ObsPred.pdf", names(metavar)[i]), device = pdf)
+ggsave("figures/FigS3_2_ObsPred.pdf", device = pdf)
 
 #----- Residuals vs country -----
 
@@ -67,8 +68,7 @@ ggplot(st2df_long) + theme_classic() + xlim(quantile(res, c(.01, .99))) +
   xlab("Residuals") + ylab("Country") + scale_y_discrete(limits = rev) + 
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_3_ResCountry.pdf", names(metavar)[i]), 
-  device = pdf)
+ggsave("figures/FigS3_3_ResCountry.pdf", device = pdf)
 
 #----- Residuals vs age -----
 
@@ -79,8 +79,7 @@ ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) +
   xlab("Age") + ylab("Residuals") + 
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_4_ResAge.pdf", names(metavar)[i]), 
-  device = pdf)
+ggsave("figures/FigS3_4_ResAge.pdf", device = pdf)
 
 #----- Residuals vs number of missings -----
 
@@ -91,8 +90,7 @@ ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) +
   xlab("Number of imputed metavariables") + ylab("Residuals") + 
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_5_ResNA.pdf", names(metavar)[i]), 
-  device = pdf)
+ggsave("figures/FigS3_5_ResNA.pdf", device = pdf)
 
 
 #----- Residuals vs population -----
@@ -104,8 +102,9 @@ ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) +
   xlab("Population") + ylab("Residuals") + scale_x_continuous(trans = "log10") +
   facet_wrap(~ coef)
 
-ggsave(sprintf("figures/FigS3_6_ResPop.pdf", names(metavar)[i]), 
+ggsave("figures/FigS3_6_ResPop.pdf", 
   device = pdf)
+
 
 #----- Residuals vs all metavariables -----
 
@@ -119,6 +118,19 @@ for (i in seq_along(metavar)) {
   ggsave(sprintf("figures/residuals/%s.pdf", names(metavar)[i]), device = pdf)
 }
 
+#----- Residuals vs totdeath -----
+
+ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
+  geom_point(aes(x = totdeath, y = res)) +
+  geom_smooth(aes(x = totdeath, y = res), col = 2) + 
+  geom_hline(yintercept = 0) + 
+  xlab("Total observed deaths") + ylab("Residuals") + 
+  scale_x_continuous(trans = "log10") +
+  facet_wrap(~ coef)
+
+ggsave("figures/FigS3_7_ResDeaths.pdf", device = pdf)
+
+
 #---------------------------
 # Curves plots
 #---------------------------
@@ -131,8 +143,8 @@ inrange <- predper >= mmprange[1] & predper <= mmprange[2]
 # Stage 1
 st1curves <- Map(function(b, vc, era5){
   tmeanper <- quantile(era5$era5landtmean, predper / 100)
-  bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
-    knots = quantile(era5$era5landtmean, c(10, 75, 90) / 100))
+  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+    knots = quantile(era5$era5landtmean, varper / 100))
   firstpred <- bvar %*% b
   mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
   crosspred(bvar, coef = b, vcov = vc, cen = mmt, 
@@ -142,8 +154,8 @@ st1curves <- Map(function(b, vc, era5){
 # Fitted
 fittedcurves <- Map(function(b, era5){
   tmeanper <- quantile(era5$era5landtmean, predper / 100)
-  bvar <- onebasis(tmeanper, fun = "bs", degree = 2, 
-    knots = quantile(era5$era5landtmean, c(10, 75, 90) / 100))
+  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+    knots = quantile(era5$era5landtmean, varper / 100))
   firstpred <- bvar %*% b$fit
   mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
   crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
@@ -151,7 +163,7 @@ fittedcurves <- Map(function(b, era5){
 }, predict(stage2res, vcov = T), era5series[repmcc])
 
 #----- Plot
-pdf("figures/FigS3_7_fittedERF.pdf", width = 9, height = 13)
+pdf("figures/FigS3_8_fittedERF.pdf", width = 9, height = 13)
 layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
 par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
 

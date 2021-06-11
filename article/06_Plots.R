@@ -29,28 +29,62 @@ library(corrplot)
 # Get eigenvectors
 # loads <- pcares$rotation[,seq_len(npc)]
 loads <- loadings(plsres)[,1:npc]
+# rownames(loads) <- metadesc[match(rownames(loads), tolower(metadesc$metavar)), 
+#   "label"]
 
-# Common scale
-ylims <- range(loads)
-
-# Plot sequentially
-x11(height = 15, width = 10)
-par(mfrow = c(7, 1), mar = c(1, 4, 3, 2) + .1, oma = c(7, 0, 0, 0))
-for (i in seq_len(npc)) {
-  largest <- rank(-abs(loads[,i])) <= 5
-  bp <- barplot(loads[,i], names.arg = "", ylim = ylims, 
-    main = sprintf("PC%i", i), col = adjustcolor(ifelse(largest, 2, 4), .5))
-  text(bp[largest,], loads[largest,i] / 2, rownames(loads)[largest], srt = 90,
-    adj = c(0.5, 0.5), cex = .9)
-  abline(h = 0)
-}
-axis(1, at = bp, labels = rownames(loads), las = 3)
-
-dev.print(pdf, file = "figures/PCs_bp.pdf")
+# # Common scale
+# ylims <- range(loads)
+# 
+# # Plot sequentially
+# x11(height = 15, width = 10)
+# par(mfrow = c(7, 1), mar = c(1, 4, 3, 2) + .1, oma = c(7, 0, 0, 0))
+# for (i in seq_len(npc)) {
+#   largest <- rank(-abs(loads[,i])) <= 5
+#   bp <- barplot(loads[,i], names.arg = "", ylim = ylims, 
+#     main = sprintf("PC%i", i), col = adjustcolor(ifelse(largest, 2, 4), .5))
+#   text(bp[largest,], loads[largest,i] / 2, rownames(loads)[largest], srt = 90,
+#     adj = c(0.5, 0.5), cex = .9)
+#   abline(h = 0)
+# }
+# axis(1, at = bp, labels = rownames(loads), las = 3)
+# 
+# dev.print(pdf, file = "figures/PCs_bp.pdf")
 
 # Plot as a corplot
 x11(width = 10)
 corrplot(t(loads), method = "square", is.corr = F, cl.lim = c(-1, 1))
+dev.print(pdf, file = "figures/PLScor.pdf")
+dev.off()
+
+#----- Effect of each metapredictor
+
+# Backtransform coefficients
+st2coefs <- coef(stage2res)
+plscoefs <- st2coefs[grep("pls", names(st2coefs))]
+backcoefs <- loads %*% matrix(plscoefs, nrow = npc, byrow = T)
+
+# Monte-Carlo confidence intervals (not sure about this)
+plscsim <- metacoefsim[,grep("pls", colnames(metacoefsim))]
+backsim <- apply(plscsim, 1, function(x) 
+  loads %*% matrix(x, nrow = npc, byrow = T))
+backCIs <- apply(backsim, 1, quantile, c(.025, .975))
+rownames(backCIs) <- c("low", "hi")
+
+# Create overall data.frame for plotting
+backdf <- data.frame(est = c(backcoefs), t(backCIs), 
+  coef = rep(colnames(coefs), each = ncol(metavar)),
+  var = factor(rep(metaprednames, ncol(coefs)), levels = metaprednames))
+
+# Plot all of them
+ggplot(backdf, aes(x = var)) + theme_classic() + 
+  geom_hline(yintercept = 0, linetype = 2) + 
+  geom_errorbar(aes(ymin = low, ymax = hi), width = .3) + 
+  geom_point(aes(y = est), col = 4) + 
+  facet_wrap(~ coef, ncol = 1) + 
+  xlab("Metapredictor") + ylab("Coefficient") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("figures/MetapredCoefficients.pdf", device = "pdf", height = 15)
 
 #---------------------------
 #  Maps
