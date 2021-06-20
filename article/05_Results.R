@@ -169,8 +169,16 @@ ncores <- detectCores()
 cl <- makeCluster(max(1, ncores - 2))
 registerDoParallel(cl)
 
+#----- Write text file to trace iterations
+writeLines(c(""), "temp/logres.txt")
+cat(as.character(as.POSIXct(Sys.time())),file="temp/logres.txt",append=T)
+
 #----- Compute AN / AF
 attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
+  
+  #----- Store iteration (1 every 100)
+  if(i%%100==0) cat("\n", "iter=",i, as.character(Sys.time()), "\n",
+    file="temp/logres.txt", append=T)
   
   # Get object for this city age
   era5 <- era5series[[cityagegrid[i,1]]]$era5landtmean

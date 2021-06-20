@@ -84,7 +84,7 @@ ggplot(backdf, aes(x = var)) + theme_classic() +
   xlab("Metapredictor") + ylab("Coefficient") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggsave("figures/MetapredCoefficients.pdf", device = "pdf", height = 15)
+ggsave("figures/MetapredCoefficients.pdf", height = 15)
 
 #---------------------------
 #  Maps
@@ -109,7 +109,7 @@ ggplot(data = metacomplete) + theme_void() +
   scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
   scale_color_discrete(name = "", labels = c("Predicted", "MCC"))
 
-ggsave("figures/urau_cities.pdf", device = pdf)
+ggsave("figures/urau_cities.pdf")
 
 #----- City predictions
 # MMT
@@ -125,7 +125,7 @@ ggplot(data = cityres) + theme_void() +
   facet_wrap(~ age, labeller = labeller(age = label_both)) + 
   theme(strip.text = element_text(size = 15))
 
-ggsave("figures/cities_mmt.pdf", device = pdf, width = 15, height = 10)
+ggsave("figures/cities_mmt.pdf", width = 15, height = 10)
 
 # Cold
 ggplot(data = cityres) + theme_void() + 
@@ -140,7 +140,7 @@ ggplot(data = cityres) + theme_void() +
   facet_wrap(~ age, labeller = labeller(age = label_both)) + 
   theme(strip.text = element_text(size = 15))
 
-ggsave("figures/cities_rrcold.pdf", device = pdf)
+ggsave("figures/cities_rrcold.pdf")
 
 # Heat
 ggplot(data = cityres) + theme_void() + 
@@ -155,7 +155,7 @@ ggplot(data = cityres) + theme_void() +
   facet_wrap(~ age, labeller = labeller(age = label_both)) + 
   theme(strip.text = element_text(size = 15))
 
-ggsave("figures/cities_rrheat.pdf", device = pdf)
+ggsave("figures/cities_rrheat.pdf")
 
 #----- Attributable number
 
@@ -173,7 +173,7 @@ ggplot(data = ansum) + theme_void() +
     limits = c(0, quantile(ansum$an_total_est, .99))) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
-ggsave("figures/cities_ANtot.pdf", device = pdf)
+ggsave("figures/cities_ANtot.pdf")
 
 # Plot cold AN
 ggplot(data = ansum) + theme_void() + 
@@ -185,7 +185,7 @@ ggplot(data = ansum) + theme_void() +
     name = "Cold AN", limits = c(0, quantile(ansum$an_cold_est, .99))) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
-ggsave("figures/cities_ANcold.pdf", device = pdf)
+ggsave("figures/cities_ANcold.pdf")
 
 # Plot heat AN
 ggplot(data = ansum) + theme_void() + 
@@ -197,7 +197,7 @@ ggplot(data = ansum) + theme_void() +
     name = "Heat AN", limits = c(0, quantile(ansum$an_heat_est, .99))) + 
   scale_size(trans = "log10", name = "Population", range = c(0, 5))
 
-ggsave("figures/cities_ANheat.pdf", device = pdf)
+ggsave("figures/cities_ANheat.pdf")
 
 #----- Background effect
 
@@ -211,7 +211,7 @@ ggplot(data = bggrid) + theme_void() +
   geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
     alpha = .4, pch = 16)
 
-ggsave("figures/bg_mmp.pdf", device = pdf)
+ggsave("figures/bg_mmp.pdf")
 
 # Cold
 ggplot(data = bggrid) + theme_void() + 
@@ -221,7 +221,7 @@ ggplot(data = bggrid) + theme_void() +
   scale_fill_gradient(low = "white", high = "darkblue",
     name = sprintf("RR at percentile %i", resultper[1]))
 
-ggsave("figures/bg_rrcold.pdf", device = pdf)
+ggsave("figures/bg_rrcold.pdf")
 
 # Heat
 ggplot(data = bggrid) + theme_void() + 
@@ -231,7 +231,7 @@ ggplot(data = bggrid) + theme_void() +
   scale_fill_gradient(low = "white", high = "darkred",
     name = sprintf("RR at percentile %i", resultper[2]))
 
-ggsave("figures/bg_rrheat.pdf", device = pdf)
+ggsave("figures/bg_rrheat.pdf")
 
 
 #---------------------------
@@ -269,7 +269,7 @@ for(i in seq_along(cityERF)){
   heatind <- predper >= cityres[i, "mmp"] 
   
   # Plot cold and heat separately
-  plot(cityERF[[i]], xlab = "Temperature (°C)", ylab = "RR", 
+  plot(cityERF[[i]], xlab = "Temperature (?C)", ylab = "RR", 
     main = metadata[i, "URAU_NAME"], col = 4, lwd = 2)
   lines(cityERF[[i]]$predvar[heatind], cityERF[[i]]$allRRfit[heatind], 
     col = 2, lwd = 2)

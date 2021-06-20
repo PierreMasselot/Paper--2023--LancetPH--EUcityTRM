@@ -52,7 +52,7 @@ st2mcccodes <- apply(t(sapply(strsplit(names(unlistresults), "\\."), "[", 1:2)),
 repmcc <- match(st2mcccodes, metadata$mcc_code)
 
 # Extract lon / lat coordinates
-citycoords <- do.call(rbind, metageo$geometry[repmcc,])
+citycoords <- do.call(rbind, metageo$geometry[repmcc])
 colnames(citycoords) <- c("lon", "lat")
 
 # Compute boundary knots to ensure all predicted cities are covered

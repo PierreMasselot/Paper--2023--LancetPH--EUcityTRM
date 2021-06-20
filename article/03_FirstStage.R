@@ -43,6 +43,10 @@ ncores <- detectCores()
 cl <- makeCluster(max(1, ncores - 2))
 registerDoParallel(cl)
 
+#----- Write text file to trace iterations
+writeLines(c(""), "temp/logstage1.txt")
+cat(as.character(as.POSIXct(Sys.time())),file="temp/logstage1.txt",append=T)
+
 #----- Variables for age attribution
 
 # Extract and sort age group deaths
@@ -65,12 +69,12 @@ colnames(agedeaths) <- ageseq
 # Loop on cities
 #---------------------------
 
-stage1res <- foreach(i = iter(seq(dlist)), 
+stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)), 
   .packages = c("dlnm", "splines", "MESS")) %dopar% {
-  
-  #----- Extract data
-  # City data
-  dat <- dlist[[i]]
+
+  #----- Store iteration (1 every 20)
+  if(i%%20==0) cat("\n", "iter=",i, as.character(Sys.time()), "\n",
+    file="temp/logstage1.txt", append=T)
   
   #----- Prepare model
   # Define crossbasis
