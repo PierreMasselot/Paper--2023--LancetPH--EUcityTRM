@@ -6,33 +6,9 @@
 #
 ################################################################################
 
-library(dlnm)
-library(splines)
-library(doParallel)
-library(MESS)
+source("00_Packages_Parameters.R")
 
 load("data/Alldata.RData")
-
-#---------------------------
-#  First-stage parameters
-#---------------------------
-
-#----- DLNM parameters
-
-# Exposure dimension
-varfun <- "bs"
-varper <- c(10,75,90)
-vardegree <- 2
-
-# Lag dimension
-maxlag <- 21
-lagfun <- "ns"
-lagknots <- logknots(maxlag, 3)
-
-#----- Other parameters
-
-# Minimum number of deaths for being considered
-mindeath <- 10000
 
 #---------------------------
 #  Prepare loop

@@ -6,33 +6,6 @@
 #
 ################################################################################
 
-library(mixmeta)
-library(dlnm)
-library(MASS)
-library(doParallel)
-
-#---------------------------
-# Parameters
-#---------------------------
-
-# Prediction percentiles
-predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
-
-# Acceptable MMP range
-mmprange <- c(1, 99)
-
-# Reported percentiles for cold and heat
-resultper <- c(1, 99)
-
-# Number of grid point for background surface
-ngrid <- 50
-
-# Age breaks: predictions at mid-ranges
-agebreaks <- c(40, 65, 75, 85)
-agepred <- (c(0, agebreaks) + c(agebreaks, 100)) / 2
-
-# Number of simulations for AN/AF
-nsim <- 500
 
 #---------------------------
 # Prepare objects
@@ -43,6 +16,10 @@ ov_basis <- onebasis(predper, fun = varfun, degree = vardegree, knots = varper)
 
 # Acceptable MMP values 
 inrange <- predper >= mmprange[1] & predper <= mmprange[2]
+
+# Simulate metacoefficients from multivariate normal distribution
+set.seed(12345)
+metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
 
 #---------------------------
 # Curve by age
@@ -156,11 +133,6 @@ deathlist <- unlist(cityagedeaths)
 
 #----- Prepare simulation
 
-set.seed(12345)
-
-# Simulate metacoefficients from multivariate normal distribution
-metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
-
 # Recreate model matrix with the city / age grid
 cityageXdes <- model.matrix(delete.response(terms(stage2res)), allpreddf)
 
@@ -196,7 +168,7 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
     heat = sum(anday[heatind]))
   
   # Simulations for CI
-  coefsim <- metacoefsim %*% (cityageXdes[i,] %x% diag(ncol(coefs)))
+  coefsim <- metacoefsim %*% (cityageXdes[i,] %x% diag(nc))
   andaysim <- (1 - exp(-bvarcen %*% t(coefsim))) * deathlist[i] / 365.25
   ansimlist <- cbind(total = colSums(andaysim), 
     cold = colSums(andaysim[!heatind,]), 
@@ -251,4 +223,66 @@ bgrr <- Map(function(b, mm){
 bggrid$mmp <- bgmmp
 bggrid$rr <- t(sapply(bgrr, "[", , 1))
 
+
+#---------------------------
+# Interpret components
+#---------------------------
+
+#----- Backtransform coefficients to have effect of each metavariable
+# Get eigenvectors
+# loads <- pcares$rotation[,seq_len(npc)]
+loads <- plsres$projection[,1:npc]
+colnames(loads) <- sprintf("pls%i", 1:npc)
+
+# Backtransform coefficients
+st2coefs <- coef(stage2res, format = "matrix")
+inds <- grep("pls", rownames(st2coefs))
+plscoefs <- st2coefs[inds,]
+backcoefs <- t(plscoefs) %*% t(loads)
+
+# Vcov matrix
+mixvcov <- vcov(stage2res)[inds, inds]
+reploads <- loads %x% diag(nc)
+backvcov <- reploads %*% mixvcov %*% t(reploads)
+
+
+# Monte-Carlo standard error and confidence intervals (not sure about this)
+# plscsim <- metacoefsim[,grep("pls", colnames(metacoefsim))]
+# backsim <- apply(plscsim, 1, function(x) 
+#   matrix(x, ncol = npc) %*% t(loads))
+# vcovSim <- var(t(backsim))
+# 
+# backCIs <- apply(backsim, 1, quantile, c(.025, .975))
+# rownames(backCIs) <- c("low", "hi")
+
+#----- Create curves for increase in one SD for each variable
+
+# Crosspred with backtransformed coefficients
+backcp <- lapply(seq_along(metaprednames), function(i){
+  inds <- (1:nc) + (i - 1) * nc
+  crosspred(ov_basis, coef = backcoefs[,i], vcov = backvcov[inds,inds],
+    model.link = "log", cen = 50, at = predper)
+})
+
+#----- Create two curves for high and low values of metapredictor
+
+# Compute high and low values (of scaled meta-variables)
+extmeta <- apply(scale(metavar), 2, quantile, c(.01, .99))
+newmetax <- as.matrix(bdiag(as.data.frame(extmeta)))
+colnames(newmetax) <- metaprednames
+
+# Predict coefficients and vcov
+newpls <- newmetax %*% loads
+newdf <- data.frame(newpls, lat = mean(stage2df$lat), lon = mean(stage2df$lon),
+  age = 65)
+extpreds <- predict(stage2res, newdata = newdf, vcov = T)
+
+# Crosspred
+extcp <- lapply(seq_len(nrow(newmetax)), function(i){
+  betas <- extpreds[[i]]$fit
+  # firstpred <- ov_basis %*% betas
+  # mmp <- predper[inrange][which.min(firstpred[inrange])]
+  crosspred(ov_basis, coef = betas, vcov = extpreds[[i]]$vcov,
+    model.link = "log", cen = 50, at = predper)
+})
 

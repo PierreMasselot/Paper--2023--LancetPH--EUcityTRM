@@ -6,35 +6,12 @@
 #
 ################################################################################
 
-library(readxl)
-library(mice)
-library(sf)
-library(modeest)
-library(eurostat)
-
-#---------------------------
-#  Parameters
-#---------------------------
-
-# Years selected for metapredictors. Averaged if several
-year <- as.character(2005:2015)
-
-# Starting year for analysis
-yearstart <- 1990
-
-# Projecttion for geo objects
-geoproj <- "4326"
+source("00_Packages_Parameters.R")
 
 # Paths
 path_urau <- "V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)"
 path_ucd <- "V:/VolumeQ/AGteam/Urban Centre Database"
 path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
-
-# MCC country datasets
-mcc_countries <- c('cze9415', 'est9718', 'fnl9411', 'fra0014',  
-  'grc0110', 'irl8407', 'ita0110', 'nor6916', 'por8012', 
-  'spa0913', 'sui9513', 'swe9016', 'uk9016',
-  'ger9315', 'net9516c', 'rom9416') # Last line is MCC_all
 
 #---------------------------
 #  Link datasets

@@ -6,14 +6,7 @@
 #
 ################################################################################
 
-library(sf)
-library(eurostat)
-library(ggplot2)
-library(colorspace)
-library(fields)
-library(scales)
-library(viridis)
-library(corrplot)
+
 
 #---------------------------
 #  Metavariable components
@@ -25,12 +18,6 @@ library(corrplot)
 # abline(h = (summary(pcares)$importance[3, npc] * 100), lty = 2)
 
 #----- Interpretation of PCs
-
-# Get eigenvectors
-# loads <- pcares$rotation[,seq_len(npc)]
-loads <- loadings(plsres)[,1:npc]
-# rownames(loads) <- metadesc[match(rownames(loads), tolower(metadesc$metavar)), 
-#   "label"]
 
 # # Common scale
 # ylims <- range(loads)
@@ -56,35 +43,54 @@ corrplot(t(loads), method = "square", is.corr = F, cl.lim = c(-1, 1))
 dev.print(pdf, file = "figures/PLScor.pdf")
 dev.off()
 
-#----- Effect of each metapredictor
-
-# Backtransform coefficients
-st2coefs <- coef(stage2res)
-plscoefs <- st2coefs[grep("pls", names(st2coefs))]
-backcoefs <- loads %*% matrix(plscoefs, nrow = npc, byrow = T)
-
-# Monte-Carlo confidence intervals (not sure about this)
-plscsim <- metacoefsim[,grep("pls", colnames(metacoefsim))]
-backsim <- apply(plscsim, 1, function(x) 
-  loads %*% matrix(x, nrow = npc, byrow = T))
-backCIs <- apply(backsim, 1, quantile, c(.025, .975))
-rownames(backCIs) <- c("low", "hi")
+#----- Coefficients associated to metapredictors
 
 # Create overall data.frame for plotting
-backdf <- data.frame(est = c(backcoefs), t(backCIs), 
-  coef = rep(colnames(coefs), each = ncol(metavar)),
-  var = factor(rep(metaprednames, ncol(coefs)), levels = metaprednames))
+backdf <- data.frame(est = c(backcoefs), se = sqrt(diag(backvcov)), 
+  coef = rep(colnames(coefs), nm),
+  var = factor(rep(metaprednames, each = nc), levels = metaprednames))
 
 # Plot all of them
 ggplot(backdf, aes(x = var)) + theme_classic() + 
   geom_hline(yintercept = 0, linetype = 2) + 
-  geom_errorbar(aes(ymin = low, ymax = hi), width = .3) + 
+  geom_errorbar(aes(ymin = est - 1.96 * se, ymax = est + 1.96 * se), 
+    width = .3) + 
   geom_point(aes(y = est), col = 4) + 
   facet_wrap(~ coef, ncol = 1) + 
   xlab("Metapredictor") + ylab("Coefficient") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ggsave("figures/MetapredCoefficients.pdf", device = "pdf", height = 15)
+
+#----- Effect of metapredictors
+
+# By an increase of 1 SD
+
+x11(height = 15, width = 10)
+par(mfrow = c(7, 3), mar = c(4, 4, 3, 1))
+for (i in seq_along(metaprednames)){
+  plot(backcp[[i]], ptype = "overall", ylab = "RR increase", 
+    xlab = "Temperature percentile", main = metaprednames[i],
+    ylim = c(.9, 1.1), lwd = 2)
+}
+dev.print(pdf, file = "figures/MetapredEffectSD.pdf", width = 10, height = 15)
+
+# Difference between low and large values
+x11(height = 15, width = 10)
+par(mfrow = c(7, 3), mar = c(4, 4, 3, 1))
+for (i in seq_along(metaprednames)){
+  inds <- 1:2 + 2*(i-1)
+  plot(extcp[[inds[1]]], ptype = "overall", ylab = "RR", 
+    xlab = "Temperature percentile", main = metaprednames[i],
+    ylim = c(.95, 2), col = 2, lwd = 2, 
+    ci.arg = list(col = adjustcolor(2, .2)))
+  lines(extcp[[inds[2]]], ptype = "overall", col = 4, ci = "area", lwd = 2, 
+    ci.arg = list(col = adjustcolor(4, .2)))
+  abline(h = 1)
+  legend("topleft", legend = c("low", "high"), bty = "n", ncol = 2, cex = .8,
+    lwd = 2, col = c(2, 4))
+}
+dev.print(pdf, file = "figures/MetapredEffectDiff.pdf", width = 10, height = 15)
 
 #---------------------------
 #  Maps

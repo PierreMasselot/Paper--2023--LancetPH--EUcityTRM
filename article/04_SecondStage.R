@@ -6,27 +6,9 @@
 #
 ################################################################################
 
-library(mixmeta)
-library(sf)
-library(splines)
-library(pls)
+source("00_Packages_Parameters.R")
 
 load("results/FirstStage.RData")
-
-#---------------------------
-#  Parameters
-#---------------------------
-
-# Number of metapredictor components
-npc <- 4
-
-# Metapredictors
-metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
-  "lifexp", "bedrates", "gdp", "educ", "unempl", "depriv", # Socio economic
-  "urbshare", "greenshare", "blueshare", "mount_type", "urbn_type", 
-    "coast_type", # Land
-  "cooldegdays", "heatdegdays", "tmean", "greenness", "pm25" # Environment
-)
 
 #---------------------------
 #  Prepare stage 2 dataset
@@ -52,7 +34,7 @@ st2mcccodes <- apply(t(sapply(strsplit(names(unlistresults), "\\."), "[", 1:2)),
 repmcc <- match(st2mcccodes, metadata$mcc_code)
 
 # Extract lon / lat coordinates
-citycoords <- do.call(rbind, metageo$geometry[repmcc,])
+citycoords <- do.call(rbind, metageo$geometry[repmcc])
 colnames(citycoords) <- c("lon", "lat")
 
 # Compute boundary knots to ensure all predicted cities are covered
@@ -64,6 +46,10 @@ bnlat <- urauext[c(2,4)]
 stage2df <- data.frame(citycoords, age = agevals, 
   city = metadata[repmcc, "URAU_CODE"], 
   country = as.factor(metadata[repmcc, "CNTR_CODE"]))
+
+# Store model dimensions
+nc <- ncol(coefs) # Number of first-stage coefficients
+nm <- length(metaprednames) # Number of metapredictors
 
 #---------------------------
 #  PCA/PLS on metavariables
@@ -99,7 +85,8 @@ stage2df <- cbind(stage2df, pcvar[repmcc,])
 
 # Create formula
 st2form <- sprintf("coefs ~ %s + ns(lon, df = 2, Boundary.knots = bnlon) + 
-    ns(lat, df = 2, Boundary.knots = bnlat) + ns(age, knots = c(50, 75))",
+    ns(lat, df = 2, Boundary.knots = bnlat) + 
+    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
   paste(colnames(pcvar), collapse = " + "))
 
 # Apply meta regression model
@@ -108,5 +95,5 @@ stage2res <- mixmeta(as.formula(st2form), data = stage2df,
 
 ## Waaaaaaaaaaaaaaaaaaaaaay too long
 # stage2res <- mixmeta(as.formula(st2form), data = stage2df,
-#   S = vcovs, random = ~ 1|country/city, 
+#   S = vcovs, random = ~ 1|country/city,
 #   control = list(showiter = T))
