@@ -21,7 +21,8 @@ registerDoParallel(cl)
 
 #----- Write text file to trace iterations
 writeLines(c(""), "temp/logstage1.txt")
-cat(as.character(as.POSIXct(Sys.time())),file="temp/logstage1.txt",append=T)
+cat(as.character(as.POSIXct(Sys.time())), file = "temp/logstage1.txt", 
+  append = T)
 
 #----- Variables for age attribution
 
@@ -49,8 +50,8 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
   .packages = c("dlnm", "splines", "MESS")) %dopar% {
 
   #----- Store iteration (1 every 20)
-  if(i%%20==0) cat("\n", "iter=",i, as.character(Sys.time()), "\n",
-    file="temp/logstage1.txt", append=T)
+  if(i %% 20 == 0) cat("\n", "iter = ", i, as.character(Sys.time()), "\n",
+    file = "temp/logstage1.txt", append = T)
   
   #----- Prepare model
   # Define crossbasis
@@ -64,6 +65,22 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
   outtype <- ifelse(any(grepl("all", names(dat))), "all", "nonext")
   yvars <- grep(sprintf("%s_", outtype), names(dat), value = T)
   if (length(yvars) == 0) yvars <- outtype
+  
+  # Determine age ranges
+  agerange <- sapply(strsplit(yvars, "_"), "[", 2)
+  if (is.na(agerange)){
+    amin <- "00"
+    amax <- "99"
+  } else {
+    amin <- substr(agerange, 1, 2)
+    amax <- substr(agerange, 3, 4)
+  }
+  
+  # Exclude specific groups
+  exclage <- amax < minage
+  yvars <- yvars[!exclage]
+  amin <- amin[!exclage]
+  amax <- amax[!exclage]
   
   # Compute cumulative age groupings
   ytot <- apply(dat[,yvars, drop = F], 2, sum, na.rm = T)
@@ -80,17 +97,11 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     y <- rowSums(dat[,avars, drop = F])
     
     # Determine age range
-    agerange <- sapply(strsplit(avars, "_"), "[", 2)
-    if (is.na(agerange)){
-      amin <- "00"
-      amax <- "99"
-    } else {
-      amin <- substr(agerange[1], 1, 2)
-      amax <- substr(tail(agerange, 1), 3, 4)
-    }
+    aamin <- amin[cumgroups == a][1]
+    aamax <- tail(amax[cumgroups == a], 1)
     
     # Select concerned range
-    whichgrps <- ageseq >= as.numeric(amin) & ageseq <= as.numeric(amax)
+    whichgrps <- ageseq >= as.numeric(aamin) & ageseq <= as.numeric(aamax)
     ndeaths <- subset(agedeaths, metadata$mcc_code == cities[i, "city"],
       whichgrps)
     
@@ -109,7 +120,7 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
         vcov = matrix(NA, nred, nred), 
         totdeath = sum(y, na.rm = T), conv = F, ageval = meanage
       )
-      names(ageres)[a] <- paste0(amin,amax)
+      names(ageres)[a] <- paste0(aamin,aamax)
       next
     }
     
@@ -120,7 +131,7 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     ageres[[a]] <- list(coef = coef(redall), vcov = vcov(redall), 
       totdeath = sum(y, na.rm = T), conv = res$converged, ageval = meanage
     )
-    names(ageres)[a] <- paste0(amin, amax)
+    names(ageres)[a] <- paste0(aamin, aamax)
   }
   
   # Output
@@ -134,6 +145,4 @@ stopCluster(cl)
 names(stage1res) <- cities$city
 
 # Export
-save(dlist, cities, stage1res, era5series, metadesc,
-  metadata, metageo, imputed, 
-  file = "results/FirstStage.RData")
+save.image(file = "results/FirstStage.RData")

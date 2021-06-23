@@ -6,6 +6,22 @@
 #
 ################################################################################
 
+#---------------------------
+#  Prepare objects
+#---------------------------
+
+#----- For reporting ERFs
+
+# Axis locations for plots
+ovaxis <- ovper[predper %in% axisper]
+
+#----- For maps
+# Country layout
+euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
+
+# Complete data.frame with all info
+metacomplete <- cbind(metadata, do.call(rbind, metageo$geometry))
+names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
 
 
 #---------------------------
@@ -46,7 +62,7 @@ dev.off()
 #----- Coefficients associated to metapredictors
 
 # Create overall data.frame for plotting
-backdf <- data.frame(est = c(backcoefs), se = sqrt(diag(backvcov)), 
+backdf <- data.frame(est = c(t(backcoefs)), se = sqrt(diag(backvcov)), 
   coef = rep(colnames(coefs), nm),
   var = factor(rep(metaprednames, each = nc), levels = metaprednames))
 
@@ -65,45 +81,49 @@ ggsave("figures/MetapredCoefficients.pdf", height = 15)
 #----- Effect of metapredictors
 
 # By an increase of 1 SD
-
 x11(height = 15, width = 10)
 par(mfrow = c(7, 3), mar = c(4, 4, 3, 1))
 for (i in seq_along(metaprednames)){
   plot(backcp[[i]], ptype = "overall", ylab = "RR increase", 
     xlab = "Temperature percentile", main = metaprednames[i],
-    ylim = c(.9, 1.1), lwd = 2)
+    ylim = c(.9, 1.1), lwd = 2, col = NA, xaxt = "n")
+  abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+  axis(1, at = ovaxis, labels = axisper)
+  ovcurve <- backcp[[i]]$allRRfit
+  lines(ovper, ovcurve, lwd = 2, col = "darkred")
+  ovcurve[ovcurve > 1] <- NA
+  lines(ovper, ovcurve, lwd = 2, col = "forestgreen")
+  abline(h = 1)
+  text(mean(par("usr")[1:2]), par("usr")[3], 
+    sprintf("p-value = %0.4f", waldres[i,2]), pos = 3, cex = 1.2)
 }
 dev.print(pdf, file = "figures/MetapredEffectSD.pdf", width = 10, height = 15)
 
 # Difference between low and large values
+cols <- plasma(2, direction = -1, begin = .1, end = .9)
+
 x11(height = 15, width = 10)
 par(mfrow = c(7, 3), mar = c(4, 4, 3, 1))
 for (i in seq_along(metaprednames)){
   inds <- 1:2 + 2*(i-1)
-  plot(extcp[[inds[1]]], ptype = "overall", ylab = "RR", 
-    xlab = "Temperature percentile", main = metaprednames[i],
-    ylim = c(.95, 2), col = 2, lwd = 2, 
-    ci.arg = list(col = adjustcolor(2, .2)))
-  lines(extcp[[inds[2]]], ptype = "overall", col = 4, ci = "area", lwd = 2, 
-    ci.arg = list(col = adjustcolor(4, .2)))
+  plot(NA, ylab = "RR", xlab = "Temperature percentile", 
+    main = metaprednames[i], xaxt = "n", bty = "l",
+    xlim = range(ovper), ylim = c(.95, 2))
+  abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+  axis(1, at = ovaxis, labels = axisper)
+  lines(extcp[[inds[1]]], ptype = "overall", col = cols[1], ci = "area", 
+    lwd = 2, ci.arg = list(col = adjustcolor(cols[1], .2)))
+  lines(extcp[[inds[2]]], ptype = "overall", col = cols[2], ci = "area", 
+    lwd = 2, ci.arg = list(col = adjustcolor(cols[2], .2)))
   abline(h = 1)
   legend("topleft", legend = c("low", "high"), bty = "n", ncol = 2, cex = .8,
-    lwd = 2, col = c(2, 4))
+    lwd = 2, col = cols)
 }
 dev.print(pdf, file = "figures/MetapredEffectDiff.pdf", width = 10, height = 15)
 
 #---------------------------
 #  Maps
 #---------------------------
-
-#----- Objects used in all maps
-
-# Country layout
-euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
-
-# Complete data.frame with all info
-metacomplete <- cbind(metadata, do.call(rbind, metageo$geometry))
-names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
 
 #----- Cities with population
 
@@ -246,19 +266,25 @@ ggsave("figures/bg_rrheat.pdf")
 
 #----- Average ERF for different ages
 
-pal <- rev(viridis(length(agepred)))
-
-# Retrieve overall ERF
-ageERF <- sapply(agecp, "[[", "allRRfit")
+pal <- viridis(length(agetot), direction = -1)
 
 # Plot all for ages
 layout(matrix(1:2, ncol = 2), width = c(4, 1))
-matplot(predper, ageERF, type = "l", lwd = 2, col = pal, 
-  xlab = "Temperature percentile", ylab = "RR", lty = 1)
+plot(NA, bty = "l", xaxt = "n", 
+  xlab = "Temperature percentile", ylab = "RR",
+  xlim = range(ovper), 
+  ylim = c(min(sapply(agecp, "[[", "allRRlow")), 
+    max(sapply(agecp, "[[", "allRRhigh"))))
+abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+axis(1, at = ovaxis, labels = axisper)
+for (i in seq_along(agetot)){
+  lines(agecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
+    lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
+}
 abline(h = 1)
 par(mar = c(5, 0, 4, 0) + .1)
 plot.new()
-legend("topleft", legend = agepred, col = pal, lty = 1, lwd = 2, 
+legend("topleft", legend = agelabs, col = pal, lty = 1, lwd = 2, 
   title = "Age", bty = "n")
 
 dev.print(pdf, file = "figures/AgeERF.pdf")

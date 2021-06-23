@@ -8,18 +8,40 @@
 
 
 #---------------------------
-# Prepare objects
+# Prepare predictions
 #---------------------------
 
+#----- Common temperature for prediction
+
+# Estimate an overall empirical distribution of temperature
+tmeandist <- t(sapply(era5series, 
+  function(x) quantile(x$era5landtmean, predper / 100)))
+ovper <- colMeans(tmeandist)
+
 # Create basis for overall relationship
-ov_basis <- onebasis(predper, fun = varfun, degree = vardegree, knots = varper)
+ovknots <- ovper[sprintf("%i.0%%",varper)]
+ov_basis <- onebasis(ovper, fun = varfun, degree = vardegree, knots = ovknots)
 
 # Acceptable MMP values 
 inrange <- predper >= mmprange[1] & predper <= mmprange[2]
 
+#----- Simulations
+
 # Simulate metacoefficients from multivariate normal distribution
 set.seed(12345)
 metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
+
+#----- Ages for prediction
+
+# Determine average death age for each prediction group and each city
+agegrps <- cut(ageseq[ageseq > minage], c(minage, agebreaks, 100), right = F)
+agepred <- tapply(ageseq[ageseq > minage], agegrps, function(a){
+  apply(agedeaths[,as.character(a)], 1, weighted.mean, x = a)
+})
+agepred <- do.call(cbind, agepred)
+
+# Average age for each age group
+agetot <- colMeans(agepred)
 
 #---------------------------
 # Curve by age
@@ -32,7 +54,7 @@ meangeo <- lapply(stage2df[c("lon", "lat")], mean)
 meanpcs <- rep(list(0), npc); names(meanpcs) <- colnames(pcvar)
 
 # Create prediction data.frame
-agepreddf <- as.data.frame(c(list(age = agepred, meangeo, meanpcs)))
+agepreddf <- as.data.frame(c(list(age = agetot, meangeo, meanpcs)))
 
 # Predict coefficients
 agecoefs <- predict(stage2res, agepreddf, vcov = T)
@@ -43,12 +65,12 @@ agecoefs <- predict(stage2res, agepreddf, vcov = T)
 firstpred <- ov_basis %*% sapply(agecoefs, "[[", "fit")
 
 # For each find MMP
-agemmp <- predper[inrange][apply(firstpred[inrange,], 2, which.min)]
+agemmp <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
 
 # Obtain list of ERF
 agecp <- Map(crosspred, basis = list(ov_basis), 
   coef = lapply(agecoefs, "[[", "fit"), vcov = lapply(agecoefs, "[[", "vcov"),
-  model.link = "log", cen = agemmp, at = list(predper))
+  model.link = "log", cen = agemmp, at = list(ovper))
 
 #---------------------------
 # Dose response predictions for all cities at different ages
@@ -61,12 +83,13 @@ allcitycoords <- do.call(rbind, metageo$geometry)
 colnames(allcitycoords) <- c("lon", "lat")
 
 # Grid between cities and age
-cityagegrid <- expand.grid(seq_len(nrow(allcitycoords)), agepred)
+cityagegrid <- expand.grid(seq_len(nrow(allcitycoords)), 
+  seq_along(unique(agegrps)))
 nca <- nrow(cityagegrid)
 
 # Prediction data.frame
 allpreddf <- data.frame(pcvar[cityagegrid[,1],], 
-  allcitycoords[cityagegrid[,1],], age = cityagegrid[,2])
+  allcitycoords[cityagegrid[,1],], age = c(agepred))
 
 # Predict coefficients
 citycoefs <- predict(stage2res, allpreddf, vcov = T)
@@ -89,14 +112,14 @@ cityERF <- Map(function(b, era5){
     crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
       model.link="log", at = quantile(era5$era5landtmean, predper / 100))
   }, citycoefs, era5series[cityagegrid[,1]])
-names(cityERF) <- metadata$URAU_CODE
+names(cityERF) <- paste(metadata$URAU_CODE[cityagegrid[,1]], 
+  agelabs[cityagegrid[,2]], sep = "_")
 
 #----- Create summary object
 
 # Start with metapredictor component valued
 cityres <- allpreddf
-cityres$age <- rep(paste(c(0, agebreaks), c(agebreaks, 99), sep = "-"), 
-  each = nrow(allcitycoords))
+cityres$agegroup <- agelabs[cityagegrid[,2]]
 
 # MMP & MMT
 cityres$mmt <- sapply(cityERF, "[[", "cen")
@@ -121,13 +144,8 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
 
 #----- Construct deaths for each city / age group
 
-# Get age group death data
-citydeaths <- metadata[,grep("death_[[:digit:]]{4}", names(metadata))]
-
 # Sum by group
-agegrpind <- cut(as.numeric(substr(names(citydeaths), 7, 8)), 
-  c(0, agebreaks, 100), right = F)
-cityagedeaths <- tapply(as.list(citydeaths), agegrpind, 
+cityagedeaths <- tapply(as.list(as.data.frame(agedeaths)), agegrps, 
   function(x) rowSums(do.call(cbind, x)))
 deathlist <- unlist(cityagedeaths)
 
@@ -143,14 +161,14 @@ registerDoParallel(cl)
 
 #----- Write text file to trace iterations
 writeLines(c(""), "temp/logres.txt")
-cat(as.character(as.POSIXct(Sys.time())),file="temp/logres.txt",append=T)
+cat(as.character(as.POSIXct(Sys.time())), file = "temp/logres.txt", append = T)
 
 #----- Compute AN / AF
 attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   
   #----- Store iteration (1 every 100)
-  if(i%%100==0) cat("\n", "iter=",i, as.character(Sys.time()), "\n",
-    file="temp/logres.txt", append=T)
+  if(i %% 100 == 0) cat("\n", "iter = ", i, as.character(Sys.time()), "\n",
+    file = "temp/logres.txt", append = T)
   
   # Get object for this city age
   era5 <- era5series[[cityagegrid[i,1]]]$era5landtmean
@@ -218,12 +236,12 @@ bgcoefs <- predict(stage2res, bggrid, vcov = T)
 firstpred <- ov_basis %*% sapply(bgcoefs, "[[", "fit")
 
 # Find MMP
-bgmmp <- predper[inrange][apply(firstpred[inrange,], 2, which.min)]
+bgmmp <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
 
 # Predict RR at specifiec percentiles
 bgrr <- Map(function(b, mm){
-  cp <- crosspred(ov_basis, coef = b$fit, vcov = b$vcov, cen = mm, model.link="log",
-    at = resultper)
+  cp <- crosspred(ov_basis, coef = b$fit, vcov = b$vcov, cen = mm, 
+    model.link="log", at = ovper[predper %in% resultper])
   t(rbind(RR = cp$allRRfit, low = cp$allRRlow, high = cp$allRRhigh))
 }, bgcoefs, bgmmp)
 
@@ -246,31 +264,32 @@ colnames(loads) <- sprintf("pls%i", 1:npc)
 st2coefs <- coef(stage2res, format = "matrix")
 inds <- grep("pls", rownames(st2coefs))
 plscoefs <- st2coefs[inds,]
-backcoefs <- t(plscoefs) %*% t(loads)
+backcoefs <- loads %*% plscoefs
 
 # Vcov matrix
+inds <- grep("pls", rownames(vcov(stage2res)))
 mixvcov <- vcov(stage2res)[inds, inds]
 reploads <- loads %x% diag(nc)
 backvcov <- reploads %*% mixvcov %*% t(reploads)
-
-
-# Monte-Carlo standard error and confidence intervals (not sure about this)
-# plscsim <- metacoefsim[,grep("pls", colnames(metacoefsim))]
-# backsim <- apply(plscsim, 1, function(x) 
-#   matrix(x, ncol = npc) %*% t(loads))
-# vcovSim <- var(t(backsim))
-# 
-# backCIs <- apply(backsim, 1, quantile, c(.025, .975))
-# rownames(backCIs) <- c("low", "hi")
 
 #----- Create curves for increase in one SD for each variable
 
 # Crosspred with backtransformed coefficients
 backcp <- lapply(seq_along(metaprednames), function(i){
   inds <- (1:nc) + (i - 1) * nc
-  crosspred(ov_basis, coef = backcoefs[,i], vcov = backvcov[inds,inds],
-    model.link = "log", cen = 50, at = predper)
+  crosspred(ov_basis, coef = backcoefs[i,], vcov = backvcov[inds,inds],
+    model.link = "log", cen = median(ovper), at = ovper)
 })
+
+# Wald test
+waldres <- t(sapply(seq_along(metaprednames), function(i){
+  inds <- (1:nc) + (i - 1) * nc
+  waldstat <- backcoefs[i,,drop = F] %*% solve(backvcov[inds,inds]) %*%
+    backcoefs[i,]
+  pval <- 1 - pchisq(waldstat, nc)
+  return(list(waldstat = waldstat, pvalue = pval))
+}))
+rownames(waldres) <- metaprednames
 
 #----- Create two curves for high and low values of metapredictor
 
@@ -288,9 +307,9 @@ extpreds <- predict(stage2res, newdata = newdf, vcov = T)
 # Crosspred
 extcp <- lapply(seq_len(nrow(newmetax)), function(i){
   betas <- extpreds[[i]]$fit
-  # firstpred <- ov_basis %*% betas
-  # mmp <- predper[inrange][which.min(firstpred[inrange])]
+  firstpred <- ov_basis %*% betas
+  mmp <- ovper[inrange][which.min(firstpred[inrange])]
   crosspred(ov_basis, coef = betas, vcov = extpreds[[i]]$vcov,
-    model.link = "log", cen = 50, at = predper)
+    model.link = "log", cen = mmp, at = ovper)
 })
 

@@ -68,6 +68,9 @@ lagknots <- logknots(maxlag, 3)
 # Minimum number of deaths for being considered in analysis
 mindeath <- 10000
 
+# Minimum age to be considered in analysis and prediction
+minage <- 20
+
 #----- Second-stage analysis
 
 # Metapredictors
@@ -84,7 +87,7 @@ npc <- 4
 #----- Results exploitation
 
 # Prediction percentiles
-predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
+predper <- c(seq(0.1,1,0.1), 2:98, seq(99,99.9,0.1))
 
 # Acceptable MMP range
 mmprange <- c(1, 99)
@@ -92,12 +95,15 @@ mmprange <- c(1, 99)
 # Reported percentiles for cold and heat
 resultper <- c(1, 99)
 
+# Percentiles on axis
+axisper <- c(1, 25, 50, 75, 99)
+
 # Number of grid point for background surface
 ngrid <- 50
 
-# Age breaks: predictions at mid-ranges
-agebreaks <- c(40, 65, 75, 85)
-agepred <- (c(0, agebreaks) + c(agebreaks, 100)) / 2
+# Age groups for predictions
+agebreaks <- c(45, 65, 75, 85)
+agelabs <- paste(c("00", agebreaks), c(agebreaks, 99), sep = "-")
 
 # Number of simulations for AN/AF
 nsim <- 500
