@@ -33,8 +33,7 @@ maxk <- 15
 splitinds <- vfold_cv(data.frame(1:nrow(stage2df)))
 
 # baseline formula
-basicform <- coefs ~ ns(lon, df = 2, Boundary.knots = bnlon) + 
-  ns(lat, df = 2, Boundary.knots = bnlat) + ns(age, knots = c(50, 75))
+basicform <- coefs ~ region + ns(age, knots = c(50, 75))
 
 # Select meta predictors
 metavar <- data.matrix(metadata[repmcc, metaprednames])
@@ -73,8 +72,6 @@ cvres <- foreach(i = iter(seq(splitinds$splits)), .combine = c,
   # Add object to global environment for mixmeta
   .GlobalEnv$basicform <- basicform
   .GlobalEnv$coefs <- coefs
-  .GlobalEnv$bnlon <- bnlon
-  .GlobalEnv$bnlat <- bnlat
   .GlobalEnv$trainind <- trainind
   
   # Apply mixmeta model on training fold
@@ -142,8 +139,6 @@ pccvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
   
   # Add object to global environment for mixmeta
   .GlobalEnv$coefs <- coefs
-  .GlobalEnv$bnlon <- bnlon
-  .GlobalEnv$bnlat <- bnlat
   .GlobalEnv$trainind <- trainind
   
   # Loop on number of components
@@ -207,8 +202,6 @@ for (i in seq_len(maxk)){
       
       # Add object to global environment for mixmeta
       .GlobalEnv$coefs <- coefs
-      .GlobalEnv$bnlon <- bnlon
-      .GlobalEnv$bnlat <- bnlat
       .GlobalEnv$trainind <- trainind
       .GlobalEnv$jf <- jf
         
@@ -299,8 +292,6 @@ ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
   ccadf <- cbind(stage2df[trainind,], cca = scale(metatrain) %*% ccares$xcoef)
   
   # Add object to global environment for mixmeta
-  .GlobalEnv$bnlon <- bnlon
-  .GlobalEnv$bnlat <- bnlat
   .GlobalEnv$coeftrain <- coeftrain
   
   # Loop on number of components
@@ -400,8 +391,6 @@ plscvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
   validdf <- cbind(stage2df[validind,], plspred)
   
   # Add object to global environment for mixmeta
-  .GlobalEnv$bnlon <- bnlon
-  .GlobalEnv$bnlat <- bnlat
   .GlobalEnv$coeftrain <- coeftrain
   
   # Loop on number of components

@@ -117,7 +117,12 @@ metadata <- metadata[!metadata$URAU_CODE %in% overseas,]
 older <- c("ES552", "ES550")
 metadata <- metadata[!rownames(metadata) %in% older,]
 
-#----- Add other NUTS level codes for easier merging
+#----- Add other information
+
+# Add region
+metadata$region <- as.factor(regionlist[metadata$CNTR_CODE])
+
+# NUTS codes for easier merging
 metadata$NUTS2_2021 <- substr(metadata$NUTS3_2021, 1, 4)
 metadata$NUTS1_2021 <- substr(metadata$NUTS3_2021, 1, 3)
 
@@ -125,7 +130,9 @@ metadata$NUTS1_2021 <- substr(metadata$NUTS3_2021, 1, 3)
 metadata$NUTS2_2016 <- substr(metadata$NUTS3_2016, 1, 4)
 metadata$NUTS1_2016 <- substr(metadata$NUTS3_2016, 1, 3)
 
-#----- Order dataset
+#----- Tidy dataset
+
+# Order it
 metadata <- metadata[order(metadata$URAU_CODE),]
 
 # List of description variables

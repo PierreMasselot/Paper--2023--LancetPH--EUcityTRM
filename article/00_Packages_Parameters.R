@@ -53,6 +53,17 @@ mcc_countries <- c('cze9415', 'est9718', 'fnl9411', 'fra0014',
   'spa0913', 'sui9513', 'swe9016', 'uk9016',
   'ger9315', 'net9516c', 'rom9416') # Last line is MCC_all
 
+# Region definition for background taken fro UN M49 
+#   (see https://unstats.un.org/unsd/methodology/m49/)
+regionlist <- c(BG = "Eastern", CZ = "Eastern", HU = "Eastern", RO = "Eastern", 
+  SK = "Eastern", PL = "Eastern", DK = "Northern", FI = "Northern", 
+  SE = "Northern", EE = "Northern", LV = "Northern", UK = "Northern", 
+  IE = "Northern", LT = "Northern", NO = "Northern", ES = "Southern", 
+  HR = "Southern", IT = "Southern", CY = "Southern", EL = "Southern", 
+  PT = "Southern", MT = "Southern", SI = "Southern", AT = "Western", 
+  BE = "Western", FR = "Western", LU = "Western", DE = "Western", 
+  NL = "Western", CH = "Western")
+
 #----- First-stage analysis
 
 # Exposure dimension
@@ -82,7 +93,7 @@ metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
 )
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 #----- Results exploitation
 

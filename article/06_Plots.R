@@ -23,6 +23,10 @@ euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
 metacomplete <- cbind(metadata, do.call(rbind, metageo$geometry))
 names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
 
+# Limits of cities considered
+urauext <- st_bbox(metageo)
+bnlon <- urauext[c(1,3)]
+bnlat <- urauext[c(2,4)]
 
 #---------------------------
 #  Metavariable components

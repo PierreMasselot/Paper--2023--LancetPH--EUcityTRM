@@ -33,17 +33,11 @@ st2mcccodes <- apply(t(sapply(strsplit(names(unlistresults), "\\."), "[", 1:2)),
   1, paste, collapse = ".")
 repmcc <- match(st2mcccodes, metadata$mcc_code)
 
-# Extract lon / lat coordinates
-citycoords <- do.call(rbind, metageo$geometry[repmcc])
-colnames(citycoords) <- c("lon", "lat")
-
-# Compute boundary knots to ensure all predicted cities are covered
-urauext <- st_bbox(metageo)
-bnlon <- urauext[c(1,3)]
-bnlat <- urauext[c(2,4)]
+# Set contrast for region
+contrasts(metadata$region) <- "contr.helmert"
 
 # Create stage 2 data.frame
-stage2df <- data.frame(citycoords, age = agevals, 
+stage2df <- data.frame(region = metadata$region[repmcc], age = agevals, 
   city = metadata[repmcc, "URAU_CODE"], 
   country = as.factor(metadata[repmcc, "CNTR_CODE"]))
 
@@ -84,8 +78,7 @@ stage2df <- cbind(stage2df, pcvar[repmcc,])
 #---------------------------
 
 # Create formula
-st2form <- sprintf("coefs ~ %s + ns(lon, df = 2, Boundary.knots = bnlon) + 
-    ns(lat, df = 2, Boundary.knots = bnlat) + 
+st2form <- sprintf("coefs ~ %s + region + 
     ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
   paste(colnames(pcvar), collapse = " + "))
 

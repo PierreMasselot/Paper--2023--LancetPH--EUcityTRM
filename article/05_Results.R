@@ -49,27 +49,36 @@ agetot <- colMeans(agepred)
 
 #----- Predict coefficients for different ages
 
-# Average value of lat/lon and PCS
-meangeo <- lapply(stage2df[c("lon", "lat")], mean)
-meanpcs <- rep(list(0), npc); names(meanpcs) <- colnames(pcvar)
+# Get design matrix for age only
+mixterms <- delete.response(terms(stage2res))
+agemm <- model.matrix(mixterms[grep("age", attr(mixterms, "term.labels"))],
+  data.frame(age = agetot))
 
-# Create prediction data.frame
-agepreddf <- as.data.frame(c(list(age = agetot, meangeo, meanpcs)))
+# Get meta coefficients and vcov for intercept and age
+allmetac <- coef(stage2res)
+ageinds <- grep("age|(Intercept)", names(allmetac))
+agemetac <- allmetac[ageinds]
+agemetav <- vcov(stage2res)[ageinds, ageinds]
 
-# Predict coefficients
-agecoefs <- predict(stage2res, agepreddf, vcov = T)
+# Predict DLNM coefficients and vcov for all ages
+agepreds <- apply(agemm, 1, function(x){
+  xexp <- t(x) %x% diag(nc)
+  coefpred <- xexp %*% agemetac
+  vcovpred <- xexp %*% agemetav %*% t(xexp)
+  list(fit = coefpred, vcov = vcovpred)
+})
 
 #----- Compute ERF
 
 # Multiply to coefficients to obtain rough predicted curve
-firstpred <- ov_basis %*% sapply(agecoefs, "[[", "fit")
+firstpred <- ov_basis %*% sapply(agepreds, "[[", "fit")
 
 # For each find MMP
 agemmp <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
 
 # Obtain list of ERF
 agecp <- Map(crosspred, basis = list(ov_basis), 
-  coef = lapply(agecoefs, "[[", "fit"), vcov = lapply(agecoefs, "[[", "vcov"),
+  coef = lapply(agepreds, "[[", "fit"), vcov = lapply(agepreds, "[[", "vcov"),
   model.link = "log", cen = agemmp, at = list(ovper))
 
 #---------------------------
