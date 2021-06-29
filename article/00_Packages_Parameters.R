@@ -16,6 +16,7 @@ library(eurostat) # To download eurostat data
 library(doParallel) # Run loops in parallel
 library(MESS) # For function cumsumbinning
 library(Matrix) # Functions for matrix operations
+library(modeest) # For computing mode of a vector
 
 #----- Analysis
 library(mice) # Missing value imputation

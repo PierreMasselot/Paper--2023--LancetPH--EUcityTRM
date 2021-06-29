@@ -11,8 +11,6 @@
 #---------------------------
 
 path <- "V:/VolumeQ/AGteam/MCCdata/data"
-# path <- paste0("C:/Users/PierreMasselot/Filr/Net Folders/",
-#   "StorageOnDemand Q/AGteam/MCCdata/data/MCC_all")
 
 #----- Load age causes MCC dataset
 load(sprintf("%s/MCC_age_classes/MCC_AgeCause_20200907.RData", path))
