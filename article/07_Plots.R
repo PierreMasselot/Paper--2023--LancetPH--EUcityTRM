@@ -6,27 +6,130 @@
 #
 ################################################################################
 
+source("06_Results.R")
+
+
+
 #---------------------------
-#  Prepare objects
+#  Maps
 #---------------------------
 
-#----- For reporting ERFs
+#----- Cities with population
 
-# Axis locations for plots
-ovaxis <- ovper[predper %in% axisper]
+ggplot(data = metacomplete) + theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, size = pop, col = inmcc), 
+    alpha = .4, pch = 16) + 
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
+  scale_color_discrete(name = "", labels = c("Predicted", "MCC"))
 
-#----- For maps
-# Country layout
-euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
+ggsave("figures/urau_cities.pdf")
 
-# Complete data.frame with all info
-metacomplete <- cbind(metadata, do.call(rbind, metageo$geometry))
-names(metacomplete)[(-1:0) + ncol(metacomplete)] <- c("lon", "lat")
+#----- City predictions
+# MMT
+mmtmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, size = pop, fill = mmt), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+    name = "MMT", oob = squish) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
+  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  # theme(strip.text = element_text(size = 15))
 
-# Limits of cities considered
-urauext <- st_bbox(metageo)
-bnlon <- urauext[c(1,3)]
-bnlat <- urauext[c(2,4)]
+
+# Cold
+rrcoldmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = rrcold, size = pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkblue", 
+    name = sprintf("RR at percentile %i", resultper[1])) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
+  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  # theme(strip.text = element_text(size = 15))
+
+# Heat
+rrheatmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = rrheat, size = pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkred", 
+    name = sprintf("RR at percentile %i", resultper[2])) + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
+  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
+  # theme(strip.text = element_text(size = 15))
+
+# Put them together and save
+
+rrcoldmap + mmtmap + rrheatmap
+
+ggsave("figures/Fig1_citiesResults.pdf", width = 15)
+
+#----- Standardised rates
+
+# Cold AN
+stdcoldmap <- ggplot(data = subset(cityres, agegroup == agelabs[1])) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = stdrate_cold_est, size = pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkblue", 
+    name = "Cold (x100 000)") + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+
+# Heat
+stdheatmap <- ggplot(data = subset(cityres, agegroup == agelabs[1])) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95)) + 
+  geom_point(aes(x = lon, y = lat, fill = stdrate_heat_est, size = pop), 
+    alpha = .9, pch = 21) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+  scale_fill_gradient(low = "white", high = "darkred", 
+    name = "Heat (x100 000)") + 
+  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+
+# Put them together and save
+
+stdcoldmap + stdheatmap
+
+ggsave("figures/Fig2_StdRates.pdf", width = 10)
+
+
+#----------------------
+# Age effect
+#----------------------
+
+pal <- viridis(length(agetot), direction = -1)
+
+# Plot all for ages
+layout(matrix(1:2, ncol = 2), width = c(4, 1))
+plot(NA, bty = "l", xaxt = "n", 
+  xlab = "Temperature percentile", ylab = "RR",
+  xlim = range(ovper), 
+  ylim = c(min(sapply(agecp, "[[", "allRRlow")), 
+    max(sapply(agecp, "[[", "allRRhigh"))))
+abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+axis(1, at = ovaxis, labels = axisper)
+for (i in seq_along(agetot)){
+  lines(agecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
+    lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
+}
+abline(h = 1)
+par(mar = c(5, 0, 4, 0) + .1)
+plot.new()
+legend("topleft", legend = agelabs, col = pal, lty = 1, lwd = 2, 
+  title = "Age", bty = "n")
+
+dev.print(pdf, file = "figures/Fig3 - AgeERF.pdf")
 
 #---------------------------
 #  Metavariable components
@@ -101,7 +204,9 @@ for (i in seq_along(metaprednames)){
   text(mean(par("usr")[1:2]), par("usr")[3], 
     sprintf("p-value = %0.4f", waldres[i,2]), pos = 3, cex = 1.2)
 }
-dev.print(pdf, file = "figures/MetapredEffectSD.pdf", width = 10, height = 15)
+
+dev.print(pdf, file = "figures/Fig4 - MetapredEffectSD.pdf", 
+  width = 10, height = 15)
 
 # Difference between low and large values
 cols <- plasma(2, direction = -1, begin = .1, end = .9)
@@ -125,111 +230,9 @@ for (i in seq_along(metaprednames)){
 }
 dev.print(pdf, file = "figures/MetapredEffectDiff.pdf", width = 10, height = 15)
 
-#---------------------------
-#  Maps
-#---------------------------
-
-#----- Cities with population
-
-ggplot(data = metacomplete) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = pop, col = inmcc), 
-    alpha = .4, pch = 16) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  scale_color_discrete(name = "", labels = c("Predicted", "MCC"))
-
-ggsave("figures/urau_cities.pdf")
-
-#----- City predictions
-# MMT
-ggplot(data = cityres) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, 
-    size = rep(metadata$pop, length(agepred)), fill = mmt), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMT", limit = c(0, 30), oob = squish) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  theme(strip.text = element_text(size = 15))
-
-ggsave("figures/cities_mmt.pdf", width = 15, height = 10)
-
-# Cold
-ggplot(data = cityres) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrcold, 
-    size = rep(metadata$pop, length(agepred))), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue", 
-    name = sprintf("RR at percentile %i", resultper[1])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  theme(strip.text = element_text(size = 15))
-
-ggsave("figures/cities_rrcold.pdf")
-
-# Heat
-ggplot(data = cityres) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrheat, 
-    size = rep(metadata$pop, length(agepred))), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred", 
-    name = sprintf("RR at percentile %i", resultper[2])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  theme(strip.text = element_text(size = 15))
-
-ggsave("figures/cities_rrheat.pdf")
-
-#----- Attributable number
-
-# Sum attributable number across all ages
-ansum <- aggregate(cbind(an_total_est, an_cold_est, an_heat_est) ~ lon + lat, 
-  data = cityres, sum)
-
-# Plot total AN
-ggplot(data = ansum) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = an_total_est, size = metadata$pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_viridis(option = "inferno", oob = squish, name = "Total AN", 
-    limits = c(0, quantile(ansum$an_total_est, .99))) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
-
-ggsave("figures/cities_ANtot.pdf")
-
-# Plot cold AN
-ggplot(data = ansum) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = an_cold_est, size = metadata$pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue", oob = squish,
-    name = "Cold AN", limits = c(0, quantile(ansum$an_cold_est, .99))) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
-
-ggsave("figures/cities_ANcold.pdf")
-
-# Plot heat AN
-ggplot(data = ansum) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = an_heat_est, size = metadata$pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred", oob = squish,
-    name = "Heat AN", limits = c(0, quantile(ansum$an_heat_est, .99))) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
-
-ggsave("figures/cities_ANheat.pdf")
-
-#----- Background effect
+#-------------------------
+# Background effect
+#-------------------------
 
 # MMP
 ggplot(data = bggrid) + theme_void() + 
@@ -267,31 +270,6 @@ ggsave("figures/bg_rrheat.pdf")
 #---------------------------
 # Exposure response functions
 #---------------------------
-
-#----- Average ERF for different ages
-
-pal <- viridis(length(agetot), direction = -1)
-
-# Plot all for ages
-layout(matrix(1:2, ncol = 2), width = c(4, 1))
-plot(NA, bty = "l", xaxt = "n", 
-  xlab = "Temperature percentile", ylab = "RR",
-  xlim = range(ovper), 
-  ylim = c(min(sapply(agecp, "[[", "allRRlow")), 
-    max(sapply(agecp, "[[", "allRRhigh"))))
-abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
-axis(1, at = ovaxis, labels = axisper)
-for (i in seq_along(agetot)){
-  lines(agecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
-    lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
-}
-abline(h = 1)
-par(mar = c(5, 0, 4, 0) + .1)
-plot.new()
-legend("topleft", legend = agelabs, col = pal, lty = 1, lwd = 2, 
-  title = "Age", bty = "n")
-
-dev.print(pdf, file = "figures/AgeERF.pdf")
 
 #----- All ERF
 

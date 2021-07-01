@@ -29,7 +29,7 @@ cat(as.character(as.POSIXct(Sys.time())), file = "temp/logstage1.txt",
 # Extract and sort age group deaths
 deathvars <- sort(grep("death_[[:digit:]]", names(metadata), value = T))
 
-# Extract min, max and mid age group
+# Extract min, and max of age group
 agemin <- substr(deathvars, 7, 8)
 agemax <- substr(deathvars, 9, 10)
 

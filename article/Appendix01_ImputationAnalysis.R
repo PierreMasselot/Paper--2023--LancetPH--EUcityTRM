@@ -6,6 +6,10 @@
 #
 ################################################################################
 
+source("00_Packages_Parameters.R")
+
+load("data/Alldata.RData")
+
 #-----------------------
 # Comparing density of observed and imputed
 #-----------------------

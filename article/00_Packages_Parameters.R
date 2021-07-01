@@ -17,6 +17,7 @@ library(doParallel) # Run loops in parallel
 library(MESS) # For function cumsumbinning
 library(Matrix) # Functions for matrix operations
 library(modeest) # For computing mode of a vector
+library(PHEindicatormethods) # For the 2013 European standard population
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -32,7 +33,9 @@ library(scales) # Scale management
 library(colorspace) # For specific color palettes
 library(fields) # For specific color palettes
 library(viridis) # For specific color palettes
+library(RColorBrewer) # For specific color palettes
 library(corrplot) # Plotting correlation matrices
+library(patchwork) # Putting together plots created with ggplot
 
 #----------------------
 # Parameters
@@ -59,11 +62,12 @@ mcc_countries <- c('cze9415', 'est9718', 'fnl9411', 'fra0014',
 regionlist <- c(BG = "Eastern", CZ = "Eastern", HU = "Eastern", RO = "Eastern", 
   SK = "Eastern", PL = "Eastern", DK = "Northern", FI = "Northern", 
   SE = "Northern", EE = "Northern", LV = "Northern", UK = "Northern", 
-  IE = "Northern", LT = "Northern", NO = "Northern", ES = "Southern", 
-  HR = "Southern", IT = "Southern", CY = "Southern", EL = "Southern", 
-  PT = "Southern", MT = "Southern", SI = "Southern", AT = "Western", 
-  BE = "Western", FR = "Western", LU = "Western", DE = "Western", 
-  NL = "Western", CH = "Western")
+  IE = "Northern", LT = "Northern", NO = "Northern", IS = "Northern", 
+  ES = "Southern", HR = "Southern", IT = "Southern", CY = "Southern", 
+  EL = "Southern", PT = "Southern", MT = "Southern", SI = "Southern", 
+  RS = "Southern", ME = "Southern", MK = "Southern", AL = "Southern", 
+  AT = "Western", BE = "Western", FR = "Western", LU = "Western", 
+  DE = "Western", NL = "Western", CH = "Western", LI = "Western")
 
 #----- First-stage analysis
 
@@ -94,7 +98,10 @@ metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
 )
 
 # Number of metapredictor components
-npc <- 5
+npc <- 4
+
+# Knots for age spline
+ageknots <- 65
 
 #----- Results exploitation
 
@@ -115,7 +122,7 @@ ngrid <- 50
 
 # Age groups for predictions
 agebreaks <- c(45, 65, 75, 85)
-agelabs <- paste(c("00", agebreaks), c(agebreaks, 99), sep = "-")
+agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
 
 # Number of simulations for AN/AF
 nsim <- 500

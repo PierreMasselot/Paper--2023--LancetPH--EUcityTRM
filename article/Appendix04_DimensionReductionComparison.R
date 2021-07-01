@@ -14,7 +14,7 @@ library(doParallel)
 library(pls)
 library(dlnm)
 
-## Execute the prepare data part of second stage meta-analysis
+source("05_PrepResults.R")
 
 #---------------------------
 # Parameters
@@ -33,7 +33,7 @@ maxk <- 15
 splitinds <- vfold_cv(data.frame(1:nrow(stage2df)))
 
 # baseline formula
-basicform <- coefs ~ region + ns(age, knots = c(50, 75))
+basicform <- coefs ~ region + ns(age, knots = 65, Boundary.knots = c(0, 100))
 
 # Select meta predictors
 metavar <- data.matrix(metadata[repmcc, metaprednames])
@@ -482,50 +482,50 @@ legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
 dev.print(pdf, file = "figures/FigS2_1_CrossValidation.pdf")
 
 
-#---------------------------
-# Show loadings
-#---------------------------
-
-#----- Extract loadings
-# For rotations directly
-pcaload <- pcares$rotation[,1:maxk]
-ccaload <- ccares$scores$corr.X.xscores
-plsload <- plsres$loadings[,1:maxk]
-
-# Extract right loading for step pca
-fterms <- strsplit(as.character(stepform)[3], " \\+ ")[[1]]
-selcomps <- substr(grep("PC", fterms, value = T), 3, 4)
-stepload <- pcares$rotation[,as.numeric(selcomps)]
-
-#----- Plot
-# Number of components to plot
-ncplot <- 5
-
-# Prepare plot layout
-x11(height = 15, width = 10)
-par(oma = c(7, 0, 0, 0), mar = c(1, 4, 3, 2) + .1)
-layout(cbind(1:ncplot, ncplot + 1), widths = c(4, 1))
-
-# Loop on components
-for (i in seq_len(ncplot)) {
-  loadmat <- cbind(pcaload[,i], stepload[,i], ccaload[,i], plsload[,i])
-  
-  # Barplot
-  bp <- barplot(t(loadmat), beside = T, border = NA, xaxt = "n",
-    main = sprintf("Comp %i", i), col = 1:4, ylim = c(-1, 1))
-  abline(h = 0)
-  abline(v = bp[1,-1] - 1, lty = 3)
-}
-axis(1, at = colMeans(bp), labels = metaprednames, las = 3)
-
-# Add legend
-par(mar = c(5, 0, 4, 0))
-plot.new()
-legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
-  fill = seq_along(allcv), bty = "n", title = "Method")
-
-# Save
-dev.print(pdf, file = "figures/FigS2_2_Loadings.pdf")
+# #---------------------------
+# # Show loadings
+# #---------------------------
+# 
+# #----- Extract loadings
+# # For rotations directly
+# pcaload <- pcares$rotation[,1:maxk]
+# ccaload <- ccares$scores$corr.X.xscores
+# plsload <- plsres$loadings[,1:maxk]
+# 
+# # Extract right loading for step pca
+# fterms <- strsplit(as.character(stepform)[3], " \\+ ")[[1]]
+# selcomps <- substr(grep("PC", fterms, value = T), 3, 4)
+# stepload <- pcares$rotation[,as.numeric(selcomps)]
+# 
+# #----- Plot
+# # Number of components to plot
+# ncplot <- 5
+# 
+# # Prepare plot layout
+# x11(height = 15, width = 10)
+# par(oma = c(7, 0, 0, 0), mar = c(1, 4, 3, 2) + .1)
+# layout(cbind(1:ncplot, ncplot + 1), widths = c(4, 1))
+# 
+# # Loop on components
+# for (i in seq_len(ncplot)) {
+#   loadmat <- cbind(pcaload[,i], stepload[,i], ccaload[,i], plsload[,i])
+#   
+#   # Barplot
+#   bp <- barplot(t(loadmat), beside = T, border = NA, xaxt = "n",
+#     main = sprintf("Comp %i", i), col = 1:4, ylim = c(-1, 1))
+#   abline(h = 0)
+#   abline(v = bp[1,-1] - 1, lty = 3)
+# }
+# axis(1, at = colMeans(bp), labels = metaprednames, las = 3)
+# 
+# # Add legend
+# par(mar = c(5, 0, 4, 0))
+# plot.new()
+# legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
+#   fill = seq_along(allcv), bty = "n", title = "Method")
+# 
+# # Save
+# dev.print(pdf, file = "figures/FigS2_2_Loadings.pdf")
 
 
 #---------------------------

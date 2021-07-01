@@ -6,19 +6,24 @@
 #
 ################################################################################
 
-library(kgc)
-library(RColorBrewer)
-library(patchwork)
-
-##### EXECUTE 04_SecondStage.R (except mixmeta) #####
-##### EXECUTE FIRST SECTION OF 05_Results.R #####  
-##### EXECUTE FIRST SECTION OF 06_Plots.R #####  
+source("05_PrepResults.R")
 
 #---------------------------
-#  Common objects
+#  Prepare comparison
 #---------------------------
 
-#----- Functions
+#----- Baseline model
+
+# Baseline formula
+baseform <- as.formula(sprintf("coefs ~ %s + 
+    ns(age, knots = 65, Boundary.knots = c(0, 100))",
+  paste(colnames(pcvar), collapse = " + ")))
+
+# Baseline model for comparison
+basemod <- mixmeta(baseform, data = stage2df, 
+  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
+
+#----- Function for wald test
 
 # Wald test
 fwald <- function(full, null) {
@@ -31,21 +36,9 @@ fwald <- function(full, null) {
   return(list(waldstat = waldstat, pvalue = pval))
 }
 
-# Baseline model for Wald test
-withoutres <- mixmeta(as.formula(sprintf("coefs ~ %s + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar), collapse = " + "))), data = stage2df, 
-  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
+#----- Objects for prediction
 
-# Prediction function
-bgpred <- function(coef){
-  firstpred <- ov_basis %*% coef$fit
-  mmt <- ovper[inrange][which.min(firstpred[inrange,])]
-  crosspred(ov_basis, coef = coef$fit, vcov = coef$vcov, cen = mmt, 
-    model.link = "log", at = ovper)
-}
-
-#----- background data.frame for prediction
+# Background data.frame
 bggrid <- expand.grid(lon = seq(urauext[1], urauext[3], length.out = ngrid),
   lat = seq(urauext[2], urauext[4], length.out = ngrid)
 )
@@ -55,7 +48,15 @@ bggrid <- bggrid[inland,]
 bggrid[colnames(pcvar)] <- 0
 bggrid["age"] <- mean(stage2df$age)
 
-#----- City data.frame for prediction
+# Prediction function
+bgpred <- function(coef){
+  firstpred <- ov_basis %*% coef$fit
+  mmt <- ovper[inrange][which.min(firstpred[inrange,])]
+  crosspred(ov_basis, coef = coef$fit, vcov = coef$vcov, cen = mmt, 
+    model.link = "log", at = ovper)
+}
+
+#----- City data.frame for curve prediction
 
 # Random cities 
 cityind <- sample.int(nrow(metadata), 5)
@@ -65,8 +66,8 @@ citygeo <- do.call(rbind, metageo$geometry[cityind])
 colnames(citygeo) <- c("lon", "lat")
 
 # Put everything in a data.frame
-citydf <- data.frame(
-  id = paste(metadata[cityind, "URAU_NAME"], metadata[cityind, "CNTR_CODE"], sep = " - "), 
+citydf <- data.frame(id = paste(metadata[cityind, "URAU_NAME"], 
+    metadata[cityind, "CNTR_CODE"], sep = " - "), 
   citygeo, scale(metavar)[cityind,], age = mean(stage2df$age))
 
 
@@ -198,12 +199,15 @@ citydf <- data.frame(
 #---------------------------
 
 #----- Fit mixmeta
+
+# Add to the data.frame
+latlon <- do.call(rbind, metageo$geometry[repmcc])
+colnames(latlon) <- c("lon", "lat")
+stage2df <- cbind(stage2df, latlon)
+
 # Create formula
-latlonform <- as.formula(sprintf("coefs ~ %s + 
-    ns(lon, df = 2, Boundary.knots = bnlon) + 
-    ns(lat, df = 2, Boundary.knots = bnlat) + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar), collapse = " + ")))
+latlonform <- update(baseform, ~ . + ns(lon, df = 2, Boundary.knots = bnlon) + 
+    ns(lat, df = 2, Boundary.knots = bnlat))
 
 # Apply meta regression model
 latlonres <- mixmeta(as.formula(latlonform), data = stage2df, 
@@ -213,7 +217,7 @@ latlonres <- mixmeta(as.formula(latlonform), data = stage2df,
 
 # Keep scores
 latlonscores <- c(aic = AIC(latlonres), i2 = summary(latlonres)$i2[1],
-  wald = fwald(latlonres, withoutres)$pvalue)
+  wald = fwald(latlonres, basemod)$pvalue)
 
 #----- Background plots
 
@@ -284,12 +288,11 @@ latloncitycp <- lapply(citycoefs, bgpred)
 #---------------------------
 
 #----- Fit mixmeta
+
 # Create formula
-latlontensform <- as.formula(sprintf("coefs ~ %s + 
-    ns(lon, df = 2, Boundary.knots = bnlon) * 
-    ns(lat, df = 2, Boundary.knots = bnlat) + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar), collapse = " + ")))
+latlontensform <- update(baseform, 
+  ~ . + ns(lon, df = 2, Boundary.knots = bnlon) * 
+    ns(lat, df = 2, Boundary.knots = bnlat))
 
 # Apply meta regression model
 latlontensres <- mixmeta(as.formula(latlontensform), data = stage2df, 
@@ -299,7 +302,7 @@ latlontensres <- mixmeta(as.formula(latlontensform), data = stage2df,
 
 # Keep scores
 latlontenscores <- c(aic = AIC(latlontensres), i2 = summary(latlontensres)$i2[1],
-  wald = fwald(latlontensres, withoutres)$pvalue)
+  wald = fwald(latlontensres, basemod)$pvalue)
 
 #----- Background plots
 
@@ -365,109 +368,109 @@ citycoefs <- predict(latlontensres, latlontensdf, vcov = T)
 latlontenscitycp <- lapply(citycoefs, bgpred)
 
 
-#---------------------------
-# Lat/lon integrated to PLS
-#---------------------------
-
-# Compute PLS with lat/lon
-cityscale <- scale(citycoords)
-metapls2 <- cbind(metapls, cityscale)
-plsres2 <- plsr(coefs ~ metapls2, center = F)
-pcvar2 <- predict(plsres2, type = "scores")
-colnames(pcvar2) <- sprintf("pls%i", seq_len(ncol(pcvar2)))
-newdf <- stage2df
-newdf[,sprintf("pls%i", 1:npc)] <- pcvar2[,1:npc]
-
-#----- Fit mixmeta
-# Create formula
-latlonplsform <- as.formula(sprintf("coefs ~ %s + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar)[1:npc], collapse = " + ")))
-
-# Apply meta regression model
-latlonplsres <- mixmeta(as.formula(latlonplsform), data = newdf, 
-  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-
-#----- Scores
-
-# Keep scores
-latlonplsscores <- c(aic = AIC(latlonplsres), i2 = summary(latlonplsres)$i2[1])
-
-#----- Background plots
-
-# Predict PLS components
-bgplsdf <- cbind(matrix(0, nrow = nrow(bggrid), ncol = length(metaprednames), 
-    dimnames = list(NULL, metaprednames)), 
-  scale(bggrid[,c("lon", "lat")], attr(cityscale, "scaled:center"), 
-    attr(cityscale, "scaled:scale")))
-newpls <- predict(plsres2, bgplsdf, type = "scores", ncomp = 1:npc)
-colnames(newpls) <- sprintf("pls%i", 1:npc)
-
-# Predict coefs
-bgdf <- as.data.frame(cbind(newpls, bggrid[,c("lon", "lat", "age")]))
-bgcoefs <- predict(latlonplsres, bgdf, vcov = T)
-
-# Obtain curves
-bgcp <- lapply(bgcoefs, bgpred)
-
-# Summary data.frame
-bgdf$mmp <- predper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgdf$mmt <- ovper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgdf$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
-bgdf$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
-
-# Plot MMP
-mmplatlonpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limits = c(50, 99)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat lon pls")
-
-# Cold
-coldlatlonpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue",
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1,1.7)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat lon pls")
-
-# Heat
-heatlatlonpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred",
-    name = sprintf("RR at percentile %i", resultper[2]),
-    limits = c(1, 1.5)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat lon pls")
-
-#----- Curve prediction for cities
-
-# Prediction data.frame
-citypls <- predict(plsres2, data.matrix(cbind(citydf[,c(metaprednames)], 
-    scale(citydf[,c("lon", "lat")], attr(cityscale, "scaled:center"), 
-      attr(cityscale, "scaled:scale")))),
-  type = "scores", ncomp = 1:npc)
-colnames(citypls) <- sprintf("pls%i", 1:npc)
-latlonplsdf <- cbind(citydf, citypls)
-
-# Predict coefficients
-citycoefs <- predict(latlonplsres, latlonplsdf, vcov = T)
-
-# Obtain curves
-latlonplscitycp <- lapply(citycoefs, bgpred)
+# #---------------------------
+# # Lat/lon integrated to PLS
+# #---------------------------
+# 
+# # Compute PLS with lat/lon
+# cityscale <- scale(citycoords)
+# metapls2 <- cbind(metapls, cityscale)
+# plsres2 <- plsr(coefs ~ metapls2, center = F)
+# pcvar2 <- predict(plsres2, type = "scores")
+# colnames(pcvar2) <- sprintf("pls%i", seq_len(ncol(pcvar2)))
+# newdf <- stage2df
+# newdf[,sprintf("pls%i", 1:npc)] <- pcvar2[,1:npc]
+# 
+# #----- Fit mixmeta
+# # Create formula
+# latlonplsform <- as.formula(sprintf("coefs ~ %s + 
+#     ns(age, knots = 65, Boundary.knots = c(0, 100))",
+#   paste(colnames(pcvar)[1:npc], collapse = " + ")))
+# 
+# # Apply meta regression model
+# latlonplsres <- mixmeta(as.formula(latlonplsform), data = newdf, 
+#   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
+# 
+# #----- Scores
+# 
+# # Keep scores
+# latlonplsscores <- c(aic = AIC(latlonplsres), i2 = summary(latlonplsres)$i2[1])
+# 
+# #----- Background plots
+# 
+# # Predict PLS components
+# bgplsdf <- cbind(matrix(0, nrow = nrow(bggrid), ncol = length(metaprednames), 
+#     dimnames = list(NULL, metaprednames)), 
+#   scale(bggrid[,c("lon", "lat")], attr(cityscale, "scaled:center"), 
+#     attr(cityscale, "scaled:scale")))
+# newpls <- predict(plsres2, bgplsdf, type = "scores", ncomp = 1:npc)
+# colnames(newpls) <- sprintf("pls%i", 1:npc)
+# 
+# # Predict coefs
+# bgdf <- as.data.frame(cbind(newpls, bggrid[,c("lon", "lat", "age")]))
+# bgcoefs <- predict(latlonplsres, bgdf, vcov = T)
+# 
+# # Obtain curves
+# bgcp <- lapply(bgcoefs, bgpred)
+# 
+# # Summary data.frame
+# bgdf$mmp <- predper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgdf$mmt <- ovper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgdf$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
+# bgdf$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
+# 
+# # Plot MMP
+# mmplatlonpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+#     name = "MMP", limits = c(50, 99)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat lon pls")
+# 
+# # Cold
+# coldlatlonpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkblue",
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1,1.7)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat lon pls")
+# 
+# # Heat
+# heatlatlonpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkred",
+#     name = sprintf("RR at percentile %i", resultper[2]),
+#     limits = c(1, 1.5)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat lon pls")
+# 
+# #----- Curve prediction for cities
+# 
+# # Prediction data.frame
+# citypls <- predict(plsres2, data.matrix(cbind(citydf[,c(metaprednames)], 
+#     scale(citydf[,c("lon", "lat")], attr(cityscale, "scaled:center"), 
+#       attr(cityscale, "scaled:scale")))),
+#   type = "scores", ncomp = 1:npc)
+# colnames(citypls) <- sprintf("pls%i", 1:npc)
+# latlonplsdf <- cbind(citydf, citypls)
+# 
+# # Predict coefficients
+# citycoefs <- predict(latlonplsres, latlonplsdf, vcov = T)
+# 
+# # Obtain curves
+# latlonplscitycp <- lapply(citycoefs, bgpred)
 
 # #---------------------------
 # # KGC integrated to PLS
@@ -583,10 +586,9 @@ metadata$region <- as.factor(region[metadata$CNTR_CODE])
 stage2df$region <- metadata$region[repmcc]
 
 #----- Fit mixmeta
+
 # Create formula
-regionform <- as.formula(sprintf("coefs ~ %s + region + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar)[1:npc], collapse = " + ")))
+regionform <- update(baseform, ~ . + region)
 
 # Apply meta regression model
 regionres <- mixmeta(regionform, data = stage2df, 
@@ -596,7 +598,7 @@ regionres <- mixmeta(regionform, data = stage2df,
 
 # Keep scores
 regionscores <- c(aic = AIC(regionres), i2 = summary(regionres)$i2[1],
-  wald = fwald(regionres, withoutres)$pvalue)
+  wald = fwald(regionres, basemod)$pvalue)
 
 #----- Background prediction
 
@@ -672,119 +674,119 @@ citycoefs <- predict(regionres, regiondf, vcov = T)
 # Obtain curves
 regioncitycp <- lapply(citycoefs, bgpred)
 
-#---------------------------
-# Region integrated to PLS
-#---------------------------
-
-# Compute PLS with lat/lon
-metapls2 <- cbind(metapls, model.matrix(~ 0 + region, metadata)[repmcc,])
-plsres2 <- plsr(coefs ~ metapls2, center = F)
-pcvar2 <- predict(plsres2, type = "scores")
-colnames(pcvar2) <- sprintf("pls%i", seq_len(ncol(pcvar2)))
-newdf <- stage2df
-newdf[,sprintf("pls%i", 1:npc)] <- pcvar2[,1:npc]
-
-#----- Fit mixmeta
-# Create formula
-regionplsform <- as.formula(sprintf("coefs ~ %s + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar)[1:npc], collapse = " + ")))
-
-# Apply meta regression model
-regionplsres <- mixmeta(as.formula(regionplsform), data = newdf, 
-  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-
-#----- Scores
-
-# Keep scores
-regionplsscores <- c(aic = AIC(regionplsres), i2 = summary(regionplsres)$i2[1])
-
-#----- Background plots
-
-# Predict PLS components
-bgplsdf <- cbind(matrix(0, nrow = nrow(regiongrid), ncol = length(metaprednames), 
-  dimnames = list(NULL, metaprednames)), 
-  model.matrix(~ 0 + region, bggrid))
-newpls <- predict(plsres2, bgplsdf, type = "scores", ncomp = 1:npc)
-colnames(newpls) <- sprintf("pls%i", 1:npc)
-
-# Predict coefs
-bgdf <- as.data.frame(cbind(newpls, 
-  bggrid[-attr(regiongrid, "na.action"),c("lon", "lat", "age")]))
-bgcoefs <- predict(regionplsres, bgdf, vcov = T)
-
-# Obtain curves
-bgcp <- lapply(bgcoefs, bgpred)
-
-# Summary data.frame
-bgdf$mmp <- predper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgdf$mmt <- ovper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgdf$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
-bgdf$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
-
-# Plot MMP
-mmpregionpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limits = c(50, 99)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region pls")
-
-# Cold
-coldregionpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue",
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1,1.7)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region pls")
-
-# Heat
-heatregionpls <- ggplot(data = bgdf) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred",
-    name = sprintf("RR at percentile %i", resultper[2]),
-    limits = c(1, 1.5)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region pls")
-
-#----- Curve prediction for cities
-
-# Prediction data.frame
-citypls <- predict(plsres2, data.matrix(cbind(citydf[,c(metaprednames)], 
-  model.matrix(~ 0 + region, metadata[cityind, ]))),
-  type = "scores", ncomp = 1:npc)
-colnames(citypls) <- sprintf("pls%i", 1:npc)
-regionplsdf <- cbind(citydf, citypls)
-
-# Predict coefficients
-citycoefs <- predict(regionplsres, regionplsdf, vcov = T)
-
-# Obtain curves
-regionplscitycp <- lapply(citycoefs, bgpred)
+# #---------------------------
+# # Region integrated to PLS
+# #---------------------------
+# 
+# # Compute PLS with lat/lon
+# metapls2 <- cbind(metapls, model.matrix(~ 0 + region, metadata)[repmcc,])
+# plsres2 <- plsr(coefs ~ metapls2, center = F)
+# pcvar2 <- predict(plsres2, type = "scores")
+# colnames(pcvar2) <- sprintf("pls%i", seq_len(ncol(pcvar2)))
+# newdf <- stage2df
+# newdf[,sprintf("pls%i", 1:npc)] <- pcvar2[,1:npc]
+# 
+# #----- Fit mixmeta
+# # Create formula
+# regionplsform <- as.formula(sprintf("coefs ~ %s + 
+#     ns(age, knots = 65, Boundary.knots = c(0, 100))",
+#   paste(colnames(pcvar)[1:npc], collapse = " + ")))
+# 
+# # Apply meta regression model
+# regionplsres <- mixmeta(as.formula(regionplsform), data = newdf, 
+#   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
+# 
+# #----- Scores
+# 
+# # Keep scores
+# regionplsscores <- c(aic = AIC(regionplsres), i2 = summary(regionplsres)$i2[1])
+# 
+# #----- Background plots
+# 
+# # Predict PLS components
+# bgplsdf <- cbind(matrix(0, nrow = nrow(regiongrid), ncol = length(metaprednames), 
+#   dimnames = list(NULL, metaprednames)), 
+#   model.matrix(~ 0 + region, bggrid))
+# newpls <- predict(plsres2, bgplsdf, type = "scores", ncomp = 1:npc)
+# colnames(newpls) <- sprintf("pls%i", 1:npc)
+# 
+# # Predict coefs
+# bgdf <- as.data.frame(cbind(newpls, 
+#   bggrid[-attr(regiongrid, "na.action"),c("lon", "lat", "age")]))
+# bgcoefs <- predict(regionplsres, bgdf, vcov = T)
+# 
+# # Obtain curves
+# bgcp <- lapply(bgcoefs, bgpred)
+# 
+# # Summary data.frame
+# bgdf$mmp <- predper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgdf$mmt <- ovper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgdf$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
+# bgdf$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
+# 
+# # Plot MMP
+# mmpregionpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+#     name = "MMP", limits = c(50, 99)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region pls")
+# 
+# # Cold
+# coldregionpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkblue",
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1,1.7)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region pls")
+# 
+# # Heat
+# heatregionpls <- ggplot(data = bgdf) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkred",
+#     name = sprintf("RR at percentile %i", resultper[2]),
+#     limits = c(1, 1.5)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region pls")
+# 
+# #----- Curve prediction for cities
+# 
+# # Prediction data.frame
+# citypls <- predict(plsres2, data.matrix(cbind(citydf[,c(metaprednames)], 
+#   model.matrix(~ 0 + region, metadata[cityind, ]))),
+#   type = "scores", ncomp = 1:npc)
+# colnames(citypls) <- sprintf("pls%i", 1:npc)
+# regionplsdf <- cbind(citydf, citypls)
+# 
+# # Predict coefficients
+# citycoefs <- predict(regionplsres, regionplsdf, vcov = T)
+# 
+# # Obtain curves
+# regionplscitycp <- lapply(citycoefs, bgpred)
 
 #---------------------------
 # Comparison
 #---------------------------
 
 # Scores
-allaic <- c('lon+lat' = latlonscores[1], 
-  'lon*lat' = latlontenscores[1], lonlat_pls = latlonplsscores[1],
-  Region = regionscores[1], Region_pls = regionplsscores[1])
-alli2 <- c('lon+lat' = latlonscores[2], 
-  'lon*lat' = latlontenscores[2], lonlat_pls = latlonplsscores[2],
-  Region = regionscores[2], Region_pls = regionplsscores[2])
+allaic <- c('lon+lat' = latlonscores[1], 'lon*lat' = latlontenscores[1], 
+  Region = regionscores[1])
+alli2 <- c('lon+lat' = latlonscores[2], 'lon*lat' = latlontenscores[2], 
+  Region = regionscores[2])
+allWald <- c('lon+lat' = latlonscores[3], 'lon*lat' = latlontenscores[3], 
+  Region = regionscores[3])
 
 # Background summary
 (mmplatlon + mmplatlontens + mmpregion) # / (mmplatlonpls + mmpregionpls)

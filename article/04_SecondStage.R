@@ -6,9 +6,9 @@
 #
 ################################################################################
 
-source("00_Packages_Parameters.R")
-
 load("results/FirstStage.RData")
+
+source("00_Packages_Parameters.R")
 
 #---------------------------
 #  Prepare stage 2 dataset
@@ -68,7 +68,7 @@ plsres <- plsr(coefs ~ metapls, center = F)
 # Extract scores for all cities
 pcvar <- predict(plsres, newdata = scale(metavar), ncomp = 1:npc, 
   type = "scores")
-colnames(pcvar) <- sprintf("pls%i", seq_len(ncol(pcvar)))
+colnames(pcvar) <- sprintf("pls%i", seq_len(npc))
 
 # Add to second stage dataset
 stage2df <- cbind(stage2df, pcvar[repmcc,])
@@ -79,7 +79,7 @@ stage2df <- cbind(stage2df, pcvar[repmcc,])
 
 # Create formula
 st2form <- sprintf("coefs ~ %s + region + 
-    ns(age, knots = c(50, 75), Boundary.knots = c(0, 100))",
+    ns(age, knots = 65, Boundary.knots = c(0, 100))",
   paste(colnames(pcvar), collapse = " + "))
 
 # Apply meta regression model
