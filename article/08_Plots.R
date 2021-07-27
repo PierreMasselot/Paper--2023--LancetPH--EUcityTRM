@@ -8,70 +8,150 @@
 
 source("06_Results.R")
 
-
-
 #---------------------------
-#  Maps
+#  Figure 1: maps of risk 
 #---------------------------
 
-#----- Cities with population
+#----- Create a basic map layout
 
-ggplot(data = metacomplete) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = pop, col = inmcc), 
-    alpha = .4, pch = 16) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  scale_color_discrete(name = "", labels = c("Predicted", "MCC"))
-
-ggsave("figures/urau_cities.pdf")
-
-#----- City predictions
-# MMT
-mmtmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
+# Map background
+basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
+    aes(x = lon, y = lat, size = pop)) + 
   theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, size = pop, fill = mmt), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMT", oob = squish) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
-  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  # theme(strip.text = element_text(size = 15))
+  geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) +
+  scale_size(name = "Population", range = c(1, 5),
+    guide = "none") + 
+  theme(legend.position = "bottom", legend.box = "vertical") + 
+  geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) + 
+  guides(fill = guide_colourbar(title.position = "top", title.hjust = .5,
+    barwidth = 12, barheight = .8))
 
+#----- Add aesthetic and scale for different result variables
 
-# Cold
-rrcoldmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
-  theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrcold, size = pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue", 
-    name = sprintf("RR at percentile %i", resultper[1])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
-  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  # theme(strip.text = element_text(size = 15))
+# MMT with heat colors
+mmtmap <- basic_map + aes(fill = mmt) + 
+  scale_fill_gradientn(colours = c("black", "darkgreen", "lightgoldenrod", 
+    "darkred", "black"),
+    name = "MMT", limits = c(10, 30), oob = squish)
+  # scale_fill_binned(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+  #   name = "MMT", oob = squish)
 
-# Heat
-rrheatmap <- ggplot(data = subset(cityres, agegroup == agelabs[3])) + 
-  theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = rrheat, size = pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred", 
-    name = sprintf("RR at percentile %i", resultper[2])) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) # + 
-  # facet_wrap(~ age, labeller = labeller(age = label_both)) + 
-  # theme(strip.text = element_text(size = 15))
+# Cold with white to blue
+coldmap <- basic_map + aes(fill = rrcold) + 
+  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkblue", 
+    high = "black", 
+    name = sprintf("RR at percentile %i", resultper[1]),
+    limits = c(1, 2), midpoint = 1.5, oob = squish)
+# scale_fill_binned(low = "white", high = "darkblue", 
+#   name = sprintf("RR at percentile %i", resultper[2]))
 
-# Put them together and save
+# Heat with white to red
+heatmap <- basic_map + aes(fill = rrheat) + 
+  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkred", 
+    high = "black", 
+    name = sprintf("RR at percentile %i", resultper[2]), oob = squish,
+    limits = c(1, 1.6), midpoint = 1.3)
+  # scale_fill_binned(low = "white", high = "darkred", 
+  #   name = sprintf("RR at percentile %i", resultper[2]))
 
-rrcoldmap + mmtmap + rrheatmap
+#----- Put maps together
 
+# Put them side-by-side
+(coldmap + mmtmap + heatmap) /
+
+# Add legend for point size
+  basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
+    scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+      labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
+      guide = guide_legend(title.position = "top", title.hjust = 0.5,
+        label.position = "bottom", override.aes = list(colour = "black"))) + 
+  theme(legend.position = "bottom") +
+  plot_layout(height = c(1, .05))
+
+# Save
 ggsave("figures/Fig1_citiesResults.pdf", width = 15)
+
+#---------------------------
+#  Figure 1bis: Risks for capital cities
+#---------------------------
+
+#----- Select capital city of each country
+
+# Find largest pop in each country
+# capitals <- unlist(by(metadata, metadata$CNTR_CODE, function(d){
+#   d[which.max(d$pop), "URAU_CODE"]
+# }))
+
+# Select cities in result (city with number 001 is usually the capital)
+# big_cityres <- subset(cityres, URAU_CODE %in% capitals)
+big_cityres <- subset(cityres, substr(URAU_CODE, 3, 5) == "001")
+
+# Order by region and age
+big_cityres <- big_cityres[with(big_cityres, 
+  order(region, URAU_CODE, agegroup)),]
+big_cityres$id <- as.numeric(factor(big_cityres$URAU_CODE, 
+  levels = unique(big_cityres$URAU_CODE)))
+
+#----- Prepare useful objects
+
+# Background rectangles
+bgreg <- aggregate(id ~ region, big_cityres, range)
+bgreg <- do.call(data.frame, bgreg)
+names(bgreg)[-1] <- c("min", "max")
+
+#----- Create background plot
+bgplot <- ggplot(big_cityres, aes(y = id, group = agegroup, col = agegroup)) + 
+  theme_classic() + 
+  geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
+    xmin = -Inf, xmax = Inf, fill = region), alpha = .1, inherit.aes = F) + 
+  scale_fill_manual(values = brewer.pal(4, "Accent"),
+    name = "Region") + 
+  scale_y_continuous(name = "City", 
+    breaks = seq_along(unique(big_cityres$URAU_NAME)), 
+    labels = unique(big_cityres$URAU_NAME),
+    trans = "reverse") + 
+  geom_vline(xintercept = 1) + 
+  geom_hline(aes(yintercept = id - .5), lty = 3) + 
+  theme(axis.ticks.y = element_blank()) + 
+  scale_x_continuous(n.breaks = 4, limits = c(.8, 2.5)) + 
+  geom_pointrangeh(position = position_dodgev(.8), size = .3)
+
+#----- Add values for heat and cold
+
+coldplot <- bgplot + 
+  aes(x = rrcold, xmin = rrcold_low, xmax = rrcold_hi) + 
+  scale_color_manual(guide = "none",
+    values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
+  xlab(sprintf("RR at percentile %i", resultper[1])) 
+  
+heatplot <- bgplot + 
+  aes(x = rrheat, xmin = rrheat_low, xmax = rrheat_hi) + 
+  scale_color_manual(guide = "none",
+    values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
+  xlab(sprintf("RR at percentile %i", resultper[2]))  + 
+  theme(axis.title.y = element_blank(),
+    axis.text.y = element_blank())
+
+#----- Put together and save
+
+# Create a "legend-plot" for the common color scale legend
+legplot <- ggplot(big_cityres, aes(y = id, group = agegroup, col = agegroup)) + 
+  theme_void() + xlim(c(0,0)) + 
+  geom_pointrangeh(aes(x = rrheat, xmin = rrheat_low, xmax = rrheat_hi)) +
+  scale_color_manual(name = "Age group",
+    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)])
+
+# Put everything together
+coldplot + heatplot + 
+  legplot + plot_layout(widths = c(1, 1, .1), guides = "collect")
+
+# Save
+ggsave("figures/Fig1_CapitalRes.pdf", height = 10)
+
+#---------------------------
+#  Figure 2: Standardized rates
+#---------------------------
 
 #----- Standardised rates
 
@@ -108,7 +188,7 @@ ggsave("figures/Fig2_StdRates.pdf", width = 10)
 # Age effect
 #----------------------
 
-pal <- viridis(length(agetot), direction = -1)
+pal <- viridis(length(agebreaks), direction = -1)
 
 # Plot all for ages
 layout(matrix(1:2, ncol = 2), width = c(4, 1))
@@ -119,14 +199,14 @@ plot(NA, bty = "l", xaxt = "n",
     max(sapply(agecp, "[[", "allRRhigh"))))
 abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
 axis(1, at = ovaxis, labels = axisper)
-for (i in seq_along(agetot)){
+for (i in seq_along(agebreaks)){
   lines(agecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
     lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
 }
 abline(h = 1)
 par(mar = c(5, 0, 4, 0) + .1)
 plot.new()
-legend("topleft", legend = agelabs, col = pal, lty = 1, lwd = 2, 
+legend("topleft", legend = agebreaks, col = pal, lty = 1, lwd = 2, 
   title = "Age", bty = "n")
 
 dev.print(pdf, file = "figures/Fig3 - AgeERF.pdf")

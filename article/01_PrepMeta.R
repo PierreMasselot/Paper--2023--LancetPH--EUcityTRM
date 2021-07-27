@@ -598,6 +598,11 @@ file.remove(sprintf("%s/%s", tempdir(),
 metageo <- urau_points[match(metadata$URAU_CODE, urau_points$URAU_CODE),
   c("URAU_CODE", "geometry")]
 
+# Add info to metadata
+geobind <- do.call(rbind, metageo$geometry)
+colnames(geobind) <- c("lon", "lat")
+metadata <- cbind(metadata, geobind)
+
 #---------------------------
 # Load ERA5land data
 #---------------------------

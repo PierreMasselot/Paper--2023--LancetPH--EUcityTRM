@@ -36,6 +36,7 @@ library(viridis) # For specific color palettes
 library(RColorBrewer) # For specific color palettes
 library(corrplot) # Plotting correlation matrices
 library(patchwork) # Putting together plots created with ggplot
+library(ggstance) # for position_dodgev
 
 #----------------------
 # Parameters
@@ -120,7 +121,7 @@ axisper <- c(1, 25, 50, 75, 99)
 # Number of grid point for background surface
 ngrid <- 50
 
-# Age groups for predictions
+# Age groups for excess mortality
 agebreaks <- c(45, 65, 75, 85)
 agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
 
