@@ -18,6 +18,7 @@ library(MESS) # For function cumsumbinning
 library(Matrix) # Functions for matrix operations
 library(modeest) # For computing mode of a vector
 library(PHEindicatormethods) # For the 2013 European standard population
+library(stringr) # For label management
 
 #----- Analysis
 library(mice) # Missing value imputation

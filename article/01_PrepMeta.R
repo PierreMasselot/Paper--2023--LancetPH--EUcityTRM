@@ -141,6 +141,40 @@ desc_vars <- names(metadata)
 # Add indicator for whether it is in MCC
 metadata$inmcc <- !is.na(metadata$mcc_code)
 
+#----- Label cities
+
+# Load some labels
+labpath <- paste0("V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)/metadata",
+  "/URAU_DisplayNames.csv")
+uraulabs <- read.csv(labpath)
+
+# Merge
+metadata <- merge(metadata, uraulabs, all.x = T, all.y = F)
+
+# Add URAU names for missing labels
+metadata$LABEL[is.na(metadata$LABEL)] <- metadata$URAU_NAME[
+  is.na(metadata$LABEL)]
+
+# Remove all mention to city words
+metadata$LABEL <- gsub("City of", "", metadata$LABEL)
+metadata$LABEL <- gsub("Greater", "", metadata$LABEL)
+
+# Remove all that is in parenthesis
+metadata$LABEL <- gsub("\\(.*\\)", "", metadata$LABEL)
+
+# The Case of Romania
+metadata$LABEL <- gsub("MUNICIPIUL", "", metadata$LABEL)
+
+# The Case of Poland
+metadata$LABEL <- gsub("M\\. ", "", metadata$LABEL)
+
+# Remove spaces at the start or end of label
+metadata$LABEL <- gsub("^[[:blank:][:punct:]]*", "", metadata$LABEL)
+metadata$LABEL <- gsub("[[:blank:][:punct:]]*$", "", metadata$LABEL)
+
+# First letter upper case
+metadata$LABEL <- str_to_title(metadata$LABEL)
+
 #----- Prepare meta-metadata
 metadesc <- data.frame(metavar = c(), label = c(), source = c())
 
@@ -148,15 +182,17 @@ metadesc <- data.frame(metavar = c(), label = c(), source = c())
 #  Load Eurostat's Urban Audit data
 #---------------------------
 
+# Only 10 years range and 75+
+
 # # List of datasets that should be downloaded
-# datasets <- list(pop1 = c(pop_tot = "DE1001V", pop_0004 = "DE1040V", 
-#   pop_0509 = "DE1074V", pop_1014 = "DE1077V", pop_1519 = "DE1046V", 
-#   pop_2024 = "DE1049V", pop_2534 = "DE1058V", pop_3544 = "DE1061V", 
-#   pop_4554 = "DE1064V", pop_5564 = "DE1025V", pop_6574 = "DE1028V", 
+# datasets <- list(pop1 = c(pop_tot = "DE1001V", pop_0004 = "DE1040V",
+#   pop_0509 = "DE1074V", pop_1014 = "DE1077V", pop_1519 = "DE1046V",
+#   pop_2024 = "DE1049V", pop_2534 = "DE1058V", pop_3544 = "DE1061V",
+#   pop_4554 = "DE1064V", pop_5564 = "DE1025V", pop_6574 = "DE1028V",
 #   pop75p = "DE1055V"))
-#  
+# 
 # #----- Load the necessary datasets
-# urb_dat <- lapply(sprintf("urb_c%s", names(datasets)), get_eurostat, 
+# urb_dat <- lapply(sprintf("urb_c%s", names(datasets)), get_eurostat,
 #   time_format = "num")
 # names(urb_dat) <- names(datasets)
 # 
@@ -178,7 +214,7 @@ metadesc <- data.frame(metavar = c(), label = c(), source = c())
 #   ids = "values", direction = "wide")
 # 
 # # Merge
-# urb_df <- Reduce(function(x, y) merge(x, y, all = T, by = "cities"), 
+# urb_df <- Reduce(function(x, y) merge(x, y, all = T, by = "cities"),
 #   res_dat)
 # 
 # # Rename
@@ -189,7 +225,7 @@ metadesc <- data.frame(metavar = c(), label = c(), source = c())
 # #----- Create additional variables
 # 
 # # Prop or population 65+
-# urb_df$prop65_URAU <- rowSums(urb_df[,c("pop_6574", "pop75p")]) / 
+# urb_df$prop65_URAU <- rowSums(urb_df[,c("pop_6574", "pop75p")]) /
 #   urb_df[,"pop_tot"]
 # 
 # #----- Merge to the list of cities
