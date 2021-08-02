@@ -20,14 +20,18 @@ cityagegrid <- expand.grid(seq_len(nrow(metadata)),
 nca <- nrow(cityagegrid)
 
 # Initialize data.frame
-cityres <- metadata[cityagegrid[,1], c("URAU_CODE", "URAU_NAME", "region", 
-  "lon", "lat", "pop")]
+cityres <- metadata[cityagegrid[,1], c("URAU_CODE", "LABEL", "CNTR_CODE", 
+  "region", "lon", "lat", "pop", "inmcc")]
 
 # Add PLS components
 cityres <- cbind(cityres, pcvar[cityagegrid[,1],])
 
 # Add Age group information
 cityres$agegroup <- agelabs[cityagegrid[,2]]
+
+# Add country name
+eurcntr <- rbind(eu_countries, efta_countries) # Objects from eurostat
+cityres$cntr_name <- eurcntr[match(cityres$CNTR_CODE, eurcntr[,1]),2]
 
 #----- Compute average age of death for each city/age group
 
@@ -92,7 +96,7 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
   predper == resultper[2],]
 
 #---------------------------
-# Attributable fraction and number for city and age group
+# Excess rates
 #---------------------------
 
 #----- Simulations
@@ -108,29 +112,29 @@ cityagedeaths <- tapply(as.list(as.data.frame(agedeaths))[ageseq > minage],
   agegrps, function(x) rowSums(do.call(cbind, x)))
 cityres$death <- unlist(cityagedeaths)
 
-#----- Population proportion for each city and age group
+#----- Compute age group population
 
 # Extract population structure variables from metadata
-popvars <- sort(grep("prop_[[:digit:]]{4}", names(metadata), value = T))
+propvars <- sort(grep("prop_[[:digit:]]{4}", names(metadata), value = T))
 
 # Extract min, and max of age group
-agemin <- substr(popvars, 6, 7)
-agemax <- substr(popvars, 8, 9)
+agemin <- substr(propvars, 6, 7)
+agemax <- substr(propvars, 8, 9)
 
 # Repeat values for each age
 ageseqs <- Map(seq, agemin, agemax, by = 1)
-agepop <- mapply(function(d, a){ 
+ageprop <- mapply(function(d, a){ 
   do.call(cbind, rep(list(d), length(a))) / length(a)
-}, metadata[,popvars], ageseqs)
-agepop <- do.call(cbind, agepop)
+}, metadata[,propvars], ageseqs)
+ageprop <- do.call(cbind, ageprop)
 
 # Sum by age group
-popgrps <- tapply(as.list(as.data.frame(agepop))[ageseq > minage], 
+popgrps <- tapply(as.list(as.data.frame(ageprop))[ageseq > minage], 
   agegrps, function(x) rowSums(do.call(cbind, x)))
 popgrps <- unlist(popgrps)
 
 # Multiply by total population
-cityres$pop <- popgrps * rep(metadata$pop, length(agebreaks) + 1) / 100
+cityres$agepop <- popgrps * rep(metadata$pop, length(agebreaks) + 1) / 100
 
 #----- Standard european population for each age group
 
@@ -147,9 +151,9 @@ esptot <- tapply(esp2013[espbreaks >= minage], espgrps, sum)
 #----- Prepare simulation
 
 # Recreate model matrix with the city / age grid
-cityageXdes <- model.matrix(delete.response(terms(stage2res)), allpreddf)
+cityageXdes <- model.matrix(delete.response(terms(stage2res)), cityres)
 
-#----- Prepare parallelisation
+# Prepare parallelisation
 ncores <- detectCores()
 cl <- makeCluster(max(1, ncores - 2))
 registerDoParallel(cl)
@@ -209,8 +213,8 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   
   # Sum total, heat and cold
   ansimlist <- cbind(total = colSums(andaysim), 
-    cold = colSums(andaysim * (!heatind)), 
-    heat = colSums(andaysim * heatind))
+    cold = colSums(andaysim * (!heatindsim)), 
+    heat = colSums(andaysim * heatindsim))
   ansimlist <- ansimlist / length(era5)
   ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
   
@@ -232,10 +236,11 @@ cityres <- cbind(cityres, allcityan)
 #----- Compute standardised rates
 
 # Loop on cities
-stdratecity <- tapply(seq_along(attrlist), cityres$city, function(i){
+stdratecity <- tapply(seq_along(attrlist), cityres$URAU_CODE, function(i){
   
   # Compute crude death rate for both point estimate and simulations
-  deathrate <- Map(function(death, pop) list(death$est[1,] / pop, death$sim / pop), 
+  deathrate <- Map(function(death, pop) list(death$est[1,] / pop, 
+      death$sim / pop), 
     attrlist[i], cityres[i, "pop"])
   
   # Weighted mean by standard population for point estimate
@@ -248,7 +253,7 @@ stdratecity <- tapply(seq_along(attrlist), cityres$city, function(i){
     w = esptot[cityres[i, "agegroup"]])
   
   # Put together for output
-  rbind(stdest, apply(stdratesim, 2, quantile, c(.025, .975))) * 10^5
+  rbind(stdest, apply(stdratesim, 2, quantile, c(.025, .975))) * byrate
 })
 
 # Put together point estimates and CIs
@@ -259,5 +264,53 @@ colnames(allcitystdrt) <- sprintf("stdrate_%s", t(outer(c("total", "cold", "heat
 # Add to result summary object
 cityres <- cbind(cityres, allcitystdrt)
 
+#---------------------------
+# Excess rates by country
+#---------------------------
 
+#----- Aggregate ANs and pop by country
 
+# Aggregate AN estimates
+attrcountry <- tapply(attrlist, cityres[, c("CNTR_CODE", "agegroup")], 
+  function(attr){
+    est <- rowSums(sapply(attr, function(x) x$est[1,]))
+    cntrarr <- sapply(attr, "[[", "sim", simplify = "array")
+    sim <- apply(cntrarr, 1:2, sum)
+    list(est = est, sim = sim)
+})
+
+# Aggregate pop
+popcountry <- aggregate(agepop ~ CNTR_CODE + agegroup, data = cityres, sum)
+
+#----- Compute standardized rates by country
+
+# By country
+countrystd <- tapply(seq_len(nrow(popcountry)), popcountry$CNTR_CODE, 
+  function(i){
+    # Divide everything by pop
+    agerates <- Map(function(attr, pop) lapply(attr, "/", pop),
+      attrcountry[i], popcountry[i, "agepop"])
+    
+    # Compute std rates
+    stdest <- apply(sapply(agerates, "[[", "est"), 1, 
+      weighted.mean, esptot[popcountry[i, "agegroup"]])
+    stdsim <- apply(sapply(agerates, "[[", "sim", simplify = "array"), 1:2,
+      weighted.mean, esptot[popcountry[i, "agegroup"]])
+    
+    # Summary
+    c(stdest, t(apply(stdsim, 2, quantile, c(.025, .975)))) * byrate
+})
+
+# Reorganise as a data.frame
+countrystd <- data.frame(do.call(rbind, countrystd))
+names(countrystd) <- c(outer(c("total", "cold", "heat"), c("est", "low", "hi"),
+  paste, sep = "_"))
+
+# Add country name
+cntrlab <- merge(data.frame(rownames(countrystd)), 
+  rbind(eu_countries, efta_countries), 
+  by.x = 1, by.y = "code", all.x = T, all.y = F)
+countrystd$name <- cntrlab$name
+
+# Add region
+countrystd$region <- regionlist[rownames(countrystd)]

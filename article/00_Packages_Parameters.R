@@ -19,6 +19,7 @@ library(Matrix) # Functions for matrix operations
 library(modeest) # For computing mode of a vector
 library(PHEindicatormethods) # For the 2013 European standard population
 library(stringr) # For label management
+library(abind) # Array binding
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -128,3 +129,6 @@ agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
 
 # Number of simulations for AN/AF
 nsim <- 500
+
+# Denominator for death rates
+byrate <- 10^5

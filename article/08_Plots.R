@@ -6,8 +6,6 @@
 #
 ################################################################################
 
-source("06_Results.R")
-
 #---------------------------
 #  Figure 1: maps of risk 
 #---------------------------
@@ -20,7 +18,7 @@ basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
   theme_void() + 
   geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) +
-  scale_size(name = "Population", range = c(1, 5),
+  scale_size(name = "Population", range = c(.5, 5),
     guide = "none") + 
   theme(legend.position = "bottom", legend.box = "vertical") + 
   geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) + 
@@ -89,7 +87,7 @@ big_cityres <- subset(cityres, substr(URAU_CODE, 3, 5) == "001")
 
 # Order by region and age
 big_cityres <- big_cityres[with(big_cityres, 
-  order(region, URAU_CODE, agegroup)),]
+  order(region, cntr_name, URAU_CODE, agegroup)),]
 big_cityres$id <- as.numeric(factor(big_cityres$URAU_CODE, 
   levels = unique(big_cityres$URAU_CODE)))
 
@@ -101,15 +99,15 @@ bgreg <- do.call(data.frame, bgreg)
 names(bgreg)[-1] <- c("min", "max")
 
 #----- Create background plot
-bgplot <- ggplot(big_cityres, aes(y = id, group = agegroup, col = agegroup)) + 
+bgplot <- ggplot(big_cityres, aes(y = id, group = rev(agegroup), col = agegroup)) + 
   theme_classic() + 
   geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
-    xmin = -Inf, xmax = Inf, fill = region), alpha = .1, inherit.aes = F) + 
+    xmin = -Inf, xmax = Inf, fill = region), alpha = .2, inherit.aes = F) + 
   scale_fill_manual(values = brewer.pal(4, "Accent"),
     name = "Region") + 
   scale_y_continuous(name = "City", 
-    breaks = seq_along(unique(big_cityres$URAU_NAME)), 
-    labels = unique(big_cityres$URAU_NAME),
+    breaks = seq_along(unique(big_cityres$LABEL)), 
+    labels = unique(big_cityres$LABEL),
     trans = "reverse") + 
   geom_vline(xintercept = 1) + 
   geom_hline(aes(yintercept = id - .5), lty = 3) + 
@@ -150,38 +148,101 @@ coldplot + heatplot +
 ggsave("figures/Fig1_CapitalRes.pdf", height = 10)
 
 #---------------------------
-#  Figure 2: Standardized rates
+#  Figure 2: Standardized rates map
 #---------------------------
 
-#----- Standardised rates
+# Execute background map above
 
-# Cold AN
-stdcoldmap <- ggplot(data = subset(cityres, agegroup == agelabs[1])) + 
-  theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = stdrate_cold_est, size = pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue", 
-    name = "Cold (x100 000)") + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+#----- Add aesthetic and scale for rates
+
+# Cold excess rates
+stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) + 
+  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkblue", high = "black", 
+    name = sprintf("Cold-related\nstd excess deaths (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ",")),
+    limits = c(0, max(cityres$stdrate_cold_est)), 
+    midpoint = max(cityres$stdrate_cold_est) / 2)
+
+
+# Heat with white to red
+stdheatmap <- basic_map + aes(fill = stdrate_heat_est) + 
+  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkred", high = "black", 
+    name = sprintf("Heat-related\nstd excess deaths (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ",")),
+    limits = c(0, max(cityres$stdrate_heat_est)), 
+    midpoint = max(cityres$stdrate_heat_est) / 2)
+
+#----- Put maps together
+
+# Put them side-by-side
+(stdcoldmap + stdheatmap) /
+  
+  # Add legend for point size
+  basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
+  scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+    labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
+    guide = guide_legend(title.position = "top", title.hjust = 0.5,
+      label.position = "bottom", override.aes = list(colour = "black"))) + 
+  theme(legend.position = "bottom") +
+  plot_layout(height = c(1, .05))
+
+# Save
+ggsave("figures/Fig2_citiesStdRates.pdf", width = 15)
+
+
+#---------------------------
+#  Figure 2bis: Standardized rates by country
+#---------------------------
+
+#----- Prepare data
+
+# Reorder df and add id variable
+countrystd <- countrystd[with(countrystd, order(region, name)),]
+countrystd$id <- 1:nrow(countrystd)
+
+# Background rectangles
+bgreg <- aggregate(id ~ region, countrystd, range)
+bgreg <- do.call(data.frame, bgreg)
+names(bgreg)[-1] <- c("min", "max")
+
+#----- Create background plot
+bgplot <- ggplot(countrystd, aes(y = id)) + theme_classic() + 
+  geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
+    xmin = -Inf, xmax = Inf, fill = region), alpha = .2, inherit.aes = F) + 
+  scale_fill_manual(values = brewer.pal(4, "Accent"), name = "Region") + 
+  scale_y_continuous(name = "Country", labels = countrystd$name, 
+    breaks = countrystd$id, trans = "reverse") +
+  geom_hline(aes(yintercept = id - .5), lty = 3) + 
+  theme(axis.ticks.y = element_blank()) + 
+  geom_pointrangeh(aes(col = "a"), position = position_dodgev(.8), 
+    show.legend = F)
+
+#----- Add values for heat and cold
+
+# Cold
+stdcoldplot <- bgplot + 
+  aes(x = cold_est, xmin = cold_low, xmax = cold_hi) + 
+  scale_colour_manual(values = "darkblue") + 
+  xlab(sprintf("Cold-related\nstd excess deaths (x %s)", 
+    formatC(byrate, digits = 0, format = "f", big.mark = ","))) 
 
 # Heat
-stdheatmap <- ggplot(data = subset(cityres, agegroup == agelabs[1])) + 
-  theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = stdrate_heat_est, size = pop), 
-    alpha = .9, pch = 21) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred", 
-    name = "Heat (x100 000)") + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5))
+stdheatplot <- bgplot + 
+  aes(x = heat_est, xmin = heat_low, xmax = heat_hi) + 
+  scale_colour_manual(values = "darkred") + 
+  xlab(sprintf("Heat-related\nstd excess deaths (x %s)", 
+    formatC(byrate, digits = 0, format = "f", big.mark = ","))) + 
+  theme(axis.title.y = element_blank(),
+    axis.text.y = element_blank())
 
-# Put them together and save
+#----- Put together and save
 
-stdcoldmap + stdheatmap
+# Put everything together
+stdcoldplot + stdheatplot + 
+  plot_layout(guides = "collect")
 
-ggsave("figures/Fig2_StdRates.pdf", width = 10)
+# Save
+ggsave("figures/Fig2_CountryStdRate.pdf", height = 10)
 
 
 #----------------------
