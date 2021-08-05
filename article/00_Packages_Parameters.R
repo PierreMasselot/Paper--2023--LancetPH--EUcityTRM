@@ -93,15 +93,15 @@ minage <- 20
 #----- Second-stage analysis
 
 # Metapredictors
-metaprednames <- c("pop", "popdens", "prop_65p", "isol", # Pop structure
-  "lifexp", "bedrates", "gdp", "educ", "unempl", "depriv", # Socio economic
-  "urbshare", "greenshare", "blueshare", "mount_type", "urbn_type", 
-  "coast_type", # Land
-  "cooldegdays", "heatdegdays", "tmean", "greenness", "pm25" # Environment
-)
+metapreds <- list(Demographic = c("pop", "popdens", "lifexp", "isol"),
+  'Socio-economic' = c("gdp", "unempl", "educ", "depriv","bedrates"),
+  'Built-environment' = c("urbshare", "greenshare", "blueshare"),
+  Environmental = c("mount_type", "urbn_type", "coast_type", 
+    "greenness", "pm25"),
+  Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 4
+npc <- 6
 
 # Knots for age spline
 ageknots <- 65
@@ -126,6 +126,9 @@ ngrid <- 50
 # Age groups for excess mortality
 agebreaks <- c(45, 65, 75, 85)
 agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
+
+# Grid for age prediction
+agegrid <- 20:99
 
 # Number of simulations for AN/AF
 nsim <- 500

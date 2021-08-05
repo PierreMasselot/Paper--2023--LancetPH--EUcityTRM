@@ -14,14 +14,14 @@ library(doParallel)
 library(pls)
 library(dlnm)
 
-source("05_PrepResults.R")
+source("05_ResultsPrep.R")
 
 #---------------------------
 # Parameters
 #---------------------------
 
 # Maximum number of components
-maxk <- 15
+maxk <- 10
 
 #---------------------------
 # Prepare cross validation
@@ -169,73 +169,73 @@ cvscores$PCA <- cbind(cvm = apply(pccvres, 1, mean),
   cvsd = apply(pccvres, 1, function(x) sqrt(var(x) / length(splitinds$splits))))
 
 
-#---------------------------
-# Stepwise on PCs
-#---------------------------
-
-# Initialize formula and result object
-stepform <- basicform
-i2scores$step <- aicscores$step <- vector("numeric", maxk)
-cvscores$step <- matrix(NA, nrow = maxk, ncol = 2, 
-  dimnames = list(NULL, c("cvm", "cvsd")))
-remain <- seq_len(ncol(pcares$x))
-mixstep <- vector("list", maxk)
-
-# Loop
-for (i in seq_len(maxk)){
-  print(sprintf("PC stepwise : %i / %i", i, maxk))
-  
-  #----- Loop on remaining PCs
-  jform <- jscores <- vector("list", length(remain))
-  for (j in seq_along(remain)){
-    # Update formula
-    jform[[j]] <- jf <- 
-      update(stepform, as.formula(sprintf("~ . + PC%i", remain[j])))
-    
-    #----- Perform CV
-    jres <- foreach(k = iter(seq(splitinds$splits)), .combine = c,
-      .packages = c("mixmeta", "rsample", "splines")) %dopar% 
-    {
-      # Get training and validation fold indices
-      trainind <- analysis(splitinds$splits[[k]])[,1]
-      validind <- assessment(splitinds$splits[[k]])[,1]
-      
-      # Add object to global environment for mixmeta
-      .GlobalEnv$coefs <- coefs
-      .GlobalEnv$trainind <- trainind
-      .GlobalEnv$jf <- jf
-        
-      # Fit mixmeta model
-      stepresk <- mixmeta(jf, data = pcdf, S = vcovs, random = ~ 1|city,
-        subset = trainind)
-        
-      # Predict for validation data
-      pred <- predict(stepresk, newdata = pcdf[validind,])
-        
-      # Compute RMSE
-      err <- coefs[validind,] - pred
-      sqrt(mean(err^2, na.rm = T))
-    }
-    
-    jscores[[j]] <- c(cvm = mean(jres), 
-      cvsd = sqrt(var(jres) / length(splitinds$splits)))
-  }
-  
-  # Select the best one
-  jsel <- which.min(sapply(jscores, "[", 1))
- 
-  # Update
-  stepform <- jform[[jsel]]
-  cvscores$step[i,] <- jscores[[jsel]]
-  remain <- remain[-jsel]
-  
-  #----- Fit with all data for AIC and I2
-  mixstep[[i]] <- mixmeta(stepform, data = pcdf, S = vcovs, random = ~ 1|city)
-  
-  # Extract scores
-  i2scores$step[i] <- summary(mixstep[[i]])$i2stat[1] 
-  aicscores$step[i] <- summary(mixstep[[i]])$AIC
-}
+# #---------------------------
+# # Stepwise on PCs
+# #---------------------------
+# 
+# # Initialize formula and result object
+# stepform <- basicform
+# i2scores$step <- aicscores$step <- vector("numeric", maxk)
+# cvscores$step <- matrix(NA, nrow = maxk, ncol = 2, 
+#   dimnames = list(NULL, c("cvm", "cvsd")))
+# remain <- seq_len(ncol(pcares$x))
+# mixstep <- vector("list", maxk)
+# 
+# # Loop
+# for (i in seq_len(maxk)){
+#   print(sprintf("PC stepwise : %i / %i", i, maxk))
+#   
+#   #----- Loop on remaining PCs
+#   jform <- jscores <- vector("list", length(remain))
+#   for (j in seq_along(remain)){
+#     # Update formula
+#     jform[[j]] <- jf <- 
+#       update(stepform, as.formula(sprintf("~ . + PC%i", remain[j])))
+#     
+#     #----- Perform CV
+#     jres <- foreach(k = iter(seq(splitinds$splits)), .combine = c,
+#       .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+#     {
+#       # Get training and validation fold indices
+#       trainind <- analysis(splitinds$splits[[k]])[,1]
+#       validind <- assessment(splitinds$splits[[k]])[,1]
+#       
+#       # Add object to global environment for mixmeta
+#       .GlobalEnv$coefs <- coefs
+#       .GlobalEnv$trainind <- trainind
+#       .GlobalEnv$jf <- jf
+#         
+#       # Fit mixmeta model
+#       stepresk <- mixmeta(jf, data = pcdf, S = vcovs, random = ~ 1|city,
+#         subset = trainind)
+#         
+#       # Predict for validation data
+#       pred <- predict(stepresk, newdata = pcdf[validind,])
+#         
+#       # Compute RMSE
+#       err <- coefs[validind,] - pred
+#       sqrt(mean(err^2, na.rm = T))
+#     }
+#     
+#     jscores[[j]] <- c(cvm = mean(jres), 
+#       cvsd = sqrt(var(jres) / length(splitinds$splits)))
+#   }
+#   
+#   # Select the best one
+#   jsel <- which.min(sapply(jscores, "[", 1))
+#  
+#   # Update
+#   stepform <- jform[[jsel]]
+#   cvscores$step[i,] <- jscores[[jsel]]
+#   remain <- remain[-jsel]
+#   
+#   #----- Fit with all data for AIC and I2
+#   mixstep[[i]] <- mixmeta(stepform, data = pcdf, S = vcovs, random = ~ 1|city)
+#   
+#   # Extract scores
+#   i2scores$step[i] <- summary(mixstep[[i]])$i2stat[1] 
+#   aicscores$step[i] <- summary(mixstep[[i]])$AIC
+# }
 
 
 #---------------------------
@@ -454,7 +454,7 @@ i2mat <- rbind(i2scores[[1]], i2mat)
 
 # Plot layout
 x11(height = 10)
-layout(cbind(1:3, 4), width = c(4, 1))
+layout(cbind(1:2, 3), width = c(4, 1))
 
 # CV
 matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_len(ncol(cvmat)) + 1,
@@ -466,15 +466,15 @@ matplot(0:maxk, aicmat, type = "b", pch = 16, col = seq_len(ncol(aicmat)) + 1,
   xlim = c(0, maxk), xlab = "", ylab = "AIC",
   main = "AIC")
 
-# I2
-matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_len(ncol(i2mat)) + 1,
-  xlim = c(0, maxk), xlab = "", ylab = "I2",
-  main = "I2")
+# # I2
+# matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_len(ncol(i2mat)) + 1,
+#   xlim = c(0, maxk), xlab = "", ylab = "I2",
+#   main = "I2")
 
 # Add legend
 par(mar = c(5, 0, 4, 0))
 plot.new()
-legend("center", legend = c("PCA", "Stepwise PCA", "CCA", "PLS"),
+legend("center", legend = names(cvscores)[-1],
   pch = 16, lty = seq_len(ncol(cvmat)), col = seq_len(ncol(cvmat)) + 1,
   bty = "n", title = "Method")
 
@@ -528,63 +528,63 @@ dev.print(pdf, file = "figures/FigS2_1_CrossValidation.pdf")
 # dev.print(pdf, file = "figures/FigS2_2_Loadings.pdf")
 
 
-#---------------------------
-# Show predicted curves 
-#---------------------------
-
-#----- Parameters
-
-# Prediction percentiles
-predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
-
-# Select models with which to predict
-modlist <- list(NoPred = mixbasic, PCA4 = mixpca[[4]], PLS4 = mixpls[[4]])
-
-# Acceptable MMP values 
-inrange <- predper >= mmprange[1] & predper <= mmprange[2]
-
-#----- Predict curves from models
-
-# Stage 1
-st1curves <- Map(function(b, vc, era5){
-  tmeanper <- quantile(era5$era5landtmean, predper / 100)
-  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
-    knots = quantile(era5$era5landtmean, varper / 100))
-  firstpred <- bvar %*% b
-  mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
-  crosspred(bvar, coef = b, vcov = vc, cen = mmt, 
-    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-}, as.data.frame(t(coefs)), vcovs, era5series[repmcc])
-
-# Fitted
-fittedcurves <- lapply(modlist, function(x){
-  Map(function(b, era5){
-    tmeanper <- quantile(era5$era5landtmean, predper / 100)
-    bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
-      knots = quantile(era5$era5landtmean, varper / 100))
-    firstpred <- bvar %*% b$fit
-    mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
-    crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
-      model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-  }, predict(x, vcov = T), era5series[repmcc])
-})
-
-#----- Plot
-pdf("figures/FigS2_2_fittedERF.pdf", width = 9, height = 13, pointsize = 8)
-layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
-par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
-
-# Loop on all cities
-for(i in seq_along(st1curves)){
-  # Plot cold and heat separately
-  plot(st1curves[[i]], xlab = "Temperature (°C)", ylab = "RR", 
-    main = rownames(coefs)[i], lwd = 2, ylim = c(.5, 3))
-  for (j in seq_along(modlist))
-    lines(fittedcurves[[j]][[i]], col = 1 + j, lwd = 2)
-  abline(h = 1, lty = 2)
-  legend("bottomleft", legend = c("Stage 1", names(modlist)),
-    lwd = 2, col = seq_len(length(modlist) + 1), bty = "n",
-    ncol = length(modlist) + 1, cex = .8)
-}
-
-dev.off()
+# #---------------------------
+# # Show predicted curves 
+# #---------------------------
+# 
+# #----- Parameters
+# 
+# # Prediction percentiles
+# predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
+# 
+# # Select models with which to predict
+# modlist <- list(NoPred = mixbasic, PCA4 = mixpca[[4]], PLS4 = mixpls[[4]])
+# 
+# # Acceptable MMP values 
+# inrange <- predper >= mmprange[1] & predper <= mmprange[2]
+# 
+# #----- Predict curves from models
+# 
+# # Stage 1
+# st1curves <- Map(function(b, vc, era5){
+#   tmeanper <- quantile(era5$era5landtmean, predper / 100)
+#   bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+#     knots = quantile(era5$era5landtmean, varper / 100))
+#   firstpred <- bvar %*% b
+#   mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
+#   crosspred(bvar, coef = b, vcov = vc, cen = mmt, 
+#     model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+# }, as.data.frame(t(coefs)), vcovs, era5series[repmcc])
+# 
+# # Fitted
+# fittedcurves <- lapply(modlist, function(x){
+#   Map(function(b, era5){
+#     tmeanper <- quantile(era5$era5landtmean, predper / 100)
+#     bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+#       knots = quantile(era5$era5landtmean, varper / 100))
+#     firstpred <- bvar %*% b$fit
+#     mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
+#     crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
+#       model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+#   }, predict(x, vcov = T), era5series[repmcc])
+# })
+# 
+# #----- Plot
+# pdf("figures/FigS2_2_fittedERF.pdf", width = 9, height = 13, pointsize = 8)
+# layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
+# par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
+# 
+# # Loop on all cities
+# for(i in seq_along(st1curves)){
+#   # Plot cold and heat separately
+#   plot(st1curves[[i]], xlab = "Temperature (°C)", ylab = "RR", 
+#     main = rownames(coefs)[i], lwd = 2, ylim = c(.5, 3))
+#   for (j in seq_along(modlist))
+#     lines(fittedcurves[[j]][[i]], col = 1 + j, lwd = 2)
+#   abline(h = 1, lty = 2)
+#   legend("bottomleft", legend = c("Stage 1", names(modlist)),
+#     lwd = 2, col = seq_len(length(modlist) + 1), bty = "n",
+#     ncol = length(modlist) + 1, cex = .8)
+# }
+# 
+# dev.off()

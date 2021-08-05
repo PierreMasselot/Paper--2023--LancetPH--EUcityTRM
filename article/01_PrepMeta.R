@@ -523,7 +523,7 @@ metadata <- merge(metadata, read_typo,
   by.x = "NUTS3_2021", by.y = "NUTS_ID", all.x = T, all.y = F, sort = F)
 
 # Add description
-metadesc <- rbind(metadesc, cbind(metavar = type_vars, 
+metadesc <- rbind(metadesc, cbind(metavar = tolower(type_vars), 
   label = sprintf("%s region type", c("Mountain", "Urban", "Coastal")), 
   source = "NUTS3"))
 

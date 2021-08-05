@@ -59,6 +59,7 @@ nm <- length(metaprednames) # Number of metapredictors
 # pcvar <- pcares$x[, seq_len(npc)]
 
 # Select meta predictors
+metaprednames <- unlist(metapreds)
 metavar <- metadata[, metaprednames]
 metapls <- scale(metavar)[repmcc,]
 

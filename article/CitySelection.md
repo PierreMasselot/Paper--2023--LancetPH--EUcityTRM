@@ -65,7 +65,7 @@ The metapredictors are extracted at the at finest regional level available from 
 - Blue area (NUTS2): Proportion of land covered by water
 - Green area (NUTS2): Proportion of land covered by one of: woodland, cropland, shrubland, grassland
 - Cooling degree days (NUTS3): Summer heat indicator. Sum of daily degrees above 21C for days exceeding 24C
-- Cooling degree days (NUTS3): Winter cold indicator. Sum of daily degrees below 18C for days below 15C
+- Heating degree days (NUTS3): Winter cold indicator. Sum of daily degrees below 18C for days below 15C
 - Social isolation (NUTS3): Proportion of household consisting of divorced, single or windowed persons, according to the 2011 survey.
 - Mountain type (NUTS3): Mountain typology. 1: > 50% of population live in mountain areas, 2: > 50% of surface in mountain area, 3: > 50% of population live and 50% of surface in mountain areas, 4: Non-mountain region 
 - Urban typology (NUTS3): 1: Predominantly urban regions, 2: Intermediate regions, 3: Predominantly rural regions
