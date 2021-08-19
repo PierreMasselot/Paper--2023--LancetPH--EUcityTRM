@@ -109,8 +109,8 @@ bgplot <- ggplot(countryres,
   scale_fill_manual(values = brewer.pal(4, "Accent"),
     name = "Region") + 
   scale_y_continuous(name = "", 
-    breaks = seq_along(unique(countryres$name)), 
-    labels = unique(countryres$name),
+    breaks = seq_along(unique(countryres$cntr_name)), 
+    labels = unique(countryres$cntr_name),
     trans = "reverse") + 
   geom_vline(xintercept = 0) + 
   geom_hline(aes(yintercept = id - .5), lty = 3) + 
@@ -123,14 +123,14 @@ ratecoldplot <- bgplot +
   aes(x = rate_cold_est, xmin = rate_cold_low, xmax = rate_cold_hi) + 
   scale_color_manual(guide = "none",
     values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
-  xlab(sprintf("Cold-related\nexcess deaths (x %s)", 
+  xlab(sprintf("Cold-related\ndeath rates (x %s)", 
     formatC(byrate, digits = 0, format = "f", big.mark = ","))) 
 
 rateheatplot <- bgplot + 
   aes(x = rate_heat_est, xmin = rate_heat_low, xmax = rate_heat_hi) + 
   scale_color_manual(guide = "none",
     values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
-  xlab(sprintf("Heat-related\nexcess deaths (x %s)", 
+  xlab(sprintf("Heat-related\ndeath rates (x %s)", 
     formatC(byrate, digits = 0, format = "f", big.mark = ",")))  + 
   theme(axis.title.y = element_blank(),
     axis.text.y = element_blank())
@@ -175,14 +175,14 @@ bgplot <- ggplot(countryres, aes(y = id)) + theme_classic() +
 stdcoldplot <- bgplot + 
   aes(x = stdrate_cold_est, xmin = stdrate_cold_low, xmax = stdrate_cold_hi) + 
   scale_colour_manual(values = "darkblue") + 
-  xlab(sprintf("Cold-related\nstd excess deaths (x %s)", 
+  xlab(sprintf("Cold-related\nstd death rates (x %s)", 
     formatC(byrate, digits = 0, format = "f", big.mark = ","))) 
 
 # Heat
 stdheatplot <- bgplot + 
   aes(x = stdrate_heat_est, xmin = stdrate_heat_low, xmax = stdrate_heat_hi) + 
   scale_colour_manual(values = "darkred") + 
-  xlab(sprintf("Heat-related\nstd excess deaths (x %s)", 
+  xlab(sprintf("Heat-related\nstd death rates (x %s)", 
     formatC(byrate, digits = 0, format = "f", big.mark = ","))) + 
   theme(axis.title.y = element_blank(),
     axis.text.y = element_blank())

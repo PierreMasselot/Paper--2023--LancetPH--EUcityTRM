@@ -373,7 +373,7 @@ popdens <- aggregate(values ~ geo, data = popdens, mean)
 names(popdens)[-1] <- "popdens"
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, popdens, level = 3, highest = 1)
+metadata <- nuts_merge(metadata, popdens, level = 3, highest = 2)
   
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = "popdens", 
@@ -405,7 +405,7 @@ gdp <- aggregate(values ~ geo, data = gdp, mean)
 names(gdp)[-1] <- "gdp"
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, gdp, level = 3, highest = 1)
+metadata <- nuts_merge(metadata, gdp, level = 3, highest = 0)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = "gdp", 
@@ -589,7 +589,7 @@ colnames(read_typo)[1] <- "geo"
 names(read_typo)[names(read_typo) %in% type_vars] <- tolower(type_vars)
 
 # Merge
-metadata <- nuts_merge(metadata, read_typo, level = 3, highest = 1)
+metadata <- nuts_merge(metadata, read_typo, level = 3)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = tolower(type_vars), 
@@ -629,7 +629,7 @@ deaths$death_8599 <- deaths$death_8589 + deaths$death_90p
 deaths[c("values.UNK", "death_8589", "death_90p")] <- NULL
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, deaths, level = 3, highest = 0)
+metadata <- nuts_merge(metadata, deaths, level = 3)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = colnames(deaths)[-1], 

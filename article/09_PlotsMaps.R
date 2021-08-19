@@ -19,7 +19,7 @@ basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box") +
-  scale_size(name = "Population", range = c(.5, 5),
+  scale_size(name = "Population", range = c(1, 5),
     guide = "none") + 
   theme(legend.position = "bottom", legend.box = "vertical") + 
   geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) + 
@@ -134,7 +134,7 @@ basic_map + aes(fill = inmcc) +
 
 #----- Save 
 
-ggsave("figures/SupFig_URUAcities.pdf")
+ggsave("figures/SupFig_URAUcities.pdf")
 
 
 
