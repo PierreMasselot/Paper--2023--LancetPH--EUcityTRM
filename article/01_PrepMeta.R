@@ -801,8 +801,8 @@ metadesc <- rbind(metadesc,
 citymis <- apply(is.na(metadata[,names(metadata) %in% metadesc$metavar]), 
   1, sum)
 
-# Remove cities with more than 10 missings
-metadata <- metadata[citymis < 10,]
+# # Remove cities with more than 10 missings
+# metadata <- metadata[citymis < 10,]
 
 # Reorder data
 metadata <- metadata[order(metadata$URAU_CODE),]
@@ -814,8 +814,8 @@ metavar <- metadata[,names(metadata) %in% metadesc$metavar]
 
 # Keep track of missings
 imputed <- is.na(metavar)
-nmis <- apply(imputed, 2, sum)
-propmis <- apply(imputed, 2, mean)
+metadesc$nmis <- apply(imputed, 2, sum)
+metadesc$propmis <- round(apply(imputed, 2, mean) * 100)
 
 #----- Impute
 
@@ -824,7 +824,8 @@ meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
 
 # Get the imputed dataset (of iter_Sel)
 iter_sel <- 5
-metadata[,names(metadata) %in% metadesc$metavar] <- complete(meta_imp, iter_sel)
+metadata[,match(metadesc$metavar, names(metadata))] <- 
+  complete(meta_imp, iter_sel)
 
 #---------------------------
 # Load geographical data
