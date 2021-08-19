@@ -351,6 +351,26 @@ ggsave("figures/Fig5_EffectModification.pdf", height = 10)
 # Sup. Figure : Exposure response functions
 #---------------------------
 
+#----- Recompute all ERF with a common MMT for cities
+
+# Take the median MMT for each city
+citymmt <- aggregate(mmt ~ URAU_CODE, data = cityres, median)
+
+# Recompute ERF
+cityERFplot <- Map(function(b, era5, mmt){
+  # percentiles of era5 for this city
+  tmeanper <- quantile(era5$era5landtmean, predper / 100)
+  
+  # Basis for overall
+  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
+    knots = quantile(era5$era5landtmean, varper / 100))
+  
+  # Final prediction centred on the MMT
+  crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
+    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+}, citycoefs, era5series[cityagegrid[,2]], 
+  citymmt[match(cityres$URAU_CODE, citymmt$URAU_CODE),2])
+
 #----- Plot all ERF
 
 pdf("figures/ERFcities.pdf", width = 11, height = 13)
@@ -367,16 +387,16 @@ for(i in seq_along(cityERF)){
     cityres[i, "cntr_name"], cityres[i, "agegroup"]) 
   
   # Plot cold part
-  plot(cityERF[[i]], xlab = "Temperature (C)", ylab = "RR", 
+  plot(cityERFplot[[i]], xlab = "Temperature (C)", ylab = "RR", 
     main = ititle, col = 4, lwd = 2, ylim = c(.8, 2.5), 
     cex.main = .9)
   
   # Add heat part
-  lines(cityERF[[i]]$predvar[heatind], cityERF[[i]]$allRRfit[heatind], 
+  lines(cityERFplot[[i]]$predvar[heatind], cityERFplot[[i]]$allRRfit[heatind], 
     col = 2, lwd = 2)
   
   # MMT
-  abline(v = cityres[i, "mmt"])
+  abline(v = cityERFplot[[i]]$cen)
   
   # Add percentiles
   cityper <- tmeandist[rep(1:nrow(metadata), each = length(agelabs))[i],

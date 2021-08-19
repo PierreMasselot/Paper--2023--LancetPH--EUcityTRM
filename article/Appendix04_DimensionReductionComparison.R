@@ -238,94 +238,94 @@ cvscores$PCA <- cbind(cvm = apply(pccvres, 1, mean),
 # }
 
 
-#---------------------------
-# CCA
-#---------------------------
-
-#----- apply on all data 
-
-# Apply CCA
-ccares <- cancor(metavar, coefs)
-
-# Create new metavariables
-ccavar <- scale(metavar) %*% ccares$xcoef
-ccadf <- cbind(stage2df, cca = ccavar)
-
-# Initialize formula and result object
-ccaform <- basicform
-i2scores$CCA <- aicscores$CCA <- vector("numeric", maxk)
-mixcca <- vector("list", maxk)
-
-# Loop on number of components
-for (i in seq_len(maxk)){
-  
-  print(sprintf("CCA : %i / %i", i, maxk))
-  
-  # Update formula
-  ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", i)))
-  
-  # Fit mixmeta model
-  mixcca[[i]] <- mixmeta(ccaform, data = ccadf, S = vcovs, random = ~ 1|city)
-  
-  # Extract scores
-  i2scores$CCA[i] <- summary(mixcca[[i]])$i2stat[1] 
-  aicscores$CCA[i] <- summary(mixcca[[i]])$AIC
-}
- 
-#----- Cross-validation 
-ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
-  .packages = c("mixmeta", "rsample", "splines")) %dopar% 
-{
-  # Initialize formula
-  ccaform <- update(basicform, coeftrain ~ .)
-  
-  # Get training and validation fold indices
-  trainind <- analysis(splitinds$splits[[i]])[,1]
-  validind <- assessment(splitinds$splits[[i]])[,1]
-  
-  # Subset
-  coeftrain <- coefs[trainind,]
-  metatrain <- metavar[trainind,]
-  
-  # Create CCA variable on training sample only
-  ccares <- cancor(metatrain, coeftrain)
-  ccadf <- cbind(stage2df[trainind,], cca = scale(metatrain) %*% ccares$xcoef)
-  
-  # Add object to global environment for mixmeta
-  .GlobalEnv$coeftrain <- coeftrain
-  
-  # Loop on number of components
-  rmse <- vector("numeric", maxk)
-  
-  for (j in seq_len(maxk)){
-    # Update formula
-    ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", j)))
-    
-    # Fit mixmeta model
-    .GlobalEnv$ccaform <- ccaform
-    ccaresj <- mixmeta(ccaform, data = ccadf, S = vcovs[trainind], 
-      random = ~ 1|city)
-    
-    # Predict CCA scores on validation data
-    ccapred <- scale(metavar[validind,], center = ccares$xcenter) %*% 
-      ccares$xcoef
-    
-    # Predict coefs with new scores
-    pred <- predict(ccaresj, 
-      newdata = cbind(stage2df[validind,], cca = ccapred))
-    
-    # Compute RMSE
-    err <- coefs[validind,] - pred
-    rmse[j] <- sqrt(mean(err^2, na.rm = T))
-  }
-  
-  # Export
-  rmse
-}
-
-cvscores$CCA <- cbind(cvm = apply(ccacvres, 1, mean), 
-  cvsd = apply(ccacvres, 1, 
-    function(x) sqrt(var(x) / length(splitinds$splits))))
+# #---------------------------
+# # CCA
+# #---------------------------
+# 
+# #----- apply on all data 
+# 
+# # Apply CCA
+# ccares <- cancor(metavar, coefs)
+# 
+# # Create new metavariables
+# ccavar <- scale(metavar) %*% ccares$xcoef
+# ccadf <- cbind(stage2df, cca = ccavar)
+# 
+# # Initialize formula and result object
+# ccaform <- basicform
+# i2scores$CCA <- aicscores$CCA <- vector("numeric", maxk)
+# mixcca <- vector("list", maxk)
+# 
+# # Loop on number of components
+# for (i in seq_len(maxk)){
+#   
+#   print(sprintf("CCA : %i / %i", i, maxk))
+#   
+#   # Update formula
+#   ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", i)))
+#   
+#   # Fit mixmeta model
+#   mixcca[[i]] <- mixmeta(ccaform, data = ccadf, S = vcovs, random = ~ 1|city)
+#   
+#   # Extract scores
+#   i2scores$CCA[i] <- summary(mixcca[[i]])$i2stat[1] 
+#   aicscores$CCA[i] <- summary(mixcca[[i]])$AIC
+# }
+#  
+# #----- Cross-validation 
+# ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
+#   .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+# {
+#   # Initialize formula
+#   ccaform <- update(basicform, coeftrain ~ .)
+#   
+#   # Get training and validation fold indices
+#   trainind <- analysis(splitinds$splits[[i]])[,1]
+#   validind <- assessment(splitinds$splits[[i]])[,1]
+#   
+#   # Subset
+#   coeftrain <- coefs[trainind,]
+#   metatrain <- metavar[trainind,]
+#   
+#   # Create CCA variable on training sample only
+#   ccares <- cancor(metatrain, coeftrain)
+#   ccadf <- cbind(stage2df[trainind,], cca = scale(metatrain) %*% ccares$xcoef)
+#   
+#   # Add object to global environment for mixmeta
+#   .GlobalEnv$coeftrain <- coeftrain
+#   
+#   # Loop on number of components
+#   rmse <- vector("numeric", maxk)
+#   
+#   for (j in seq_len(maxk)){
+#     # Update formula
+#     ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", j)))
+#     
+#     # Fit mixmeta model
+#     .GlobalEnv$ccaform <- ccaform
+#     ccaresj <- mixmeta(ccaform, data = ccadf, S = vcovs[trainind], 
+#       random = ~ 1|city)
+#     
+#     # Predict CCA scores on validation data
+#     ccapred <- scale(metavar[validind,], center = ccares$xcenter) %*% 
+#       ccares$xcoef
+#     
+#     # Predict coefs with new scores
+#     pred <- predict(ccaresj, 
+#       newdata = cbind(stage2df[validind,], cca = ccapred))
+#     
+#     # Compute RMSE
+#     err <- coefs[validind,] - pred
+#     rmse[j] <- sqrt(mean(err^2, na.rm = T))
+#   }
+#   
+#   # Export
+#   rmse
+# }
+# 
+# cvscores$CCA <- cbind(cvm = apply(ccacvres, 1, mean), 
+#   cvsd = apply(ccacvres, 1, 
+#     function(x) sqrt(var(x) / length(splitinds$splits))))
 
 
 #---------------------------

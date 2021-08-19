@@ -71,7 +71,7 @@ cityERF <- Map(function(b, era5){
     
     # Final prediction centred on the MMT
     crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
-      model.link="log", at = quantile(era5$era5landtmean, predper / 100))
+      model.link = "log", at = quantile(era5$era5landtmean, predper / 100))
   }, citycoefs, era5series[cityagegrid[,2]])
 names(cityERF) <- paste(cityres$URAU_CODE, cityres$agegroup, sep = "_")
 

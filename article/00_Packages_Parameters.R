@@ -94,7 +94,8 @@ minage <- 20
 #----- Second-stage analysis
 
 # Metapredictors
-metapreds <- list(Demographic = c("pop", "popdens", "lifexp", "isol"),
+metapreds <- list(Demographic = c("pop", "prop_65p", 
+    "popdens", "lifexp", "isol"),
   'Socio-economic' = c("gdp", "unempl", "educ", "depriv","bedrates"),
   'Built-environment' = c("urbshare", "greenshare", "blueshare"),
   Environmental = c("mount_type", "urbn_type", "coast_type", 
@@ -102,7 +103,7 @@ metapreds <- list(Demographic = c("pop", "popdens", "lifexp", "isol"),
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 # Knots for age spline
 ageknots <- 65
