@@ -258,11 +258,12 @@ stdratecity <- tapply(seq_along(attrlist), cityres$URAU_CODE, function(i){
 
 # Put together point estimates and CIs
 allcitystdrt <- t(sapply(stdratecity, "c"))
-colnames(allcitystdrt) <- sprintf("stdrate_%s", t(outer(c("total", "cold", "heat"), 
-  c("est", "low", "hi"), FUN = "paste", sep = "_")))
+colnames(allcitystdrt) <- sprintf("stdrate_%s", t(outer(
+  c("total", "cold", "heat"), c("est", "low", "hi"), 
+  FUN = "paste", sep = "_")))
 
 # Add to result summary object
-cityres <- cbind(cityres, allcitystdrt)
+cityres <- cbind(cityres, allcitystdrt[cityagegrid[,2],])
 
 
 #---------------------------

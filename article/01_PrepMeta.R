@@ -345,24 +345,6 @@ metadesc <- rbind(metadesc, cbind(metavar = varnames,
     substr(varnames, 6, 10)),
   source = "NUTS3"))
 
-# #----- Total population
-# # Load variables from eurostat
-# totpop <- get_eurostat("demo_r_pjangrp3", time_format = "num",
-#   filters = list(sex = "T", age = "TOTAL", time = year)
-# )
-# 
-# # Average years
-# totpop <- aggregate(values ~ geo, data = totpop, mean)
-# names(totpop)[-1] <- "pop"
-# 
-# # Merge with metadata
-# metadata <- merge(metadata, totpop, by.x = "NUTS3_2021", by.y = "geo",
-#   all.x = T, all.y = F, sort = F)
-# 
-# # Add description
-# metadesc <- rbind(metadesc, cbind(metavar = "pop", 
-#   label = "Population", source = "NUTS3"))
-
 #----- Population density
 popdens <- get_eurostat("demo_r_d3dens", time_format = "num",
   filters = list(unit = "PER_KM2", time = year)
@@ -602,40 +584,54 @@ age_list <- c("Y_LT5", "Y5-9", "Y10-14", "Y15-19",
   "Y45-49", "Y50-54", "Y55-59", "Y60-64", "Y65-69", 
   "Y70-74", "Y75-79", "Y80-84", "Y85-89", "Y_GE90", 
   "TOTAL")
-varnames <- c("death_0004", "death_0509", "death_1014", "death_1519", 
-  "death_2024", "death_2529", "death_3034", "death_3539", "death_4044", 
-  "death_4549", "death_5054", "death_5559", "death_6064", "death_6569", 
-  "death_7074", "death_7579", "death_8084", "death_8589", "death_90p",
-  "death_tot")
+varnames <- c("deathrate_0004", "deathrate_0509", "deathrate_1014", 
+  "deathrate_1519", "deathrate_2024", "deathrate_2529", "deathrate_3034", 
+  "deathrate_3539", "deathrate_4044", "deathrate_4549", "deathrate_5054", 
+  "deathrate_5559", "deathrate_6064", "deathrate_6569", "deathrate_7074", 
+  "deathrate_7579", "deathrate_8084", "deathrate_8589", "deathrate_90p",
+  "deathrate_tot")
 
-# Load
+# Load total deaths
 deaths <- get_eurostat("demo_r_magec3", time_format = "num",
-  filters = list(sex = "T")
+  filters = list(sex = "T", time = year)
 )
+colnames(deaths)[colnames(deaths) == "values"] <- "deaths"
+
+# Load population for NUTS3
+pop <- get_eurostat("demo_r_pjangrp3", time_format = "num",
+  filters = list(sex = "T", time = year)
+)
+colnames(pop)[colnames(pop) == "values"] <- "pop"
+
+# Merge them
+popdeaths <- merge(deaths, pop)
+
+# Compute rates
+popdeaths$deathrate <- with(popdeaths, deaths / pop)
 
 # Average years
-deaths <- aggregate(values ~ age + geo, data = deaths, mean)
+popdeaths <- aggregate(deathrate ~ age + geo, data = popdeaths, mean)
 
 # Reshape
-deaths <- reshape(deaths, timevar = "age", idvar = "geo",
+popdeaths <- reshape(popdeaths, timevar = "age", idvar = "geo",
   ids = "values", direction = "wide")
-names(deaths)[match(sprintf("values.%s", age_list), names(deaths))] <- 
+names(popdeaths)[match(sprintf("deathrate.%s", age_list), names(popdeaths))] <- 
   varnames
 
 # Sum 85-89 and ge90 to match population
-deaths$death_8599 <- deaths$death_8589 + deaths$death_90p
+popdeaths$deathrate_8599 <- popdeaths$deathrate_8589 + popdeaths$deathrate_90p
 
 # Remove variables
-deaths[c("values.UNK", "death_8589", "death_90p")] <- NULL
+popdeaths[c("deathrate.UNK", "deatrateh_8589", "deathrate_90p")] <- NULL
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, deaths, level = 3)
+metadata <- nuts_merge(metadata, popdeaths, level = 3, highest = 0)
 
 # Add description
-metadesc <- rbind(metadesc, cbind(metavar = colnames(deaths)[-1], 
-  label = c("Total deaths", sprintf("Deaths in ages %s to %s", 
-    substr(colnames(deaths)[-(1:2)], 7, 8), 
-    substr(colnames(deaths)[-(1:2)], 9, 10))),
+metadesc <- rbind(metadesc, cbind(metavar = colnames(popdeaths)[-1], 
+  label = c("Deaths rates", sprintf("Deaths in ages %s to %s", 
+    substr(colnames(popdeaths)[-(1:2)], 11, 12), 
+    substr(colnames(popdeaths)[-(1:2)], 13, 14))),
   source = "NUTS3"))
 
 # #---------------------------
