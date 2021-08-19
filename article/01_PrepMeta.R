@@ -824,7 +824,7 @@ meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
 
 # Get the imputed dataset (of iter_Sel)
 iter_sel <- 5
-metadata[,!names(metadata) %in% desc_vars] <- complete(meta_imp, iter_sel)
+metadata[,names(metadata) %in% metadesc$metavar] <- complete(meta_imp, iter_sel)
 
 #---------------------------
 # Load geographical data
