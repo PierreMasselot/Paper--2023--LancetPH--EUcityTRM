@@ -20,6 +20,7 @@ library(modeest) # For computing mode of a vector
 library(PHEindicatormethods) # For the 2013 European standard population
 library(stringr) # For label management
 library(abind) # Array binding
+library(raster) # Loading of some data
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -46,7 +47,7 @@ library(ggstance) # for position_dodgev
 
 #----- Data
 # Years selected for metapredictors. Averaged if several
-year <- as.character(2005:2015)
+year <- as.character(2000:2018)
 
 # Starting year for analysis
 yearstart <- 1990
@@ -85,7 +86,7 @@ lagfun <- "ns"
 lagknots <- logknots(maxlag, 3)
 
 # Minimum number of deaths for being considered in analysis
-mindeath <- 10000
+mindeath <- 5000
 
 # Minimum age to be considered in analysis and prediction
 minage <- 20
@@ -97,11 +98,11 @@ metapreds <- list(Demographic = c("pop", "popdens", "lifexp", "isol"),
   'Socio-economic' = c("gdp", "unempl", "educ", "depriv","bedrates"),
   'Built-environment' = c("urbshare", "greenshare", "blueshare"),
   Environmental = c("mount_type", "urbn_type", "coast_type", 
-    "greenness", "pm25"),
+    "ndvi", "pm25", "no2"),
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 6
+npc <- 4
 
 # Knots for age spline
 ageknots <- 65

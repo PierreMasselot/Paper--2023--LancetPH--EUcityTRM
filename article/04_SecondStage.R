@@ -43,7 +43,7 @@ stage2df <- data.frame(region = metadata$region[repmcc], age = agevals,
 
 # Store model dimensions
 nc <- ncol(coefs) # Number of first-stage coefficients
-nm <- length(metaprednames) # Number of metapredictors
+nm <- sum(lengths(metapreds)) # Number of metapredictors
 
 #---------------------------
 #  PCA/PLS on metavariables

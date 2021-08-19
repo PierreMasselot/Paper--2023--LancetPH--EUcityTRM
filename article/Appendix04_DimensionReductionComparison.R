@@ -21,7 +21,7 @@ source("05_ResultsPrep.R")
 #---------------------------
 
 # Maximum number of components
-maxk <- 10
+maxk <- 15
 
 #---------------------------
 # Prepare cross validation
