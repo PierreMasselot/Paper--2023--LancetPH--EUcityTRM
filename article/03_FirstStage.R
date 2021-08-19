@@ -27,16 +27,16 @@ cat(as.character(as.POSIXct(Sys.time())), file = "temp/logstage1.txt",
 #----- Variables for age attribution
 
 # Extract and sort age group deaths
-deathvars <- sort(grep("death_[[:digit:]]", names(metadata), value = T))
+deathvars <- sort(grep("deathrate_[[:digit:]]", names(metadata), value = T))
 
 # Extract min, and max of age group
-agemin <- substr(deathvars, 7, 8)
-agemax <- substr(deathvars, 9, 10)
+agemin <- substr(deathvars, 11, 12)
+agemax <- substr(deathvars, 13, 14)
 
 # Repeat values for each age
 ageseqs <- Map(seq, agemin, agemax, by = 1)
 agedeaths <- mapply(function(d, a){ 
-    do.call(cbind, rep(list(d), length(a))) / length(a)
+    do.call(cbind, rep(list(d), length(a)))
   }, metadata[,deathvars], ageseqs)
 agedeaths <- do.call(cbind, agedeaths)
 ageseq <- unlist(ageseqs, use.names = F)

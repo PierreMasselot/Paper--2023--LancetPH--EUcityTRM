@@ -104,13 +104,6 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
 set.seed(12345)
 metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
 
-#----- Construct deaths for each city / age group
-
-# Sum by group
-cityagedeaths <- tapply(as.list(as.data.frame(agedeaths))[ageseq > minage], 
-  agegrps, function(x) rowSums(do.call(cbind, x)))
-cityres$death <- c(do.call(rbind, cityagedeaths))
-
 #----- Compute age group population
 
 # Extract population structure variables from metadata
@@ -135,6 +128,19 @@ popgrps <- c(do.call(rbind, popgrps))
 # Multiply by total population
 cityres$agepop <- popgrps * rep(metadata$pop, each = length(agebreaks) + 1) / 
   100
+
+#----- Construct deaths for each city / age group
+
+# Weighted average of death rates by group
+cityagedeaths <- tapply(seq_along(agegrps), agegrps, function(i){
+  ad <- agedeaths[,ageseq > minage][,i]
+  ap <- ageprop[,ageseq > minage][,i]
+  rowSums(ad * ap) / rowSums(ap)
+})
+cityres$deathrate <- c(do.call(rbind, cityagedeaths))
+
+# Compute deaths by age
+cityres$death <- with(cityres, deathrate * agepop)
 
 #----- Standard european population for each age group
 

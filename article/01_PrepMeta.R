@@ -622,14 +622,14 @@ names(popdeaths)[match(sprintf("deathrate.%s", age_list), names(popdeaths))] <-
 popdeaths$deathrate_8599 <- popdeaths$deathrate_8589 + popdeaths$deathrate_90p
 
 # Remove variables
-popdeaths[c("deathrate.UNK", "deatrateh_8589", "deathrate_90p")] <- NULL
+popdeaths[c("deathrate.UNK", "deathrate_8589", "deathrate_90p")] <- NULL
 
 # Merge with metadata
 metadata <- nuts_merge(metadata, popdeaths, level = 3, highest = 0)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = colnames(popdeaths)[-1], 
-  label = c("Deaths rates", sprintf("Deaths in ages %s to %s", 
+  label = c("Death rate", sprintf("Death rate in ages %s to %s", 
     substr(colnames(popdeaths)[-(1:2)], 11, 12), 
     substr(colnames(popdeaths)[-(1:2)], 13, 14))),
   source = "NUTS3"))
