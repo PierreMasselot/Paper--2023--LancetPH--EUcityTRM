@@ -40,6 +40,7 @@ library(RColorBrewer) # For specific color palettes
 library(corrplot) # Plotting correlation matrices
 library(patchwork) # Putting together plots created with ggplot
 library(ggstance) # for position_dodgev
+library(ggpubr) # For get_legend
 
 #----------------------
 # Parameters
@@ -133,7 +134,7 @@ agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
 agegrid <- 20:99
 
 # Number of simulations for AN/AF
-nsim <- 500
+nsim <- 1000
 
 # Denominator for death rates
 byrate <- 10^5

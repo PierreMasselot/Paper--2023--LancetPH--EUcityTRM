@@ -27,61 +27,19 @@ basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
     barwidth = 12, barheight = .8))
 
 #---------------------------
-#  Figure 1: maps of risk 
+#  Figure 2: Big maps of results
 #---------------------------
 
 #----- Add aesthetic and scale for different result variables
 
 # MMT with heat colors
 mmtmap <- basic_map + aes(fill = mmt) + 
-  scale_fill_gradientn(colours = c("black", "darkgreen", "lightgoldenrod", 
-    "darkred", "black"),
-    name = "MMT", limits = c(10, 30), oob = squish)
-  # scale_fill_binned(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-  #   name = "MMT", oob = squish)
-
-# Cold with white to blue
-coldmap <- basic_map + aes(fill = rrcold) + 
-  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkblue", 
-    high = "black", 
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1, 2), midpoint = 1.5, oob = squish)
-# scale_fill_binned(low = "white", high = "darkblue", 
-#   name = sprintf("RR at percentile %i", resultper[2]))
-
-# Heat with white to red
-heatmap <- basic_map + aes(fill = rrheat) + 
-  scale_fill_gradient2(low = "lightgoldenrod", mid = "darkred", 
-    high = "black", 
-    name = sprintf("RR at percentile %i", resultper[2]), oob = squish,
-    limits = c(1, 1.6), midpoint = 1.3)
-  # scale_fill_binned(low = "white", high = "darkred", 
-  #   name = sprintf("RR at percentile %i", resultper[2]))
-
-#----- Put maps together
-
-# Put them side-by-side
-(coldmap + mmtmap + heatmap) /
-
-# Add legend for point size
-  basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
-    scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
-      labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
-      guide = guide_legend(title.position = "top", title.hjust = 0.5,
-        label.position = "bottom", override.aes = list(colour = "black"))) + 
-  theme(legend.position = "bottom") +
-  plot_layout(height = c(1, .05))
-
-# Save
-ggsave("figures/Fig1_citiesResults.pdf", width = 15)
-
-#---------------------------
-#  Figure 3: Standardized rates map
-#---------------------------
-
-# Execute background map above
-
-#----- Add aesthetic and scale for rates
+  scale_fill_gradient2(low = "darkblue", mid = "lightgoldenrod",
+    high = "darkred", name = "MMT\n(65-74)", limits = c(15, 25), midpoint = 20, 
+    oob = squish, labels = c("< 15.0", "17.5", "20", "22.5", "> 25"))
+  # scale_fill_gradientn(colours = c("darkgreen", "lightgoldenrod",
+  #   "darkred"),
+  #   name = "MMT", limits = c(15, 25), oob = squish)
 
 # Cold excess rates
 stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) + 
@@ -103,20 +61,38 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
 #----- Put maps together
 
 # Put them side-by-side
-(stdcoldmap + stdheatmap) /
-  
-  # Add legend for point size
+(stdcoldmap + mmtmap + stdheatmap) /
+
+# Add legend for point size
   basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
-  scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
-    labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
-    guide = guide_legend(title.position = "top", title.hjust = 0.5,
-      label.position = "bottom", override.aes = list(colour = "black"))) + 
+    scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+      labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
+      guide = guide_legend(title.position = "top", title.hjust = 0.5,
+        label.position = "bottom", override.aes = list(colour = "black"))) + 
   theme(legend.position = "bottom") +
   plot_layout(height = c(1, .05))
 
 # Save
-ggsave("figures/Fig3_citiesStdRates.pdf", width = 15)
+ggsave("figures/Fig2_cityMap.pdf", width = 15)
 
+
+# # Cold with white to blue
+# coldmap <- basic_map + aes(fill = rrcold) + 
+#   scale_fill_gradient2(low = "lightgoldenrod", mid = "darkblue", 
+#     high = "black", 
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1, 2), midpoint = 1.5, oob = squish)
+# # scale_fill_binned(low = "white", high = "darkblue", 
+# #   name = sprintf("RR at percentile %i", resultper[2]))
+# 
+# # Heat with white to red
+# heatmap <- basic_map + aes(fill = rrheat) + 
+#   scale_fill_gradient2(low = "lightgoldenrod", mid = "darkred", 
+#     high = "black", 
+#     name = sprintf("RR at percentile %i", resultper[2]), oob = squish,
+#     limits = c(1, 1.6), midpoint = 1.3)
+# # scale_fill_binned(low = "white", high = "darkred", 
+# #   name = sprintf("RR at percentile %i", resultper[2]))
 
 #---------------------------
 # Supp Figure: List of cities in MCC
