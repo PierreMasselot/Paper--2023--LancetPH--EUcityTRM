@@ -107,7 +107,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
 npc <- 4
 
 # Knots for age spline
-ageknots <- 65
+ageknots <- 70
 
 #----- Results exploitation
 

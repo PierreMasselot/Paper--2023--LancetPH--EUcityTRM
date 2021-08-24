@@ -21,7 +21,7 @@ path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
 
 # Lookup table between URAU and NUTS
 urau_nuts <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
-  "Urban Audit (urb_cgc)/lookup/URAU_NUTS2020.csv"))
+  "Urban Audit (urb_cgc)/lookup/URAU_NUTS2020.csv"), encoding = "UTF-8")
 
 # Lookup table between MCC and URAU
 urau_mcc_age <- read.table(sprintf("%s/lookup/URAU_MCC_AgeCause_20200907.csv", 
