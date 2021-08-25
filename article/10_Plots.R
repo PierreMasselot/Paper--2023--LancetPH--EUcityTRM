@@ -211,7 +211,7 @@ stdcoldplot + stdheatplot +
   plot_layout(guides = "collect")
 
 # Save
-ggsave("figures/Fig3_CountryStdRate.pdf", height = 10)
+ggsave("figures/SupFig_CountryStdRate.pdf", height = 10)
 
 
 #----------------------
@@ -252,7 +252,7 @@ legend("topleft", legend = agebreaks, col = pal, lty = 1, lwd = 2,
 dev.print(pdf, file = "figures/Fig4a_AgeERF.pdf")
 
 #----------------------
-# Figure 4b: MMT versus age
+# Figure 4b: MMP versus age
 #----------------------
 
 #----- Create data.frame
@@ -267,7 +267,9 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
   # geom_errorbar(aes(ymin = low, ymax = high)) +
   geom_line(aes(y = mmp), size = 1.5) + 
   scale_x_continuous(limits = c(45, 85), name = "Age") + 
-  scale_y_continuous(limits = c(10, 22), name = "MMP") + 
+  scale_y_continuous(limits = c(9, 22), name = "MMP",
+    breaks = ovper[predper %in% c(50, 60, 70, 80, 90)], 
+    labels = c(50, 60, 70, 80, 90)) + 
   theme(axis.text = element_text(size = 12), 
     axis.text.x = element_text(margin = margin(t = 6)),
     axis.text.y = element_text(margin = margin(r = 6)),
@@ -278,7 +280,7 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
     panel.grid.minor = element_blank(),
     axis.ticks.length = unit(6, "pt"))
 
-dev.print(pdf, file = "figures/Fig4b_AgeERF.pdf")
+dev.print(pdf, file = "figures/Fig4b_AgeMMP.pdf")
 
 # #----- Extract information at all ages and put
 # 
@@ -332,7 +334,7 @@ rownames(plotload) <- compres$label
 
 # Plot loadings (correlation between components and meta-variables)
 corrplot(t(plotload), method = "square", is.corr = F, cl.lim = c(-1, 1), 
-  tl.srt = 45, tl.col = "black")
+  tl.srt = 45, tl.col = "black", cl.cex = .7, cl.align.text = "l")
 
 # Save
 dev.print(pdf, file = "figures/Fig5_PLScor.pdf")
@@ -386,7 +388,7 @@ compcoldplot + compheatplot +
   plot_layout(guides = "collect")
 
 # Save
-ggsave("figures/Fig5_EffectModification.pdf", height = 10)
+ggsave("figures/SupFig_EffectModification.pdf", height = 10)
 
 
 #---------------------------
@@ -415,14 +417,14 @@ cityERFplot <- Map(function(b, era5, mmt){
 
 #----- Plot all ERF
 
-pdf("figures/ERFcities.pdf", width = 11, height = 13)
+pdf("figures/SupFig_ERFcities.pdf", width = 11, height = 13)
 layout(matrix(seq(6 * length(agelabs)), nrow = 6, byrow = T))
 par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
 
 # Loop on all cities
 for(i in seq_along(cityERF)){
   # Part of the curve above MMP
-  heatind <- predper >= cityres[i, "mmp"] 
+  heatind <- predper >= cityERFplot[[i]]$cen
   
   # Panel title
   ititle <- sprintf("%s (%s) - %s", cityres[i, "LABEL"], 

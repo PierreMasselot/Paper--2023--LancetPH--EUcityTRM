@@ -44,7 +44,7 @@ mmtmap <- basic_map + aes(fill = mmt) +
 # Cold excess rates
 stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) + 
   scale_fill_gradient2(low = "lightgoldenrod", mid = "darkblue", high = "black", 
-    name = sprintf("Cold-related\nstd excess deaths (x %s)", 
+    name = sprintf("Cold-related\nstd death rate (x %s)", 
       formatC(byrate, digits = 0, format = "f", big.mark = ",")),
     limits = c(0, max(cityres$stdrate_cold_est)), 
     midpoint = max(cityres$stdrate_cold_est) / 2)
@@ -53,7 +53,7 @@ stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) +
 # Heat with white to red
 stdheatmap <- basic_map + aes(fill = stdrate_heat_est) + 
   scale_fill_gradient2(low = "lightgoldenrod", mid = "darkred", high = "black", 
-    name = sprintf("Heat-related\nstd excess deaths (x %s)", 
+    name = sprintf("Heat-related\nstd death rate (x %s)", 
       formatC(byrate, digits = 0, format = "f", big.mark = ",")),
     limits = c(0, max(cityres$stdrate_heat_est)), 
     midpoint = max(cityres$stdrate_heat_est) / 2)
@@ -103,7 +103,9 @@ ggsave("figures/Fig2_cityMap.pdf", width = 15)
 #----- Cities in and out of MCC
 
 basic_map + aes(fill = inmcc) + 
-  scale_fill_discrete(name = "", labels = c("Predicted", "MCC")) + 
+  scale_fill_discrete(name = "", labels = c("Predicted", "MCC")) +
+  scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+    labels = c(1, 5, 10, 50) / 10, name = "Population (millions)") +
   guides(size = guide_legend(override.aes = list(colour = "black")),
     fill = guide_legend(override.aes = list(size = 5)))  +
   theme(legend.position = "right")
@@ -113,12 +115,37 @@ basic_map + aes(fill = inmcc) +
 ggsave("figures/SupFig_URAUcities.pdf")
 
 
+#---------------------------
+# Supp Figure: Maps of each PLS component
+#---------------------------
 
+# Execute background map above
 
+#----- Create map for each PLS component
 
+# Loop
+plsmaps <- lapply(seq_len(npc), function(i){
+  basic_map + aes_string(fill = sprintf("pls%i", i)) + 
+    scale_fill_viridis(name = sprintf("Comp. %i", i))
+})
+names(plsmaps) <- letters[1:npc]
 
+# Add legend for size
+plsmaps$leg <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
+  scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+    labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
+    guide = guide_legend(override.aes = list(colour = "black"))) + 
+  theme(legend.position = "right")
 
+# Design 
+plsmaps$nrow = 1
+plsmaps$widths = c(rep(1, npc), .1)
 
+# plot
+do.call(wrap_plots, plsmaps)
+
+# Save
+ggsave("figures/SupFig_PLSmaps.pdf", width = 15)
 
 # #-------------------------
 # # Background effect
