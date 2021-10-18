@@ -135,7 +135,7 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
   }
   
   # Output
-  list(tsum = summary(dat$era5landtmean), modelres = ageres)
+  list(tsum = quantile(dat$era5landtmean, predper / 100), modelres = ageres)
 }
 
 # Stop parallel

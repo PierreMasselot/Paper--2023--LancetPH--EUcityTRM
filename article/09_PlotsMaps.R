@@ -27,7 +27,7 @@ basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
     barwidth = 12, barheight = .8))
 
 #---------------------------
-#  Figure 2: Big maps of results
+#  Figure 3: Big maps of results
 #---------------------------
 
 #----- Add aesthetic and scale for different result variables
@@ -73,7 +73,7 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
   plot_layout(height = c(1, .05))
 
 # Save
-ggsave("figures/Fig2_cityMap.pdf", width = 15)
+ggsave("figures/Fig3_cityMap.pdf", width = 15)
 
 
 # # Cold with white to blue

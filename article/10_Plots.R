@@ -6,8 +6,77 @@
 #
 ################################################################################
 
+#----------------------
+# Figure 1a: Age effect
+#----------------------
+
+#----- Prepare plot
+
+# Select specific ages
+selagecp <- agecp[agegrid %in% agebreaks]
+
+# Palette
+pal <- viridis(length(agebreaks), direction = -1)
+
+#----- Plot all for ages
+
+# Plot outline
+layout(matrix(1:2, ncol = 2), width = c(4, 1))
+plot(NA, bty = "l", xaxt = "n", 
+  xlab = "Temperature percentile", ylab = "RR",
+  xlim = range(ovper), 
+  ylim = c(min(sapply(selagecp, "[[", "allRRlow")), 
+    max(sapply(selagecp, "[[", "allRRhigh"))))
+abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+axis(1, at = ovaxis, labels = axisper)
+
+# Add age curves
+for (i in seq_along(agebreaks)){
+  lines(selagecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
+    lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
+}
+abline(h = 1)
+par(mar = c(5, 0, 4, 0) + .1)
+plot.new()
+legend("topleft", legend = agebreaks, col = pal, lty = 1, lwd = 2, 
+  title = "Age", bty = "n")
+
+dev.print(pdf, file = "figures/Fig1a_AgeERF.pdf")
+
+#----------------------
+# Figure 1b: MMP versus age
+#----------------------
+
+#----- Create data.frame
+
+mmpdf <- data.frame(age = agegrid, mmp = agemmp, 
+  low = mmpci[1,], high = mmpci[2,])
+
+#----- Plot it
+
+ggplot(mmpdf, aes(x = age)) + theme_classic() +
+  geom_ribbon(aes(ymin = low, ymax = high), fill = adjustcolor(4, .4)) + 
+  # geom_errorbar(aes(ymin = low, ymax = high)) +
+  geom_line(aes(y = mmp), size = 1.5) + 
+  scale_x_continuous(limits = c(45, 85), name = "Age") + 
+  scale_y_continuous(limits = c(9, 22), name = "MMP",
+    breaks = ovper[predper %in% c(50, 60, 70, 80, 90)], 
+    labels = c(50, 60, 70, 80, 90)) + 
+  theme(axis.text = element_text(size = 12), 
+    axis.text.x = element_text(margin = margin(t = 6)),
+    axis.text.y = element_text(margin = margin(r = 6)),
+    axis.title = element_text(size = 15),
+    axis.title.x = element_text(margin = margin(t = 12)),
+    axis.title.y = element_text(margin = margin(r = 12)),
+    panel.grid.major = element_line(linetype = 2, color = "lightgrey"),
+    panel.grid.minor = element_blank(),
+    axis.ticks.length = unit(6, "pt"))
+
+dev.print(pdf, file = "figures/Fig1b_AgeMMP.pdf")
+
+
 #---------------------------
-#  Figure 1bis: Risks for capital cities
+#  Figure 2: Risks for capital cities
 #---------------------------
 
 #----- Select capital city of each country
@@ -87,87 +156,10 @@ coldplot + heatplot +
   legplot + plot_layout(widths = c(1, 1, .1), guides = "collect")
 
 # Save
-ggsave("figures/Fig1_CapitalRes.pdf", height = 10)
+ggsave("figures/Fig2_CapitalRes.pdf", height = 10)
 
 #---------------------------
-#  Figure 3: Excess rates by country and age group
-#---------------------------
-
-#----- Prepare useful objects
-
-# Order by region and age
-countryres <- countryres[with(countryres, 
-  order(region, cntr_name, agegroup)),]
-countryres$id <- as.numeric(factor(countryres$CNTR_CODE, 
-  levels = unique(countryres$CNTR_CODE))) + 
-  as.numeric(factor(countryres$region, 
-    levels = unique(countryres$region))) - 1
-
-# Background lines
-unid <- unique(countryres$id)
-bglines <- data.frame(pos = unid[-1][diff(unid) == 1] - .5)
-
-# Region label position
-regpos <- aggregate(id ~ region, data = countryres, mean)
-
-#----- Create background plot
-bgplot <- ggplot(countryres, 
-  aes(y = id, group = rev(agegroup), fill = agegroup)) + 
-  theme_classic() + 
-  # geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
-  #   xmin = -Inf, xmax = Inf, fill = region), alpha = .2, inherit.aes = F) + 
-  # scale_fill_manual(values = brewer.pal(4, "Accent"),
-  #   name = "Region") + 
-  scale_y_continuous(name = "", 
-    breaks = unique(countryres$id), 
-    labels = unique(countryres$cntr_name),
-    trans = "reverse") + 
-  geom_hline(data = bglines, aes(yintercept = pos), lty = 3) + 
-  theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
-    axis.text.y.right = element_text(size = 15)) + 
-  geom_colh(position = position_dodgev()) + 
-  geom_vline(xintercept = 0)
-
-#----- Add values for heat and cold
-
-ratecoldplot <- bgplot + 
-  aes(x = rate_cold_est) + 
-  scale_fill_manual(guide = "none",
-    values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
-  xlab(sprintf("Cold-related\ndeath rate (x %s)", 
-    formatC(byrate, digits = 0, format = "f", big.mark = ","))) 
-
-rateheatplot <- bgplot + 
-  aes(x = rate_heat_est) + 
-  scale_fill_manual(guide = "none",
-    values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
-  xlab(sprintf("Heat-related\ndeath rate (x %s)", 
-    formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
-  scale_y_continuous(name = "", breaks = NULL, trans = "reverse", 
-    sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
-      labels = regpos$region, guide = guide_axis(angle = -90)))
-
-#----- Put together and save
-
-# Create a "legend-plot" for the common color scale legend
-g <- ggplot(countryres, aes(y = id, group = agegroup, fill = agegroup)) + 
-  geom_colh(aes(x = rate_heat_est)) +
-  scale_fill_manual(name = "Age group",
-    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)])
-
-# Extract only legend
-legplot <- as_ggplot(get_legend(g))
-
-# Put everything together
-ratecoldplot + rateheatplot + 
-  legplot + plot_layout(widths = c(1, 1, .2), guides = "collect")
-
-# Save
-ggsave("figures/Fig3_CountryExcess.pdf", height = 10)
-
-
-#---------------------------
-#  Figure 3bis: Standardized rates by country
+#  Figure 4: Standardized rates by country
 #---------------------------
 
 #----- Create background plot
@@ -211,76 +203,89 @@ stdcoldplot + stdheatplot +
   plot_layout(guides = "collect")
 
 # Save
-ggsave("figures/SupFig_CountryStdRate.pdf", height = 10)
+ggsave("figures/Fig4_CountryStdRate.pdf", height = 10)
+
+#---------------------------
+#  Supp Figure 2: Excess rates by country and age group
+#---------------------------
+
+#----- Prepare useful objects
+
+# Order by region and age
+countryres <- countryres[with(countryres, 
+  order(region, cntr_name, agegroup)),]
+countryres$id <- as.numeric(factor(countryres$CNTR_CODE, 
+  levels = unique(countryres$CNTR_CODE))) + 
+  as.numeric(factor(countryres$region, 
+    levels = unique(countryres$region))) - 1
+
+# Background lines
+unid <- unique(countryres$id)
+bglines <- data.frame(pos = unid[-1][diff(unid) == 1] - .5)
+
+# Region label position
+regpos <- aggregate(id ~ region, data = countryres, mean)
+
+#----- Create background plot
+bgplot <- ggplot(countryres, 
+  aes(y = id, group = rev(agegroup), fill = agegroup)) + 
+  theme_classic() + 
+  # geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
+  #   xmin = -Inf, xmax = Inf, fill = region), alpha = .2, inherit.aes = F) + 
+  # scale_fill_manual(values = brewer.pal(4, "Accent"),
+  #   name = "Region") + 
+  scale_y_continuous(name = "", 
+    breaks = unique(countryres$id), 
+    labels = unique(countryres$cntr_name),
+    trans = "reverse") + 
+  geom_hline(data = bglines, aes(yintercept = pos), lty = 3) + 
+  geom_vline(xintercept = 1) + 
+  theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
+    axis.text.y.right = element_text(size = 15)) + 
+  geom_colh(position = position_dodgev()) + 
+  geom_vline(xintercept = 0)
+
+#----- Add values for heat and cold
+
+ratecoldplot <- bgplot + 
+  aes(x = rate_cold_est) + 
+  scale_fill_manual(guide = "none",
+    values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
+  scale_x_continuous(trans = "log10", limits = c(1, 4500), 
+    name = sprintf("Cold-related\ndeath rate (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ","))) 
+
+rateheatplot <- bgplot + 
+  aes(x = rate_heat_est) + 
+  scale_fill_manual(guide = "none",
+    values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
+  scale_x_continuous(trans = "log10", limits = c(1, 800), oob = squish,
+    name = sprintf("Heat-related\ndeath rate (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ",")))  +
+  scale_y_continuous(name = "", breaks = NULL, trans = "reverse", 
+    sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
+      labels = regpos$region, guide = guide_axis(angle = -90)))
+
+#----- Put together and save
+
+# Create a "legend-plot" for the common color scale legend
+g <- ggplot(countryres, aes(y = id, group = agegroup, fill = agegroup)) + 
+  geom_colh(aes(x = rate_heat_est)) +
+  scale_fill_manual(name = "Age group",
+    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)])
+
+# Extract only legend
+legplot <- as_ggplot(get_legend(g))
+
+# Put everything together
+ratecoldplot + rateheatplot + 
+  legplot + plot_layout(widths = c(1, 1, .2), guides = "collect")
+
+# Save
+ggsave("figures/SuppFig_CountryExcess.pdf", height = 10)
 
 
-#----------------------
-# Figure 4a: Age effect
-#----------------------
 
-#----- Prepare plot
-
-# Select specific ages
-selagecp <- agecp[agegrid %in% agebreaks]
-
-# Palette
-pal <- viridis(length(agebreaks), direction = -1)
-
-#----- Plot all for ages
-
-# Plot outline
-layout(matrix(1:2, ncol = 2), width = c(4, 1))
-plot(NA, bty = "l", xaxt = "n", 
-  xlab = "Temperature percentile", ylab = "RR",
-  xlim = range(ovper), 
-  ylim = c(min(sapply(selagecp, "[[", "allRRlow")), 
-    max(sapply(selagecp, "[[", "allRRhigh"))))
-abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
-axis(1, at = ovaxis, labels = axisper)
-
-# Add age curves
-for (i in seq_along(agebreaks)){
-  lines(selagecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
-    lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
-}
-abline(h = 1)
-par(mar = c(5, 0, 4, 0) + .1)
-plot.new()
-legend("topleft", legend = agebreaks, col = pal, lty = 1, lwd = 2, 
-  title = "Age", bty = "n")
-
-dev.print(pdf, file = "figures/Fig4a_AgeERF.pdf")
-
-#----------------------
-# Figure 4b: MMP versus age
-#----------------------
-
-#----- Create data.frame
-
-mmpdf <- data.frame(age = agegrid, mmp = agemmp, 
-  low = mmpci[1,], high = mmpci[2,])
-
-#----- Plot it
-
-ggplot(mmpdf, aes(x = age)) + theme_classic() +
-  geom_ribbon(aes(ymin = low, ymax = high), fill = adjustcolor(4, .4)) + 
-  # geom_errorbar(aes(ymin = low, ymax = high)) +
-  geom_line(aes(y = mmp), size = 1.5) + 
-  scale_x_continuous(limits = c(45, 85), name = "Age") + 
-  scale_y_continuous(limits = c(9, 22), name = "MMP",
-    breaks = ovper[predper %in% c(50, 60, 70, 80, 90)], 
-    labels = c(50, 60, 70, 80, 90)) + 
-  theme(axis.text = element_text(size = 12), 
-    axis.text.x = element_text(margin = margin(t = 6)),
-    axis.text.y = element_text(margin = margin(r = 6)),
-    axis.title = element_text(size = 15),
-    axis.title.x = element_text(margin = margin(t = 12)),
-    axis.title.y = element_text(margin = margin(r = 12)),
-    panel.grid.major = element_line(linetype = 2, color = "lightgrey"),
-    panel.grid.minor = element_blank(),
-    axis.ticks.length = unit(6, "pt"))
-
-dev.print(pdf, file = "figures/Fig4b_AgeMMP.pdf")
 
 # #----- Extract information at all ages and put
 # 
@@ -332,9 +337,15 @@ plotload <- loads
 colnames(plotload) <- sprintf("Comp. %i", 1:npc)
 rownames(plotload) <- compres$label
 
+# Color scale
+pal <- colorRampPalette(rev(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
+  "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
+  "#4393C3", "#2166AC", "#053061")))
+
 # Plot loadings (correlation between components and meta-variables)
 corrplot(t(plotload), method = "square", is.corr = F, cl.lim = c(-1, 1), 
-  tl.srt = 45, tl.col = "black", cl.cex = .7, cl.align.text = "l")
+  tl.srt = 45, tl.col = "black", cl.cex = .7, cl.align.text = "l",
+  col = pal(200))
 
 # Save
 dev.print(pdf, file = "figures/Fig5_PLScor.pdf")

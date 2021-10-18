@@ -277,3 +277,9 @@ cityres <- cbind(cityres, allcitystdrt[cityagegrid[,2],])
 #---------------------------
 
 save.image("results/cityResults.RData")
+
+#----- For ISGlobal
+ERFdesc <- cityres[, c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name", 
+  "region", "pop", "lon", "lat", "age")]
+
+save(ERFdesc, cityERF, predper, file = "results/cityERFs.RData")

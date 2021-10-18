@@ -138,3 +138,41 @@ for (i in seq_along(metaprednames)){
     lwd = 2, col = cols)
 }
 dev.print(pdf, file = "figures/MetapredEffectDiff.pdf", width = 10, height = 15)
+
+
+#------------------------
+# Coefficients for all ages
+#------------------------
+
+source("00_Packages_Parameters.R")
+load("results/cityResults.RData")
+
+#----- Compute for all ages
+
+# Prepare results dataset
+cityall <- metadata[, c("URAU_CODE", "LABEL", "CNTR_CODE", "pop", "lon", "lat",
+  "region")]
+eurcntr <- rbind(eu_countries, efta_countries) # Objects from eurostat
+cityall$cntr_name <- eurcntr[match(cityall$CNTR_CODE, eurcntr[,1]),2]
+
+# Use life expectancy to compute the coefficients
+cityall$age <- metadata$lifexp
+
+# Add PLS information
+cityall <- cbind(cityall, pcvar)
+
+# Estimate coefficients of ERF
+wholeERF <- predict(stage2res, cityall, vcov = T)
+
+#----- Put together data with age-specific
+
+citydesc <- rbind(cityall[,c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name", 
+    "region", "pop", "lon", "lat", "age")],
+  cityres[,c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name", 
+    "region", "pop", "lon", "lat", "age")])
+
+allcoefs <- c(cityERF, wholeERF)
+
+dlnmpars <- list(fun = varfun, percentiles = varper, degree = vardegree)
+
+save(citydesc, allcoefs, dlnmpars, file = "results/allCoefs.RData")
