@@ -80,8 +80,8 @@ stage2df <- cbind(stage2df, pcvar[repmcc,])
 
 # Create formula
 st2form <- sprintf("coefs ~ %s + region + 
-    ns(age, knots = 65, Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar), collapse = " + "))
+    ns(age, knots = %s, Boundary.knots = c(0, 100))",
+  paste(colnames(pcvar), collapse = " + "), deparse(ageknots))
 
 # Apply meta regression model
 stage2res <- mixmeta(as.formula(st2form), data = stage2df, 

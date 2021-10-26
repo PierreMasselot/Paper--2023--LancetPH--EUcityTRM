@@ -35,8 +35,9 @@ comparedParam <- list(
 )
 
 # baseline formula for mixmeta
-baseform <- sprintf("coefs ~ %s + region",
-  paste(colnames(pcvar), collapse = " + "))
+# baseform <- sprintf("coefs ~ %s + region",
+#   paste(colnames(pcvar), collapse = " + "))
+baseform <- "coefs ~ region"
 
 #-------------------
 # Apply each parametrization

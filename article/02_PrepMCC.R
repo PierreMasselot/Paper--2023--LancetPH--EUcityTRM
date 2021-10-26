@@ -36,11 +36,11 @@ cities <- rbind(cities_eu, cities_noage[,names(cities_eu)])
 # Exclude everything before starting year
 for(i in seq(dlist)) dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= yearstart,]
 
-# Reorder as in metadata
-ord <- match(na.omit(metadata$mcc_code), cities$city)
-
-cities <- cities[ord,]
-dlist <- dlist[ord]
+# # Reorder as in metadata
+# ord <- match(na.omit(metadata$mcc_code), cities$city)
+# 
+# cities <- cities[ord,]
+# dlist <- dlist[ord]
 
 # Remove unused levels in factors
 ind1 <- c("cityname","country","countryname")
@@ -83,6 +83,17 @@ for(nm in cities$city) {
 #---------------------------
 #  Save all data
 #---------------------------
+
+# Reorder everything by URAU_CODE
+metadata <- metadata[order(metadata$URAU_CODE),]
+imputed <- imputed[order(rownames(imputed)),]
+metageo <- metageo[order(metageo$URAU_CODE),]
+era5series <- era5series[order(names(era5series))]
+
+# Reorder MCC objects accordingly
+ord <- match(na.omit(metadata$mcc_code), cities$city)
+cities <- cities[ord,]
+dlist <- dlist[ord]
 
 save(dlist, cities, metadata, metadesc, imputed, metageo, meta_imp, era5series,
   file = "data/Alldata.RData")

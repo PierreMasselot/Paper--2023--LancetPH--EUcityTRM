@@ -96,7 +96,7 @@ minage <- 20
 
 # Metapredictors
 metapreds <- list(Demographic = c("pop", "prop_65p", 
-    "popdens", "lifexp", "isol"),
+    "popdens", "lifexp_00", "isol"),
   'Socio-economic' = c("gdp", "unempl", "educ", "depriv","bedrates"),
   'Built-environment' = c("urbshare", "greenshare", "blueshare"),
   Environmental = c("mount_type", "urbn_type", "coast_type", 
@@ -107,7 +107,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
 npc <- 4
 
 # Knots for age spline
-ageknots <- 70
+ageknots <- 65
 
 #----- Results exploitation
 
@@ -131,7 +131,7 @@ agebreaks <- c(45, 65, 75, 85)
 agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
 
 # Grid for age prediction
-agegrid <- 20:99
+agegrid <- minage:99
 
 # Number of simulations for AN/AF
 nsim <- 1000

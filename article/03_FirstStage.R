@@ -41,6 +41,7 @@ agedeaths <- mapply(function(d, a){
 agedeaths <- do.call(cbind, agedeaths)
 ageseq <- unlist(ageseqs, use.names = F)
 colnames(agedeaths) <- ageseq
+rownames(agedeaths) <- metadata$URAU_CODE
 
 #---------------------------
 # Loop on cities
@@ -54,9 +55,15 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     file = "temp/logstage1.txt", append = T)
   
   #----- Prepare model
+    
+  # Extract ERA5 percentiles
+  icode <- metadata[match(cities[i,"city"], metadata$mcc_code), "URAU_CODE"]  
+  wholeera5 <- era5series[[icode]]$era5landtmean
+    
   # Define crossbasis
   argvar <- list(fun = varfun, degree = vardegree, 
-    knots = quantile(dat$era5landtmean, varper / 100, na.rm = T))
+    knots = quantile(wholeera5, varper / 100, na.rm = T),
+    Bound = range(wholeera5))
   cb <- crossbasis(dat$era5landtmean, lag = maxlag, argvar = argvar,
     arglag = list(fun = lagfun, knots = lagknots))
   
@@ -100,13 +107,19 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     aamin <- amin[cumgroups == a][1]
     aamax <- tail(amax[cumgroups == a], 1)
     
-    # Select concerned range
-    whichgrps <- ageseq >= as.numeric(aamin) & ageseq <= as.numeric(aamax)
-    ndeaths <- subset(agedeaths, metadata$mcc_code == cities[i, "city"],
-      whichgrps)
-    
-    # Mean age group weighted by deaths
-    meanage <- weighted.mean(ageseq[whichgrps], ndeaths)
+    ## If aamax < 85 (max age cut point), compute mean age weighted by deathrate
+    if (aamax < 85){
+      # Select concerned range
+      whichgrps <- ageseq >= as.numeric(aamin) & ageseq <= as.numeric(aamax)
+      ndeaths <- subset(agedeaths, metadata$mcc_code == cities[i, "city"],
+        whichgrps)
+      
+      # Mean age group weighted by deaths
+      meanage <- weighted.mean(ageseq[whichgrps], ndeaths)
+    } else { ## Otherwise use life expectancy
+      meanage <- metadata[match(cities[i, "city"], metadata$mcc_code), 
+        sprintf("lifexp_%s", aamin)] + as.numeric(aamin)
+    }
     
     # Run model
     res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 

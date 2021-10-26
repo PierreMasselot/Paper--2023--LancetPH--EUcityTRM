@@ -15,8 +15,10 @@ source("05_ResultsPrep.R")
 #----- Baseline model
 
 # Baseline formula
-baseform <- as.formula(sprintf("coefs ~ %s + 
-    ns(age, knots = 65, Boundary.knots = c(0, 100))",
+# baseform <- as.formula(sprintf("coefs ~ %s + 
+#     ns(age, knots = 65, Boundary.knots = c(0, 100))",
+#   paste(colnames(pcvar), collapse = " + ")))
+baseform <- as.formula(sprintf("coefs ~ 1",
   paste(colnames(pcvar), collapse = " + ")))
 
 # Baseline model for comparison

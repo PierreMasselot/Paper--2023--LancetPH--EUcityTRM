@@ -2,7 +2,7 @@
 #
 #                         MCC-EUcityTRM
 #
-#                       City level results
+#                       City and age level results
 #
 ################################################################################
 
@@ -19,18 +19,18 @@ cityagegrid <- expand.grid(seq_along(agelabs), seq_len(nrow(metadata)))
 nca <- nrow(cityagegrid)
 
 # Initialize data.frame
-cityres <- metadata[cityagegrid[,2], c("URAU_CODE", "LABEL", "CNTR_CODE", 
+cityageres <- metadata[cityagegrid[,2], c("URAU_CODE", "LABEL", "CNTR_CODE", 
   "region", "lon", "lat", "pop", "inmcc")]
 
 # Add PLS components
-cityres <- cbind(cityres, pcvar[cityagegrid[,2],])
+cityageres <- cbind(cityageres, pcvar[cityagegrid[,2],])
 
 # Add Age group information
-cityres$agegroup <- agelabs[cityagegrid[,1]]
+cityageres$agegroup <- agelabs[cityagegrid[,1]]
 
 # Add country name
 eurcntr <- rbind(eu_countries, efta_countries) # Objects from eurostat
-cityres$cntr_name <- eurcntr[match(cityres$CNTR_CODE, eurcntr[,1]),2]
+cityageres$cntr_name <- eurcntr[match(cityageres$CNTR_CODE, eurcntr[,1]),2]
 
 #----- Compute average age of death for each city/age group
 
@@ -41,11 +41,16 @@ agepred <- tapply(ageseq[ageseq > minage], agegrps, function(a){
 })
 agepred <- do.call(cbind, agepred)
 
+# for the oldest age group, use life expectancy instead
+highbreak <- tail(agebreaks, 1)
+agepred[,ncol(agepred)] <- highbreak + 
+  metadata[,sprintf("lifexp_%s", highbreak)]
+
 # Average age for each age group
 agetot <- colMeans(agepred)
 
 # Add to result object
-cityres$age <- c(t(agepred))
+cityageres$age <- c(t(agepred))
 
 #---------------------------
 # Dose response predictions for all cities at different ages
@@ -53,11 +58,11 @@ cityres$age <- c(t(agepred))
 
 #----- Predict coefficients for each city
 
-citycoefs <- predict(stage2res, cityres, vcov = T)
+cityagecoefs <- predict(stage2res, cityageres, vcov = T)
 
 #----- Predict overall curves
 
-cityERF <- Map(function(b, era5){
+cityageERF <- Map(function(b, era5){
     # percentiles of era5 for this city
     tmeanper <- quantile(era5$era5landtmean, predper / 100)
     
@@ -72,26 +77,26 @@ cityERF <- Map(function(b, era5){
     # Final prediction centred on the MMT
     crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
       model.link = "log", at = quantile(era5$era5landtmean, predper / 100))
-  }, citycoefs, era5series[cityagegrid[,2]])
-names(cityERF) <- paste(cityres$URAU_CODE, cityres$agegroup, sep = "_")
+  }, cityagecoefs, era5series[cityagegrid[,2]])
+names(cityageERF) <- paste(cityageres$URAU_CODE, cityageres$agegroup, sep = "_")
 
 #----- ERF summary
 
 # MMP & MMT
-cityres$mmt <- sapply(cityERF, "[[", "cen")
-cityres$mmp <- as.numeric(gsub("%", "", 
-  sapply(cityERF, function(x) attr(x$cen, "names"))))
+cityageres$mmt <- sapply(cityageERF, "[[", "cen")
+cityageres$mmp <- as.numeric(gsub("%", "", 
+  sapply(cityageERF, function(x) attr(x$cen, "names"))))
 
 # Relative risks at extreme percentiles
-cityres$rrcold <- sapply(cityERF, "[[", "allRRfit")[predper == resultper[1],]
-cityres$rrcold_low <- sapply(cityERF, "[[", "allRRlow")[
+cityageres$rrcold <- sapply(cityageERF, "[[", "allRRfit")[predper == resultper[1],]
+cityageres$rrcold_low <- sapply(cityageERF, "[[", "allRRlow")[
   predper == resultper[1],]
-cityres$rrcold_hi <- sapply(cityERF, "[[", "allRRhigh")[
+cityageres$rrcold_hi <- sapply(cityageERF, "[[", "allRRhigh")[
   predper == resultper[1],]
-cityres$rrheat <- sapply(cityERF, "[[", "allRRfit")[predper == resultper[2],]
-cityres$rrheat_low <- sapply(cityERF, "[[", "allRRlow")[
+cityageres$rrheat <- sapply(cityageERF, "[[", "allRRfit")[predper == resultper[2],]
+cityageres$rrheat_low <- sapply(cityageERF, "[[", "allRRlow")[
   predper == resultper[2],]
-cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
+cityageres$rrheat_hi <- sapply(cityageERF, "[[", "allRRhigh")[
   predper == resultper[2],]
 
 #---------------------------
@@ -126,7 +131,7 @@ popgrps <- tapply(as.list(as.data.frame(ageprop))[ageseq > minage],
 popgrps <- c(do.call(rbind, popgrps))
 
 # Multiply by total population
-cityres$agepop <- popgrps * rep(metadata$pop, each = length(agebreaks) + 1) / 
+cityageres$agepop <- popgrps * rep(metadata$pop, each = length(agebreaks) + 1) / 
   100
 
 #----- Construct deaths for each city / age group
@@ -137,10 +142,10 @@ cityagedeaths <- tapply(seq_along(agegrps), agegrps, function(i){
   ap <- ageprop[,ageseq > minage][,i]
   rowSums(ad * ap) / rowSums(ap)
 })
-cityres$deathrate <- c(do.call(rbind, cityagedeaths))
+cityageres$deathrate <- c(do.call(rbind, cityagedeaths))
 
 # Compute deaths by age
-cityres$death <- with(cityres, deathrate * agepop)
+cityageres$death <- with(cityageres, deathrate * agepop)
 
 #----- Standard european population for each age group
 
@@ -157,7 +162,7 @@ esptot <- tapply(esp2013[espbreaks >= minage], espgrps, sum)
 #----- Prepare simulation
 
 # Recreate model matrix with the city / age grid
-cityageXdes <- model.matrix(delete.response(terms(stage2res)), cityres)
+cityageXdes <- model.matrix(delete.response(terms(stage2res)), cityageres)
 
 # Prepare parallelisation
 ncores <- detectCores()
@@ -177,22 +182,22 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   
   # Get object for this city age
   era5 <- era5series[[cityagegrid[i,2]]]$era5landtmean
-  cityagecoefs <- citycoefs[[i]]
-  cityagemmt <- cityres$mmt[i] 
+  icoefs <- cityagecoefs[[i]]
+  immt <- cityageres$mmt[i] 
   
   # Basis value for each day
   bvar <- onebasis(era5, fun = varfun, degree = vardegree, 
     knots = quantile(era5, varper / 100))
-  cenvec <- onebasis(cityagemmt, fun = varfun, degree = vardegree, 
+  cenvec <- onebasis(immt, fun = varfun, degree = vardegree, 
     knots = quantile(era5, varper / 100), Boundary.knots = range(era5))
   bvarcen <- scale(bvar, center = cenvec, scale = F)
   
   # Compute daily AF and AN
-  afday <- (1 - exp(-bvarcen %*% cityagecoefs$fit))
-  anday <- afday * cityres[i, "death"]
+  afday <- (1 - exp(-bvarcen %*% icoefs$fit))
+  anday <- afday * cityageres[i, "death"]
   
   # Indicator of heat days
-  heatind <- era5 >= cityagemmt
+  heatind <- era5 >= immt
   
   # Sum all
   anlist <- c(total = sum(anday), cold = sum(anday[!heatind]),
@@ -211,7 +216,7 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   
   # Center basis and multiply and compute daily an
   andaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
-      scale = F) %*% coef)) * cityres[i, "death"],
+      scale = F) %*% coef)) * cityageres[i, "death"],
     as.data.frame(t(cenmat)), as.data.frame(t(coefsim)))
   
   # Heat index for each simulation
@@ -237,49 +242,4 @@ colnames(allcityan) <- sprintf("an_%s", t(outer(c("total", "cold", "heat"),
   c("est", "low", "hi"), FUN = "paste", sep = "_")))
 
 # Add to result summary object
-cityres <- cbind(cityres, allcityan)
-
-#----- Compute standardised rates
-
-# Loop on cities
-stdratecity <- tapply(seq_along(attrlist), cityres$URAU_CODE, function(i){
-
-  # Compute crude death rate for both point estimate and simulations
-  deathrate <- Map(function(death, pop) list(death$est[1,] / pop, 
-      death$sim / pop), 
-    attrlist[i], cityres[i, "agepop"])
-  
-  # Weighted mean by standard population for point estimate
-  stdest <- apply(sapply(deathrate, "[[", 1), 1, weighted.mean, 
-    w = esptot[cityres[i, "agegroup"]])
-  
-  # Weighted mean for each simulation
-  drarray <- do.call(abind, c(lapply(deathrate, "[[", 2), list(along = 3)))
-  stdratesim <- apply(drarray, 1:2, weighted.mean, 
-    w = esptot[cityres[i, "agegroup"]])
-  
-  # Put together for output
-  rbind(stdest, apply(stdratesim, 2, quantile, c(.025, .975))) * byrate
-})
-
-# Put together point estimates and CIs
-allcitystdrt <- t(sapply(stdratecity, "c"))
-colnames(allcitystdrt) <- sprintf("stdrate_%s", t(outer(
-  c("total", "cold", "heat"), c("est", "low", "hi"), 
-  FUN = "paste", sep = "_")))
-
-# Add to result summary object
-cityres <- cbind(cityres, allcitystdrt[cityagegrid[,2],])
-
-
-#---------------------------
-# Save
-#---------------------------
-
-save.image("results/cityResults.RData")
-
-#----- For ISGlobal
-ERFdesc <- cityres[, c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name", 
-  "region", "pop", "lon", "lat", "age")]
-
-save(ERFdesc, cityERF, predper, file = "results/cityERFs.RData")
+cityageres <- cbind(cityageres, allcityan)

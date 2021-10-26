@@ -124,8 +124,8 @@ metadata$NUTS0_2016 <- substr(metadata$NUTS3_2016, 1, 2)
 
 #----- Tidy dataset
 
-# Order it
-metadata <- metadata[order(metadata$URAU_CODE),]
+# # Order it
+# metadata <- metadata[order(metadata$URAU_CODE),]
 
 # List of description variables
 desc_vars <- names(metadata)
@@ -362,20 +362,31 @@ metadesc <- rbind(metadesc, cbind(metavar = "popdens",
   label = "Population density", source = "NUTS3"))
 
 #----- Life expectancy
+
+# Selected ages
+ages <- c("Y_LT1", sprintf("Y%i", seq(5, 80, by = 5)), "Y_GE85")
+varnames <- sprintf("lifexp_%02i", c(0, seq(5, 80, by = 5), 85))
+
+# Download data
 lifexp <- get_eurostat("demo_r_mlifexp", time_format = "num",
-  filters = list(sex = "T", age = "Y_LT1", time = year)
+  filters = list(sex = "T", age = ages, time = year)
 )
 
 # Average years
-lifexp <- aggregate(values ~ geo, data = lifexp, mean)
-names(lifexp)[-1] <- "lifexp"
+lifexp <- aggregate(values ~ geo + age, data = lifexp, mean)
+
+# Reshape
+lifexp <- reshape(lifexp, timevar = "age", idvar = "geo",
+  ids = "values", direction = "wide")
+names(lifexp)[match(sprintf("values.%s", ages), names(lifexp))] <- 
+  varnames
 
 # Merge with metadata
 metadata <- nuts_merge(metadata, lifexp, level = 2, highest = 0)
 
 # Add description
-metadesc <- rbind(metadesc, cbind(metavar = "lifexp", 
-  label = "Life expectancy", source = "NUTS2"))
+metadesc <- rbind(metadesc, cbind(metavar = varnames, 
+  label = sprintf("Life expectancy %s", ages), source = "NUTS2"))
 
 #----- GDP per capita
 gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
@@ -791,8 +802,6 @@ metadesc <- rbind(metadesc,
 # Missing values imputation
 #---------------------------
 
-#----- Final tidying of data
-
 # Extract number of missings
 citymis <- apply(is.na(metadata[,names(metadata) %in% metadesc$metavar]), 
   1, sum)
@@ -800,8 +809,8 @@ citymis <- apply(is.na(metadata[,names(metadata) %in% metadesc$metavar]),
 # # Remove cities with more than 10 missings
 # metadata <- metadata[citymis < 10,]
 
-# Reorder data
-metadata <- metadata[order(metadata$URAU_CODE),]
+# # Reorder data
+# metadata <- metadata[order(metadata$URAU_CODE),]
 
 #----- Extract variables
 
@@ -810,6 +819,7 @@ metavar <- metadata[,names(metadata) %in% metadesc$metavar]
 
 # Keep track of missings
 imputed <- is.na(metavar)
+rownames(imputed) <- metadata$URAU_CODE
 metadesc$nmis <- apply(imputed, 2, sum)
 metadesc$propmis <- round(apply(imputed, 2, mean) * 100)
 
@@ -820,8 +830,8 @@ meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
 
 # Get the imputed dataset (of iter_Sel)
 iter_sel <- 5
-metadata[,match(metadesc$metavar, names(metadata))] <- 
-  complete(meta_imp, iter_sel)
+impdat <- complete(meta_imp, iter_sel)
+metadata[,names(impdat)] <- impdat
 
 #---------------------------
 # Load geographical data
