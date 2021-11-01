@@ -59,6 +59,7 @@ cityageres$age <- c(t(agepred))
 #----- Predict coefficients for each city
 
 cityagecoefs <- predict(stage2res, cityageres, vcov = T)
+names(cityagecoefs) <- with(cityageres, paste(URAU_CODE, agegroup, sep = "_"))
 
 #----- Predict overall curves
 

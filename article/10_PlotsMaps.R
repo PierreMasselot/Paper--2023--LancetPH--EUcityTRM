@@ -12,8 +12,7 @@
 #  Create a standard map layout
 #---------------------------
 
-basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
-  aes(x = lon, y = lat, size = pop)) + 
+basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) + 
   theme_void() + 
   geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
@@ -34,8 +33,10 @@ basic_map <- ggplot(data = subset(cityres, agegroup == agelabs[3]),
 
 # MMT with heat colors
 mmtmap <- basic_map + aes(fill = mmt) + 
+  # scale_fill_viridis(name = "MMT", limits = c(15, 25),
+  #   oob = squish, labels = c("< 15.0", "17.5", "20", "22.5", "> 25"))
   scale_fill_gradient2(low = "darkblue", mid = "lightgoldenrod",
-    high = "darkred", name = "MMT\n(65-74)", limits = c(15, 25), midpoint = 20, 
+    high = "darkred", name = "MMT", limits = c(15, 25), midpoint = 20,
     oob = squish, labels = c("< 15.0", "17.5", "20", "22.5", "> 25"))
   # scale_fill_gradientn(colours = c("darkgreen", "lightgoldenrod",
   #   "darkred"),

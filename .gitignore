@@ -44,6 +44,7 @@ vignettes/*.pdf
 # Datasets
 article/data/
 article/results/
+article/figures/
 report/data/
 report/results/
-figures/
+report/figures/

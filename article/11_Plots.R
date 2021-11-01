@@ -58,7 +58,7 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
   geom_ribbon(aes(ymin = low, ymax = high), fill = adjustcolor(4, .4)) + 
   # geom_errorbar(aes(ymin = low, ymax = high)) +
   geom_line(aes(y = mmp), size = 1.5) + 
-  scale_x_continuous(limits = c(45, 85), name = "Age") + 
+  scale_x_continuous(limits = c(50, 85), name = "Age") + 
   scale_y_continuous(limits = c(9, 22), name = "MMP",
     breaks = ovper[predper %in% c(50, 60, 70, 80, 90)], 
     labels = c(50, 60, 70, 80, 90)) + 
@@ -88,7 +88,7 @@ dev.print(pdf, file = "figures/Fig1b_AgeMMP.pdf")
 
 # Select cities in result (city with number 001 is usually the capital)
 # big_cityres <- subset(cityres, URAU_CODE %in% capitals)
-big_cityres <- subset(cityres, substr(URAU_CODE, 3, 5) == "001")
+big_cityres <- subset(cityageres, substr(URAU_CODE, 3, 5) == "001")
 
 # Order by region and age
 big_cityres <- big_cityres[with(big_cityres, 
@@ -162,6 +162,23 @@ ggsave("figures/Fig2_CapitalRes.pdf", height = 10)
 #  Figure 4: Standardized rates by country
 #---------------------------
 
+#----- Prepare useful objects
+
+# Order by region and age
+countryres <- countryres[with(countryres, 
+  order(region, cntr_name, agegroup)),]
+countryres$id <- as.numeric(factor(countryres$CNTR_CODE, 
+  levels = unique(countryres$CNTR_CODE))) + 
+  as.numeric(factor(countryres$region, 
+    levels = unique(countryres$region))) - 1
+
+# Background lines
+unid <- unique(countryres$id)
+bglines <- data.frame(pos = unid[-1][diff(unid) == 1] - .5)
+
+# Region label position
+regpos <- aggregate(id ~ region, data = countryres, mean)
+
 #----- Create background plot
 bgplot <- ggplot(countryres, aes(y = id)) + theme_classic() + 
   scale_y_continuous(name = "", labels = unique(countryres$cntr_name), 
@@ -208,23 +225,6 @@ ggsave("figures/Fig4_CountryStdRate.pdf", height = 10)
 #---------------------------
 #  Supp Figure 2: Excess rates by country and age group
 #---------------------------
-
-#----- Prepare useful objects
-
-# Order by region and age
-countryres <- countryres[with(countryres, 
-  order(region, cntr_name, agegroup)),]
-countryres$id <- as.numeric(factor(countryres$CNTR_CODE, 
-  levels = unique(countryres$CNTR_CODE))) + 
-  as.numeric(factor(countryres$region, 
-    levels = unique(countryres$region))) - 1
-
-# Background lines
-unid <- unique(countryres$id)
-bglines <- data.frame(pos = unid[-1][diff(unid) == 1] - .5)
-
-# Region label position
-regpos <- aggregate(id ~ region, data = countryres, mean)
 
 #----- Create background plot
 bgplot <- ggplot(countryres, 
@@ -343,7 +343,7 @@ pal <- colorRampPalette(rev(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
   "#4393C3", "#2166AC", "#053061")))
 
 # Plot loadings (correlation between components and meta-variables)
-corrplot(t(plotload), method = "square", is.corr = F, cl.lim = c(-1, 1), 
+corrplot(t(plotload), method = "square", is.corr = F, col.lim = c(-1, 1), 
   tl.srt = 45, tl.col = "black", cl.cex = .7, cl.align.text = "l",
   col = pal(200))
 
@@ -408,55 +408,72 @@ ggsave("figures/SupFig_EffectModification.pdf", height = 10)
 
 #----- Recompute all ERF with a common MMT for cities
 
-# Take the median MMT for each city
-citymmt <- aggregate(mmt ~ URAU_CODE, data = cityres, median)
-
-# Recompute ERF
-cityERFplot <- Map(function(b, era5, mmt){
-  # percentiles of era5 for this city
-  tmeanper <- quantile(era5$era5landtmean, predper / 100)
+# Loop on cities
+cityERFplot <- lapply(metadata$URAU_CODE, function(cd){
+  # Get era 5 series for current city
+  era5cd <- era5series[[cd]]$era5landtmean
   
-  # Basis for overall
-  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
-    knots = quantile(era5$era5landtmean, varper / 100))
+  # Compute basis
+  bvar <- onebasis(quantile(era5cd, predper / 100), 
+    fun = varfun, degree = vardegree, 
+    knots = quantile(era5cd, varper / 100))
   
-  # Final prediction centred on the MMT
-  crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
-    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-}, citycoefs, era5series[cityagegrid[,2]], 
-  citymmt[match(cityres$URAU_CODE, citymmt$URAU_CODE),2])
+  # Extract common mmt
+  mmt <- median(subset(cityageres, URAU_CODE == cd, mmt, drop = T))
+  
+  # Extract coefs for each age group
+  coefcd <- cityagecoefs[cityageres$URAU_CODE == cd]
+  
+  # Final prediction centered on the MMT
+  lapply(coefcd, function(b){
+    crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
+      model.link = "log", at = quantile(era5cd, predper / 100))
+  })
+})
+names(cityERFplot) <- metadata$URAU_CODE
 
 #----- Plot all ERF
 
+# Prepare palettes
+coldpal <- brewer.pal(length(agelabs) + 1, "Blues")[-1]
+heatpal <- brewer.pal(length(agelabs) + 1, "Reds")[-1]
+# cipal <- rev(grey(seq(.1, .5, length.out = length(agelabs)), .2))
+
+# Prepare output
 pdf("figures/SupFig_ERFcities.pdf", width = 11, height = 13)
 layout(matrix(seq(6 * length(agelabs)), nrow = 6, byrow = T))
 par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
 
 # Loop on all cities
-for(i in seq_along(cityERF)){
+for(i in seq_along(cityERFplot)){
   # Part of the curve above MMP
-  heatind <- predper >= cityERFplot[[i]]$cen
+  heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
   
-  # Panel title
-  ititle <- sprintf("%s (%s) - %s", cityres[i, "LABEL"], 
-    cityres[i, "cntr_name"], cityres[i, "agegroup"]) 
+  # Initialize plot
+  plot(cityERFplot[[i]][[1]], xlab = "Temperature (C)", ylab = "RR", 
+    main = metadata$LABEL[i], col = NA, lwd = 2, ylim = c(.5, 3), 
+    cex.main = .9, ci = "n")
   
-  # Plot cold part
-  plot(cityERFplot[[i]], xlab = "Temperature (C)", ylab = "RR", 
-    main = ititle, col = 4, lwd = 2, ylim = c(.8, 2.5), 
-    cex.main = .9)
-  
-  # Add heat part
-  lines(cityERFplot[[i]]$predvar[heatind], cityERFplot[[i]]$allRRfit[heatind], 
-    col = 2, lwd = 2)
+  # Loop on age groups
+  for (a in seq_along(cityERFplot[[i]])){
+    # Cold part
+    lines(cityERFplot[[i]][[a]], col = coldpal[a], lwd = 2)
+    
+    # Heat part
+    lines(cityERFplot[[i]][[a]]$predvar[heatind], 
+      cityERFplot[[i]][[a]]$allRRfit[heatind], 
+      col = heatpal[a], lwd = 2)
+  }
   
   # MMT
-  abline(v = cityERFplot[[i]]$cen)
+  abline(v = cityERFplot[[i]][[1]]$cen)
   
   # Add percentiles
-  cityper <- tmeandist[rep(1:nrow(metadata), each = length(agelabs))[i],
-    predper %in% c(1, 99)]
+  cityper <- cityERFplot[[i]][[1]]$predvar[predper %in% c(1, 99)]
   abline(v = cityper, lty = 2)
+  
+  # Unit line
+  abline(h = 1)
 }
 
 dev.off()

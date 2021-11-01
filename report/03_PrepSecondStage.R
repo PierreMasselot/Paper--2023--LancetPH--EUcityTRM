@@ -162,6 +162,50 @@ for(i in 2:3){
     lapply(stage4res, "[[", "cvresp_f"))
 }
 
+#----- Add four supplementary cities
+load("results/FirstStage_Germany_4cities_MainAnalysis_AgeSex.RData")
+
+## Extract results
+# All cause
+allstage1[[1]][["all"]][["65p"]] <- c(allstage1[[i]][["all"]][["65p"]],
+  lapply(stage2res, "[[", "all_65p"))
+allstage1[[1]][["all"]][["75p"]] <- c(allstage1[[i]][["all"]][["75p"]],
+  lapply(stage2res, "[[", "all_75p"))
+allstage1[[1]][["all"]][["m"]] <- c(allstage1[[i]][["all"]][["m"]],
+  lapply(stage2res, "[[", "all_m"))
+allstage1[[1]][["all"]][["f"]] <- c(allstage1[[i]][["all"]][["f"]],
+  lapply(stage2res, "[[", "all_f"))
+
+# CVD
+allstage1[[1]][["cvd"]][["65p"]] <- c(allstage1[[i]][["cvd"]][["65p"]],
+  lapply(stage2res, "[[", "cvd_65p"))
+allstage1[[1]][["cvd"]][["75p"]] <- c(allstage1[[i]][["cvd"]][["75p"]],
+  lapply(stage2res, "[[", "cvd_75p"))
+allstage1[[1]][["cvd"]][["m"]] <- c(allstage1[[i]][["cvd"]][["m"]],
+  lapply(stage2res, "[[", "cvd_m"))
+allstage1[[1]][["cvd"]][["f"]] <- c(allstage1[[i]][["cvd"]][["f"]],
+  lapply(stage2res, "[[", "cvd_f"))
+
+# Respiratory
+allstage1[[1]][["resp"]][["65p"]] <- c(allstage1[[i]][["resp"]][["65p"]],
+  lapply(stage2res, "[[", "resp_65p"))
+allstage1[[1]][["resp"]][["75p"]] <- c(allstage1[[i]][["resp"]][["75p"]],
+  lapply(stage2res, "[[", "resp_75p"))
+allstage1[[1]][["resp"]][["m"]] <- c(allstage1[[i]][["resp"]][["m"]],
+  lapply(stage2res, "[[", "resp_m"))
+allstage1[[1]][["resp"]][["f"]] <- c(allstage1[[i]][["resp"]][["f"]],
+  lapply(stage2res, "[[", "resp_f"))
+
+# Cardiopulmonary
+allstage1[[1]][["cvresp"]][["65p"]] <- c(allstage1[[i]][["cvresp"]][["65p"]],
+  lapply(stage2res, "[[", "cvresp_65p"))
+allstage1[[1]][["cvresp"]][["75p"]] <- c(allstage1[[i]][["cvresp"]][["75p"]],
+  lapply(stage2res, "[[", "cvresp_75p"))
+allstage1[[1]][["cvresp"]][["m"]] <- c(allstage1[[i]][["cvresp"]][["m"]],
+  lapply(stage2res, "[[", "cvresp_m"))
+allstage1[[1]][["cvresp"]][["f"]] <- c(allstage1[[i]][["cvresp"]][["f"]],
+  lapply(stage2res, "[[", "cvresp_f"))
+
 #-------------------------------
 # Load results for Greece
 #-------------------------------

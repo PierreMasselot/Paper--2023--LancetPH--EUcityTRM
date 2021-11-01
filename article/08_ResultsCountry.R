@@ -17,7 +17,7 @@ load("results/cityResults.RData")
 #----- Compute excess deaths by country and age group
 
 # Aggregate AN estimates
-attrcountry <- tapply(attrlist, cityres[, c("agegroup", "CNTR_CODE")], 
+attrcountry <- tapply(attrlist, cityageres[, c("agegroup", "CNTR_CODE")], 
   function(attr){
     est <- rowSums(sapply(attr, function(x) x$est[1,]))
     cntrarr <- sapply(attr, "[[", "sim", simplify = "array")
@@ -26,7 +26,7 @@ attrcountry <- tapply(attrlist, cityres[, c("agegroup", "CNTR_CODE")],
   })
 
 # Aggregate pop
-popcountry <- aggregate(agepop ~ agegroup + CNTR_CODE, data = cityres, sum)
+popcountry <- aggregate(agepop ~ agegroup + CNTR_CODE, data = cityageres, sum)
 
 # Compute excess deaths
 excesscountry <- Map(function(attr, pop) lapply(attr, "/", pop),
@@ -65,7 +65,7 @@ names(countrystd) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"),
 
 #----- Put everything in a data.frame
 
-# In the darkness bind them
+# Bind them
 countryres <- cbind(popcountry, excessest, excessCIs, 
   countrystd[rep(seq_len(nrow(countrystd)), each = length(agelabs)),])
 
@@ -74,3 +74,6 @@ countryres$cntr_name <- eurcntr[match(countryres$CNTR_CODE, eurcntr[,1]),2]
 
 # Add region
 countryres$region <- regionlist[countryres$CNTR_CODE]
+
+# Remove rownames
+rownames(countryres) <- NULL
