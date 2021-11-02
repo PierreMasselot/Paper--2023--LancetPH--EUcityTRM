@@ -45,11 +45,11 @@ ggplot(data = citydesc) + theme_void() +
   scale_size(breaks = c(10^5, 5*10^5, 10^6, 5*10^6), 
     name = "Population")
 
-ggsave("figures/Map.pdf", device = pdf)
+ggsave("figures/Map.pdf")
 
 
 #-------------------------------
-# Figure 2: Continental ERF
+# Figure 3: Continental ERF
 #-------------------------------
 
 # Determine maximum RR
@@ -76,11 +76,11 @@ plot.new()
 legend("topleft", legend = outlab, col = outcol, lwd = 2, bty = "n")
 
 # Save
-dev.print(pdf, file = "figures/Figure2.pdf")
+dev.print(pdf, file = "figures/Figure3.pdf")
 
 
 #-------------------------------
-# Figure 3: Lag sensitivity analysis
+# Figure 4: Lag sensitivity analysis
 #-------------------------------
 
 # Initialize plot
@@ -116,10 +116,10 @@ legend("topleft", legend = sort(as.numeric(names(continentERF_mmp))),
   title = "Maximum lag")
 
 # Save
-dev.print(pdf, file = "figures/Figure3.pdf")
+dev.print(pdf, file = "figures/Figure4.pdf")
 
 #-------------------------------
-# Figure 4: Age specific results
+# Figure 5: Age specific results
 #-------------------------------
 
 # Initialize plot
@@ -154,11 +154,11 @@ legend("topleft", legend = agelab, col = agecol, lwd = 2, bty = "n",
   title = "Age group")
 
 # Save
-dev.print(pdf, file = "figures/Figure4.pdf")
+dev.print(pdf, file = "figures/Figure5.pdf")
 
 
 #-------------------------------
-# Figure 5: Sex specific results
+# Figure 6: Sex specific results
 #-------------------------------
 
 # Initialize plot
@@ -193,4 +193,4 @@ legend("topleft", legend = sexlab, col = sexcol, lwd = 2, bty = "n",
   title = "Sex")
 
 # Save
-dev.print(pdf, file = "figures/Figure5.pdf")
+dev.print(pdf, file = "figures/Figure6.pdf")

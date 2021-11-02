@@ -13,7 +13,7 @@
 #-------------------------------
 
 tab <- data.frame(
-  name = cities$cityname,
+  name = citydesc$cityname,
   period = sapply(dlist, function(d) sprintf("%i - %i", 
     min(d$year), max(d$year))),
   totnat = sapply(dlist, function(d) sum(d$nat_main, na.rm = T)),
@@ -38,7 +38,7 @@ write.table(tab, file = "figures/MCCdeathdesc.csv", sep = ",", quote = F,
   row.names = F, col.names = T)
 
 tabtmean <- data.frame(
-  name = cities$cityname,
+  name = citydesc$cityname,
   period = sapply(dlist, function(d) sprintf("%i - %i", 
     min(d$year), max(d$year))),
   mean = sapply(dlist, function(d){
@@ -52,7 +52,7 @@ write.table(tabtmean, file = "figures/MCCtmean.csv", sep = ",", quote = F,
   row.names = F, col.names = T)
 
 #-------------------------------
-# Table 7: cold effect of main model
+# Table 6: cold effect of main model
 #-------------------------------
 
 #----- Extract percentiles
@@ -71,29 +71,29 @@ countryRR <- lapply(countryERF_cold[["10"]], function(x){
 
 #----- Create table
 # Put data together
-table7 <- rbind(c(contRR),
+tableCold <- rbind(c(contRR),
   t(do.call(rbind, countryRR))
 )
 # pretty numbers
-table7 <- formatC(table7, format = "f", digits = 2)
+tableCold <- formatC(tableCold, format = "f", digits = 2)
 # Add country info
 tabcountry <- as.character(citydesc$countryname)[
-  match(rownames(table7)[-1], citydesc$cityname)]
-table7 <- cbind(c("Continental", tabcountry),
+  match(rownames(tableCold)[-1], citydesc$cityname)]
+tableCold <- cbind(c("Continental", tabcountry),
   c(nrow(citydesc), table(citydesc$country)[tabcountry]),
-  table7)
+  tableCold)
 # Add column names
-colnames(table7) <- c("Geo", "Ncities", 
+colnames(tableCold) <- c("Geo", "Ncities", 
   sapply(colnames(contRR), sprintf, fmt = "%s %s", c("RR", "Low", "High")))
 # reorder columns
-table7 <- table7[,c(1:5, 12:14, 6:11)]
+tableCold <- tableCold[,c(1:5, 12:14, 6:11)]
 
 # Save
-write.table(table7, file = "figures/Table7.csv", sep = ",", quote = F,
+write.table(tableCold, file = "figures/Table6.csv", sep = ",", quote = F,
   row.names = F)
 
 #-------------------------------
-# Table 8: heat effect of main model
+# Table 7: heat effect of main model
 #-------------------------------
 
 #----- Extract percentiles
@@ -111,26 +111,26 @@ countryRR <- lapply(countryERF_heat[["10"]], function(x){
 })
 
 #----- Create table
-table8 <- rbind(c(contRR),
+tableHeat <- rbind(c(contRR),
   t(do.call(rbind, countryRR))
 )
-table8 <- formatC(table8, format = "f", digits = 2)
+tableHeat <- formatC(tableHeat, format = "f", digits = 2)
 tabcountry <- as.character(citydesc$countryname)[
-  match(rownames(table8)[-1], citydesc$cityname)]
-table8 <- cbind(c("Continental", tabcountry),
+  match(rownames(tableHeat)[-1], citydesc$cityname)]
+tableHeat <- cbind(c("Continental", tabcountry),
   c(nrow(citydesc), table(citydesc$country)[tabcountry]),
-  table8)
-colnames(table8) <- c("Geo", "Ncities", 
+  tableHeat)
+colnames(tableHeat) <- c("Geo", "Ncities", 
   sapply(colnames(contRR), sprintf, fmt = "%s %s", c("RR", "Low", "High")))
 # reorder columns
-table8 <- table8[,c(1:5, 12:14, 6:11)]
+tableHeat <- tableHeat[,c(1:5, 12:14, 6:11)]
 
 # Save
-write.table(table8, file = "figures/Table8.csv", sep = ",", quote = F,
+write.table(tableHeat, file = "figures/Table7.csv", sep = ",", quote = F,
   row.names = F)
 
 #-------------------------------
-# Table 9: cold effect of cause-specific models - sensitivity analysis & 
+# Table 8: cold effect of cause-specific models - sensitivity analysis & 
 #   effect modification
 #-------------------------------
 
@@ -150,22 +150,22 @@ effRR <- lapply(continentERF_cold[["10"]], sapply, function(x){
 
 
 #----- Create table
-table9 <- rbind(lagRR,
+tableSensCold <- rbind(lagRR,
   t(do.call(rbind, effRR))[-1,]
 )
-table9 <- formatC(table9, format = "f", digits = 2)
-colnames(table9) <- c(sapply(names(effRR), sprintf, fmt = "%s %s", 
+tableSensCold <- formatC(tableSensCold, format = "f", digits = 2)
+colnames(tableSensCold) <- c(sapply(names(effRR), sprintf, fmt = "%s %s", 
   c("RR", "Low", "High")))
 # reorder columns
-table9 <- table9[,c(1:3, 10:12, 4:9)]
+tableSensCold <- tableSensCold[,c(1:3, 10:12, 4:9)]
 
 # Save
-write.table(table9, file = "figures/Table9.csv", sep = ",", quote = F,
+write.table(tableSensCold, file = "figures/Table8.csv", sep = ",", quote = F,
   row.names = T)
 
 
 #-------------------------------
-# Table 10: heat effect of cause-specific models - sensitivity analysis & 
+# Table 9: heat effect of cause-specific models - sensitivity analysis & 
 #   effect modification
 #-------------------------------
 
@@ -184,21 +184,21 @@ effRR <- lapply(continentERF_heat[["10"]], sapply, function(x){
 })
 
 #----- Create table
-table10 <- rbind(lagRR,
+tableSensHeat <- rbind(lagRR,
   t(do.call(rbind, effRR))[-1,]
 )
-table10 <- formatC(table10, format = "f", digits = 2)
-colnames(table10) <- c(sapply(names(effRR), sprintf, fmt = "%s %s", 
+tableSensHeat <- formatC(tableSensHeat, format = "f", digits = 2)
+colnames(tableSensHeat) <- c(sapply(names(effRR), sprintf, fmt = "%s %s", 
   c("RR", "Low", "High")))
 # reorder columns
-table10 <- table10[,c(1:3, 10:12, 4:9)]
+tableSensHeat <- tableSensHeat[,c(1:3, 10:12, 4:9)]
 
 # Save
-write.table(table10, file = "figures/Table10.csv", sep = ",", quote = F,
+write.table(tableSensHeat, file = "figures/Table9.csv", sep = ",", quote = F,
   row.names = T)
 
 #-------------------------------
-# Table 11: cold effect of main model - MMT as reference point
+# Table 10: cold effect of main model - MMT as reference point
 #-------------------------------
 
 #----- Extract percentiles
@@ -216,26 +216,26 @@ countryRR <- lapply(countryERF_mmp[["10"]], function(x){
 })
 
 #----- Create table
-table11 <- rbind(c(contRR),
+tableMMTcold <- rbind(c(contRR),
   t(do.call(rbind, countryRR))
 )
-table11 <- formatC(table11, format = "f", digits = 2)
+tableMMTcold <- formatC(tableMMTcold, format = "f", digits = 2)
 tabcountry <- as.character(citydesc$countryname)[
-  match(rownames(table11)[-1], citydesc$cityname)]
-table11 <- cbind(c("Continental", tabcountry),
+  match(rownames(tableMMTcold)[-1], citydesc$cityname)]
+tableMMTcold <- cbind(c("Continental", tabcountry),
   c(nrow(citydesc), table(citydesc$country)[tabcountry]),
-  table11)
-colnames(table11) <- c("Geo", "Ncities", 
+  tableMMTcold)
+colnames(tableMMTcold) <- c("Geo", "Ncities", 
   sapply(colnames(contRR), sprintf, fmt = "%s %s", c("RR", "Low", "High")))
 # reorder columns
-table11 <- table11[,c(1:5, 12:14, 6:11)]
+tableMMTcold <- tableMMTcold[,c(1:5, 12:14, 6:11)]
 
 # Save
-write.table(table11, file = "figures/Table11.csv", sep = ",", quote = F,
+write.table(tableMMTcold, file = "figures/table10.csv", sep = ",", quote = F,
   row.names = F)
 
 #-------------------------------
-# Table 12: heat effect of main model - MMT as reference point
+# Table 11: heat effect of main model - MMT as reference point
 #-------------------------------
 
 #----- Extract percentiles
@@ -253,20 +253,20 @@ countryRR <- lapply(countryERF_mmp[["10"]], function(x){
 })
 
 #----- Create table
-table12 <- rbind(c(contRR),
+tableMMTheat <- rbind(c(contRR),
   t(do.call(rbind, countryRR))
 )
-table12 <- formatC(table12, format = "f", digits = 2)
+tableMMTheat <- formatC(tableMMTheat, format = "f", digits = 2)
 tabcountry <- as.character(citydesc$countryname)[
-  match(rownames(table12)[-1], citydesc$cityname)]
-table12 <- cbind(c("Continental", tabcountry),
+  match(rownames(tableMMTheat)[-1], citydesc$cityname)]
+tableMMTheat <- cbind(c("Continental", tabcountry),
   c(nrow(citydesc), table(citydesc$country)[tabcountry]),
-  table12)
-colnames(table12) <- c("Geo", "Ncities", 
+  tableMMTheat)
+colnames(tableMMTheat) <- c("Geo", "Ncities", 
   sapply(colnames(contRR), sprintf, fmt = "%s %s", c("RR", "Low", "High")))
 # reorder columns
-table12 <- table12[,c(1:5, 12:14, 6:11)]
+tableMMTheat <- tableMMTheat[,c(1:5, 12:14, 6:11)]
 
 # Save
-write.table(table12, file = "figures/Table12.csv", sep = ",", quote = F,
+write.table(tableMMTheat, file = "figures/table11.csv", sep = ",", quote = F,
   row.names = F)

@@ -76,21 +76,21 @@ continentERF_mmp <- lapply(stage2res, lapply, lapply, function(x) {
 
 # Extract country level ERF: cold
 countryERF_cold <- lapply(stage2res, lapply, lapply, function(x) {
-  blext <- blup(x, level = 1, vcov = T)
+  blext <- blup(x, level = 2, vcov = T)
   blext <- blext[!duplicated(blext)]
   lapply(blext, erf, cen = 25)
 })
 
 # Extract country level ERF: cold
 countryERF_heat <- lapply(stage2res, lapply, lapply, function(x) {
-  blext <- blup(x, level = 1, vcov = T)
+  blext <- blup(x, level = 2, vcov = T)
   blext <- blext[!duplicated(blext)]
   lapply(blext, erf, cen = 75)
 })
 
 # Extract country level ERF: MMP
 countryERF_mmp <- lapply(stage2res, lapply, lapply, function(x) {
-  blext <- blup(x, level = 1, vcov = T)
+  blext <- blup(x, level = 2, vcov = T)
   blext <- blext[!duplicated(blext)]
   lapply(blext, erf)
 })
