@@ -17,11 +17,11 @@ path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
 #  Link datasets
 #---------------------------
 
-#----- Load all lookup table 
+#----- Load all lookup tables 
 
 # Lookup table between URAU and NUTS
-urau_nuts <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
-  "Urban Audit (urb_cgc)/lookup/URAU_NUTS2020.csv"), encoding = "UTF-8")
+urau_nuts <- read.csv(paste0(path_urau, "/lookup/URAU_NUTS2020.csv"), 
+  encoding = "UTF-8")
 
 # Lookup table between MCC and URAU
 urau_mcc_age <- read.table(sprintf("%s/lookup/URAU_MCC_AgeCause_20200907.csv", 
@@ -32,13 +32,12 @@ urau_mcc_all <- read.table(sprintf("%s/lookup/URAU_MCCdata_20210407.csv",
   header = T, sep = ";", quote = "\"")
 
 # Lookup table between Cities and greater city
-urau_greater <- read.csv(paste0("V:/VolumeQ/AGteam/Eurostat/", 
-  "Urban Audit (urb_cgc)/lookup/CitiesToGreater.csv"))
+urau_greater <- read.csv(paste0(path_urau, "/lookup/CitiesToGreater.csv"))
 
 #----- Merge everything together
 
 # Merge with MCC age dataset
-metadata <- merge(urau_nuts[,-(5:7)], 
+metadata <- merge(urau_nuts[,-(5:7)],
   urau_mcc_age[,c("URAU_CODE", "mcc_code", "cityname")],
   by = "URAU_CODE", all.x = T, all.y = F)
 
@@ -48,18 +47,46 @@ matchall <- match(subset(metadata, is.na(mcc_code), URAU_CODE, drop = T),
 metadata[is.na(metadata$mcc_code), c("mcc_code", "cityname")] <- 
   urau_mcc_all[matchall, c("mcc_code", "cityname")]
 
-#----- Select URAU level
+#----- Manage codes
 
-# Discard functional urban areas because they are huge
-metadata <- metadata[metadata$URAU_CATG != "F",]
+# Create a second URAU code variable as there are mismatches in different files
+metadata$URAU_CODE2 <- metadata$URAU_CODE
+
+# Add numbers to Polish codes
+misnum <- nchar(metadata$URAU_CODE2) == 6
+metadata$URAU_CODE2[misnum] <- paste(metadata$URAU_CODE2[misnum], "1", sep = "")
+
+# Change Belgian codes
+bek <- with(metadata, URAU_CATG == "K" & CNTR_CODE == "BE")
+metadata$URAU_CODE2[bek] <- gsub("K", "C", metadata$URAU_CODE2[bek])
+
+# Thessaloniki
+thessa <- metadata$URAU_CODE2 == "EL002K1"
+metadata$URAU_CODE2[thessa] <- "EL002C1"
+
+# Change London NUTS3 code for easier linkage later
+metadata[metadata$URAU_NAME == "London", "NUTS3_2021"] <- "UKI"
+
+#----- City selection
+
+# Load 'official' list of cities
+citylist <- as.data.frame(read_excel(
+  paste0(path_urau, "/metadata/cities (urb_esms_an4).xls"), sheet = 1)
+)
+
+# Remove spaces in codes in citylist
+citylist$CODE <- substr(citylist$CODE, 1, 7)
+
+# Keep only cities in list
+metadata <- subset(metadata, URAU_CODE2 %in% citylist$CODE)
+
+# Discard functional urban areas
+metadata <- subset(metadata, URAU_CATG != "F")
 
 # Remove all cities inside greater city
-metadata <- subset(metadata, !URAU_CODE %in% urau_greater$city_code)
-
-# Remove potential remaining level duplicates
-metadata <- metadata[!duplicated(metadata),]
-
-#----- Treat specific cases
+ingreater <- merge(metadata["URAU_CODE"], urau_greater, 
+  by.x = "URAU_CODE", by.y = "greater_code")
+metadata <- subset(metadata, !URAU_CODE %in% ingreater$city_code)
 
 # Reject MCC matches that are not in selected MCC country datasets
 metadata <- subset(metadata, is.na(mcc_code) | 
@@ -72,20 +99,6 @@ torm <- c(
   with(metadata, which(URAU_CODE == "UK006K2" & mcc_code == "brkn.uk9016"))
 )
 metadata <- metadata[-torm,]
-
-# # Duplicates on the NUTS3 level: select the largest city
-# nnuts3 <- tapply(metadata$NUTS3_2021, metadata$NUTS3_2021, length)
-# nutsdup <- subset(metadata, NUTS3_2021 %in% names(nnuts3[nnuts3 > 1]))
-# toremove <- by(nutsdup, nutsdup$NUTS3_2021, function(x){ 
-#   ksel <- x$URAU_CATG == "K"
-#   sel <- if (sum(ksel) > 0) x[ksel,] else x
-#   sel <- sel[which.max(sel$AREA_SQM), "URAU_CODE"]
-#   x$URAU_CODE[x$URAU_CODE != sel]
-# })
-# metadata <- subset(metadata, !URAU_CODE %in% unlist(toremove))
-
-# Change London NUTS3 code for easier linkage later
-metadata[metadata$URAU_NAME == "London","NUTS3_2021"] <- "UKI"
 
 # Remove overseas cities 
 overseas <- c("PT004C1", "PT007C1", 
@@ -100,17 +113,16 @@ metadata <- metadata[!metadata$URAU_CODE %in% overseas,]
 older <- c("ES552", "ES550")
 metadata <- metadata[!rownames(metadata) %in% older,]
 
-# # Add a seventh character to Polish cities that was missing for some reason
-# incomplete <- nchar(metadata$URAU_CODE) == 6
-# metadata$URAU_CODE[incomplete] <- paste0(metadata$URAU_CODE[incomplete], "1")
-# 
-# # Change some codes that don't match between lookup tables and datasets
-# metadata$URAU_CODE[metadata$URAU_CODE == "DK001K1"] <- "DK001C1"
+# Remove potential remaining level duplicates
+metadata <- metadata[!duplicated(metadata),]
 
 #----- Add other information
 
 # Add region
 metadata$region <- as.factor(regionlist[metadata$CNTR_CODE])
+
+# Add indicator for whether it is in MCC
+metadata$inmcc <- !is.na(metadata$mcc_code)
 
 # NUTS codes for easier merging
 metadata$NUTS2_2021 <- substr(metadata$NUTS3_2021, 1, 4)
@@ -121,17 +133,6 @@ metadata$NUTS0_2021 <- substr(metadata$NUTS3_2021, 1, 2)
 metadata$NUTS2_2016 <- substr(metadata$NUTS3_2016, 1, 4)
 metadata$NUTS1_2016 <- substr(metadata$NUTS3_2016, 1, 3)
 metadata$NUTS0_2016 <- substr(metadata$NUTS3_2016, 1, 2)
-
-#----- Tidy dataset
-
-# # Order it
-# metadata <- metadata[order(metadata$URAU_CODE),]
-
-# List of description variables
-desc_vars <- names(metadata)
-
-# Add indicator for whether it is in MCC
-metadata$inmcc <- !is.na(metadata$mcc_code)
 
 #----- Label cities
 
@@ -227,33 +228,8 @@ urb_df$prop_65p <- rowSums(urb_df[,c("pop_6574", "pop75p")]) /
 urb_df <- urb_df[,-c(3:4)]
 
 # Merge with metadata
-metadata <- merge(metadata, urb_df, by.x = "URAU_CODE", by.y = "cities",
+metadata <- merge(metadata, urb_df, by.x = "URAU_CODE2", by.y = "cities",
   all.x = T, all.y = F, sort = F)
-
-#----- For some missings try to attribute differently
-
-# loop on variables
-for (v in colnames(urb_df)[-1]){
-  # Find missings for the variable
-  urbmis <- is.na(metadata[,v])
-  
-  # Try to match with 6 character URAU CODE (Poland)
-  matchind <- match(metadata$URAU_CODE[urbmis], substr(urb_df$cities, 1, 6))
-  metadata[which(urbmis)[!is.na(matchind)], v] <- 
-    urb_df[na.omit(matchind),v]
-  
-  # Try to match city to greater and conversely (some mixing in Belgium codes)
-  altercodes <- metadata[urbmis, "URAU_CODE"]
-  substr(altercodes[metadata[urbmis, "URAU_CATG"] == "C"], 6, 6) <- "K"
-  substr(altercodes[metadata[urbmis, "URAU_CATG"] == "K"], 6, 6) <- "C"
-  matchind <- match(altercodes, urb_df$cities)
-  metadata[which(urbmis)[!is.na(matchind)], v] <- 
-    urb_df[na.omit(matchind),v]
-  
-}
-# For some missings check if we can merge by the 6 first character
-#   Poland and Hungary
-
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = colnames(urb_df)[-1], 
@@ -386,7 +362,8 @@ metadata <- nuts_merge(metadata, lifexp, level = 2, highest = 0)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = varnames, 
-  label = sprintf("Life expectancy %s", ages), source = "NUTS2"))
+  label = sprintf("Life expectancy %s", gsub("Y_LT1", "", ages)), 
+  source = "NUTS2"))
 
 #----- GDP per capita
 gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
@@ -462,7 +439,7 @@ bedrates <- aggregate(values ~ geo, data = bedrates, mean)
 names(bedrates)[-1] <- "bedrates"
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, bedrates, level = 2, highest = 1)
+metadata <- nuts_merge(metadata, bedrates, level = 2, highest = 0)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = "bedrates", 
@@ -799,39 +776,77 @@ metadesc <- rbind(metadesc,
     source = "ERA5land"))
 
 #---------------------------
+# Alternative sources to fill missings
+#---------------------------
+
+#----- Add GDP for UK
+
+# Load GDP values at NUTS3 level
+gdppath <- paste0("V:/VolumeQ/AGteam/ONS/gdp",
+  "/regionalgrossdomesticproductgdpallnutslevelregions.xlsx")
+ukgdp <- as.data.frame(read_excel(gdppath, sheet = 8, range = "A2:X238",
+  na = "-"))
+
+# Load exchange rate
+exchratepath <- "V:/VolumeQ/AGteam/ONS/gdp/euroexchangerate.csv"
+exchrate <- read.table(exchratepath, skip = 8, header = F, sep = ",")
+names(exchrate) <- c("Date", "Rate")
+
+# Convert GDP to euros
+commonyears <- Reduce(intersect, list(year, names(ukgdp), exchrate$Date))
+eurogdp <- mapply(function(gdp, rt) gdp * rt,
+  ukgdp[,match(commonyears, names(ukgdp))], 
+  exchrate[match(commonyears, exchrate$Date),"Rate"])
+
+# Average years
+meangdp <- apply(eurogdp, 1, mean, na.rm = T)
+
+# Add to metadata
+rep_ind <- metadata$NUTS3_2016 %in% ukgdp$`NUTS code`
+metadata[rep_ind, "gdp"] <- meangdp[match(metadata[rep_ind, "NUTS3_2016"],
+    ukgdp$`NUTS code`)]
+
+#----- Missing population
+
+# Populations in Wikipedia (different years)
+wikipop <- c(CY501C1 = 101000, EL014C1 = 108642, EL013C1 = 70873, 
+  EL012C1 = 56434, EL011C1 = 58287, EL010C1 = 51862)
+
+# Add to metadata
+metadata[match(names(wikipop), metadata$URAU_CODE), "pop"] <- wikipop
+
+#---------------------------
 # Missing values imputation
 #---------------------------
 
-# Extract number of missings
-citymis <- apply(is.na(metadata[,names(metadata) %in% metadesc$metavar]), 
-  1, sum)
+#----- Keep track of missing
 
-# # Remove cities with more than 10 missings
-# metadata <- metadata[citymis < 10,]
+# Number of missings for each city
 
-# # Reorder data
-# metadata <- metadata[order(metadata$URAU_CODE),]
 
-#----- Extract variables
-
-# Keep only metavariables
-metavar <- metadata[,names(metadata) %in% metadesc$metavar]
-
-# Keep track of missings
-imputed <- is.na(metavar)
+# Missings
+imputed <- is.na(subset(metadata, select = metadesc$metavar))
 rownames(imputed) <- metadata$URAU_CODE
+
+# Number of missings per variables
 metadesc$nmis <- apply(imputed, 2, sum)
 metadesc$propmis <- round(apply(imputed, 2, mean) * 100)
 
+# Number of missings per city
+metadata$nmiss <- apply(imputed, 1, sum)
+
 #----- Impute
 
-# Impute using cart because of complex interactions
-meta_imp <- mice(metavar, method = "cart", seed = 12345, print = F)
+# Variables used in imputation
+imputvars <- c(metadesc$metavar, "CNTR_CODE", "AREA_SQM", "region")
 
-# Get the imputed dataset (of iter_Sel)
-iter_sel <- 5
-impdat <- complete(meta_imp, iter_sel)
-metadata[,names(impdat)] <- impdat
+# Impute using cart because of complex interactions
+meta_imp <- mice(metadata[,imputvars], method = "cart", seed = 12345, print = F)
+
+# Get the imputed dataset (as the median of the 5 iterations)
+impdat <- complete(meta_imp, "long")
+aggimp <- aggregate(impdat[,metadesc$metavar], by = impdat[".id"], median)[,-1]
+metadata[,names(aggimp)] <- aggimp
 
 #---------------------------
 # Load geographical data
@@ -858,5 +873,3 @@ metageo <- urau_points[match(metadata$URAU_CODE, urau_points$URAU_CODE),
 geobind <- do.call(rbind, metageo$geometry)
 colnames(geobind) <- c("lon", "lat")
 metadata <- cbind(metadata, geobind)
-
-

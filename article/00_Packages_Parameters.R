@@ -21,6 +21,7 @@ library(PHEindicatormethods) # For the 2013 European standard population
 library(stringr) # For label management
 library(abind) # Array binding
 library(raster) # Loading of some data
+library(readxl) # Load excel files
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -104,7 +105,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 # Knots for age spline
 ageknots <- 65
