@@ -6,27 +6,62 @@
 #
 ################################################################################
 
-library(ggplot2)
-library(scales)
-library(reshape2)
-library(eurostat)
+source("05_ResultsPrep.R")
 
 #---------------------------
-# Extract residuals
+# Extract different ERFs
 #---------------------------
 
-# Extract from stage 2 result
-res <- residuals(stage2res)
-yhat <- predict(stage2res)
+#----- Indices to keep
 
-# Create a long format DF with residuals
-ncoefs <- ncol(coefs)
-repind <- rep(1:nrow(stage2df), ncoefs)
-st2df_long <- cbind(coef = rep(sprintf("b%i", seq_len(ncoefs)), nrow(stage2df)),
-  residual = c(res), fitted = c(yhat), obs = c(coefs), 
-  nmiss = apply(imputed[,names(metavar)], 1, sum)[repmcc][repind],
-  stage2df[repind,], metavar[repmcc,][repind,], 
-  totdeath = sapply(unlistresults, "[[", "totdeath"))
+# Keep only the oldest group for each location
+tokeep <- by(cbind(seq_len(nrow(stage2df)), stage2df$age), stage2df$city, 
+  function(x) x[which.max(x[,2]),1])
+
+#----- Extract all ERFS
+
+# First stage coefficients
+ycoefs <- coefs[tokeep,]
+yvcovs <- vcovs[tokeep]
+firstpred <- ov_basis %*% t(ycoefs)
+mmts <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
+fserfs <- Map(crosspred, basis = list(ov_basis), 
+  coef = as.data.frame(t(ycoefs)), vcov = yvcovs, cen = mmts, 
+  model.link = "log", at = list(ovper))
+
+# Predictions
+yhat <- predict(stage2res, vcov = T)[tokeep]
+firstpred <- ov_basis %*% sapply(yhat, "[[", "fit")
+mmts <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
+prederfs <- Map(function(x, mmt) crosspred(ov_basis, coef = x$fit, 
+    vcov = x$vcov, cen = mmt, model.link = "log", at = ovper), 
+  yhat, mmts)
+
+# BLUPS
+yblups <- blup(stage2res,vcov = T)[tokeep]
+firstpred <- ov_basis %*% sapply(yblups, "[[", "blup")
+mmts <- ovper[inrange][apply(firstpred[inrange,], 2, which.min)]
+bluperfs <- Map(function(x, mmt) crosspred(ov_basis, coef = x$blup, 
+  vcov = x$vcov, cen = mmt, model.link = "log", at = ovper), 
+  yblups, mmts)
+
+#----- Summary data.frame
+
+# Extract MMTs and percentiles
+fsres<- sapply(fserfs, 
+  function(x) c(x$allRRfit[predper %in% resultper], x$cen))
+predres <- sapply(prederfs, 
+  function(x) c(x$allRRfit[predper %in% resultper], x$cen))
+blupres <- sapply(bluperfs, 
+  function(x) c(x$allRRfit[predper %in% resultper], x$cen))
+
+# Put together in a data.frame
+allres <- data.frame(metadata[repmcc,
+    c("URAU_CODE", "region", "CNTR_CODE", "lon", "lat", "pop")][tokeep,], 
+  age = stage2df$age[tokeep],
+  t(fsres), t(blupres), t(predres))
+names(allres)[-(1:7)] <- c(outer(c("cold", "heat", "mmt"), c("fs", "blup", "pred"), 
+  paste, sep = "_"))
 
 #---------------------------
 # Residual plots
@@ -34,146 +69,236 @@ st2df_long <- cbind(coef = rep(sprintf("b%i", seq_len(ncoefs)), nrow(stage2df)),
 
 #----- Map -----
 
-# Country layout
-euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
-
 # Map
-ggplot(data = st2df_long) + theme_void() + 
-  geom_sf(data = euromap, fill = grey(.95)) + 
-  geom_point(aes(x = lon, y = lat, fill = res), pch = 21) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_size(trans = "log10", name = "Population", range = c(0, 5)) + 
-  scale_fill_gradient2(trans = pseudo_log_trans(base = 10)) + 
-  facet_wrap(~ coef)
+basic_map <- ggplot(data = allres, aes(x = lon, y = lat, size = pop)) +
+  theme_void() +
+  geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) +
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+    crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
+    lims_method = "box") +
+  scale_size(name = "Population", range = c(2, 6), guide = "none") +
+  theme(legend.position = "bottom", legend.box = "vertical") +
+  geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) +
+  guides(fill = guide_coloursteps(title.position = "top", title.hjust = .5,
+    barwidth = 12, barheight = .8, even.steps = T))
 
-ggsave("figures/FigS3_1_ResMap.pdf", device = pdf)
+# Plot heat and cold
+rescoldmap <- basic_map + aes(fill = exp(log(cold_pred) - log(cold_blup))) +
+  scale_fill_steps2(midpoint = 1, name = "Cold RR residuals")
+
+resheatmap <- basic_map + aes(fill = exp(log(heat_pred) - log(heat_blup))) +
+  scale_fill_steps2(midpoint = 1, breaks = seq(.7, 1.3, by = .1), 
+    name = "Heat RR residuals")
+
+# ggsave("figures/FigS3_1_ResMap.pdf", device = pdf)
 
 #----- Fitted vs Obs -----
 
+ggplot(allres) + theme_classic() + 
+  geom_point(aes(x = cold_blup, y = cold_pred, col = age)) + 
+  scale_colour_stepsn(breaks = agebreaks, 
+    colours = mako(length(agelabs), direction = -1)) + 
+  geom_abline(slope = 1, intercept = 0) + 
+  xlab("BLUP") + ylab("Predicted") + ggtitle("Cold RR")
 
-ggplot(st2df_long) + theme_classic() + 
-  xlim(quantile(coefs, c(.01, .99))) + ylim(quantile(coefs, c(.01, .99))) + 
-  geom_point(aes(x = obs, y = fitted)) + 
-  geom_abline(slope = 1, intercept = 0, col = 4) + 
-  xlab("Stage 1 coefficient") + ylab("Fitted coefficient") + 
-  facet_wrap(~ coef)
+ggplot(allres) + theme_classic() + 
+  xlim(c(1, 2)) + ylim(c(1, 2)) + 
+  geom_point(aes(x = heat_blup, y = heat_pred, col = age)) + 
+  scale_colour_stepsn(breaks = agebreaks, 
+    colours = rocket(length(agelabs), direction = -1)) + 
+  geom_abline(slope = 1, intercept = 0) + 
+  xlab("BLUP") + ylab("Predicted") + ggtitle("Heat RR")
 
-ggsave("figures/FigS3_2_ObsPred.pdf", device = pdf)
+# ggsave("figures/FigS3_2_ObsPred.pdf", device = pdf)
 
 #----- Residuals vs country -----
 
-ggplot(st2df_long) + theme_classic() + xlim(quantile(res, c(.01, .99))) + 
-  geom_boxplot(aes(x = res, y = country, col = country), show.legend = F) +
+ggplot(allres) + theme_classic() + 
+  geom_boxplot(aes(x = cold_pred - cold_blup, y = CNTR_CODE, fill = CNTR_CODE), 
+    show.legend = F, varwidth = T) +
   geom_vline(xintercept = 0) + 
-  xlab("Residuals") + ylab("Country") + scale_y_discrete(limits = rev) + 
-  facet_wrap(~ coef)
+  xlab("Residuals") + ylab("Country") + ggtitle("Cold") +
+  scale_y_discrete(limits = rev)
 
-ggsave("figures/FigS3_3_ResCountry.pdf", device = pdf)
+ggplot(allres) + theme_classic() + xlim(c(-3, 3)) +
+  geom_boxplot(aes(x = heat_pred - heat_blup, y = CNTR_CODE, fill = CNTR_CODE), 
+    show.legend = F, varwidth = T) +
+  geom_vline(xintercept = 0) + 
+  xlab("Residuals") + ylab("Country") + ggtitle("Heat") +
+  scale_y_discrete(limits = rev)
+# ggsave("figures/FigS3_3_ResCountry.pdf", device = pdf)
+
+#----- Residuals vs region -----
+
+ggplot(allres) + theme_classic() + 
+  geom_boxplot(aes(x = cold_pred - cold_blup, y = region, fill = region), 
+    show.legend = F, varwidth = T) +
+  geom_vline(xintercept = 0) + 
+  xlab("Residuals") + ylab("Region") + ggtitle("Cold") +
+  scale_y_discrete(limits = rev)
+
+ggplot(allres) + theme_classic() + xlim(c(-3, 3)) +
+  geom_boxplot(aes(x = heat_pred - heat_blup, y = region, fill = region), 
+    show.legend = F, varwidth = T) +
+  geom_vline(xintercept = 0) + 
+  xlab("Residuals") + ylab("Region") + ggtitle("Heat") +
+  scale_y_discrete(limits = rev)
+# ggsave("figures/FigS3_3_ResCountry.pdf", device = pdf)
+
+#----- Residuals vs lat / lon -----
+
+ggplot(allres, aes(x = lat)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + 
+  ylab("Residuals") + xlab("Latitude") + ylim(c(-2, 2))
+
+ggsave("figures/residuals/latitude.pdf")
+
+ggplot(allres, aes(x = lon)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + 
+  ylab("Residuals") + xlab("Longitude") + ylim(c(-2, 2))
+
+#----- Residuals vs climatic region -----
+
+# Add KG classif info
+kgcdf <- allres[,c("URAU_CODE", "lon", "lat")]
+names(kgcdf) <- c("Site", "Longitude", "Latitude")
+allres$kgc <- substr(LookupCZ(kgcdf, rc = T), 1, 1)
+
+ggplot(allres) + theme_classic() + 
+  geom_boxplot(aes(x = cold_pred - cold_blup, y = kgc, fill = kgc), 
+    show.legend = F, varwidth = T) +
+  geom_vline(xintercept = 0) + 
+  xlab("Residuals") + ylab("KGC") + ggtitle("Cold") +
+  scale_y_discrete(limits = rev)
+
+ggsave("figures/residuals/KGCcold.pdf")
+
+ggplot(allres) + theme_classic() + xlim(c(-3, 3)) +
+  geom_boxplot(aes(x = heat_pred - heat_blup, y = kgc, fill = kgc), 
+    show.legend = F, varwidth = T) +
+  geom_vline(xintercept = 0) + 
+  xlab("Residuals") + ylab("KGC") + ggtitle("Heat") +
+  scale_y_discrete(limits = rev)
+
+ggsave("figures/residuals/KGCheat.pdf")
+
+#----- Residuals vs temperature -----
+
+# Add temperature info
+allres$temp <- metadata$tmean[repmcc][tokeep]
+
+ggplot(allres, aes(x = temp)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + 
+  ylab("Residuals") + xlab("Mean temperature") + ylim(c(-2, 2))
 
 #----- Residuals vs age -----
 
-ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
-  geom_point(aes(x = age, y = res)) +
-  geom_smooth(aes(x = age, y = res), col = 2) + 
+ggplot(allres, aes(x = age)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
   geom_hline(yintercept = 0) + 
-  xlab("Age") + ylab("Residuals") + 
-  facet_wrap(~ coef)
+  ylab("Residuals") + xlab("Age") + ylim(c(-2, 2))
 
-ggsave("figures/FigS3_4_ResAge.pdf", device = pdf)
+# ggsave("figures/FigS3_4_ResAge.pdf", device = pdf)
 
 #----- Residuals vs number of missings -----
 
-ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
-  geom_point(aes(x = nmiss, y = res)) +
-  geom_smooth(aes(x = nmiss, y = res), col = 2) + 
-  geom_hline(yintercept = 0) + 
-  xlab("Number of imputed metavariables") + ylab("Residuals") + 
-  facet_wrap(~ coef)
+# Add info
+allres$nmiss <- metadata$nmiss[repmcc][tokeep]
 
-ggsave("figures/FigS3_5_ResNA.pdf", device = pdf)
+#Plot
+ggplot(allres, aes(x = nmiss)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + 
+  ylab("Residuals") + xlab("# Imputed") + ylim(c(-2, 2))
+
 
 
 #----- Residuals vs population -----
 
-ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
-  geom_point(aes(x = pop, y = res)) +
-  geom_smooth(aes(x = pop, y = res), col = 2) + 
-  geom_hline(yintercept = 0) + 
-  xlab("Population") + ylab("Residuals") + scale_x_continuous(trans = "log10") +
-  facet_wrap(~ coef)
+ggplot(allres, aes(x = pop)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + scale_x_log10() +
+  ylab("Residuals") + xlab("Population") + ylim(c(-2, 2))
 
-ggsave("figures/FigS3_6_ResPop.pdf", 
-  device = pdf)
+ggsave("figures/residuals/population.pdf")
 
 
-#----- Residuals vs all metavariables -----
-
-for (i in seq_along(metavar)) {
-  ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
-    geom_point(aes_string(x = names(metavar)[i], y = res)) +
-    geom_smooth(aes_string(x = names(metavar)[i], y = res), col = 2) + 
-    geom_hline(yintercept = 0) + 
-    xlab(names(metavar)[i]) + ylab("Residuals") + 
-    facet_wrap(~ coef)
-  ggsave(sprintf("figures/residuals/%s.pdf", names(metavar)[i]), device = pdf)
-}
+# #----- Residuals vs all metavariables -----
+# 
+# for (i in seq_along(metavar)) {
+#   ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
+#     geom_point(aes_string(x = names(metavar)[i], y = res)) +
+#     geom_smooth(aes_string(x = names(metavar)[i], y = res), col = 2) + 
+#     geom_hline(yintercept = 0) + 
+#     xlab(names(metavar)[i]) + ylab("Residuals") + 
+#     facet_wrap(~ coef)
+#   ggsave(sprintf("figures/residuals/%s.pdf", names(metavar)[i]), device = pdf)
+# }
 
 #----- Residuals vs totdeath -----
 
-ggplot(st2df_long) + theme_classic() + ylim(quantile(res, c(.01, .99))) + 
-  geom_point(aes(x = totdeath, y = res)) +
-  geom_smooth(aes(x = totdeath, y = res), col = 2) + 
-  geom_hline(yintercept = 0) + 
-  xlab("Total observed deaths") + ylab("Residuals") + 
-  scale_x_continuous(trans = "log10") +
-  facet_wrap(~ coef)
+# Add info
+allres$totdeath <- sapply(unlistresults, "[[", "totdeath")[tokeep]
 
-ggsave("figures/FigS3_7_ResDeaths.pdf", device = pdf)
+ggplot(allres, aes(x = totdeath)) + theme_classic() + 
+  geom_point(aes(y = cold_pred - cold_blup), col = adjustcolor(4, .5)) +
+  geom_smooth(aes(y = cold_pred - cold_blup), col = 4) +
+  geom_point(aes(y = heat_pred - heat_blup), col = adjustcolor(2, .5)) +
+  geom_smooth(aes(y = heat_pred - heat_blup), col = 2) +
+  geom_hline(yintercept = 0) + scale_x_log10() +
+  ylab("Residuals") + xlab("# recorded deaths") + ylim(c(-2, 2))
+
+# ggsave("figures/FigS3_7_ResDeaths.pdf", device = pdf)
 
 
 #---------------------------
 # Curves plots
 #---------------------------
 
-#----- Extract stage 1 and fitted curves
-
-# Acceptable MMP values 
-inrange <- predper >= mmprange[1] & predper <= mmprange[2]
-
-# Stage 1
-st1curves <- Map(function(b, vc, era5){
-  tmeanper <- quantile(era5$era5landtmean, predper / 100)
-  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
-    knots = quantile(era5$era5landtmean, varper / 100))
-  firstpred <- bvar %*% b
-  mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
-  crosspred(bvar, coef = b, vcov = vc, cen = mmt, 
-    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-}, as.data.frame(t(coefs)), vcovs, era5series[repmcc])
-
-# Fitted
-fittedcurves <- Map(function(b, era5){
-  tmeanper <- quantile(era5$era5landtmean, predper / 100)
-  bvar <- onebasis(tmeanper, fun = varfun, degree = vardegree, 
-    knots = quantile(era5$era5landtmean, varper / 100))
-  firstpred <- bvar %*% b$fit
-  mmt <- tmeanper[inrange][which.min(firstpred[inrange])]
-  crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
-    model.link="log", at = quantile(era5$era5landtmean, predper / 100))
-}, predict(stage2res, vcov = T), era5series[repmcc])
-
 #----- Plot
-pdf("figures/FigS3_8_fittedERF.pdf", width = 9, height = 13)
+pdf("figures/ERFcomparison.pdf", width = 9, height = 13, pointsize = 8)
 layout(matrix(seq(6 * 4), nrow = 6, byrow = T))
 par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
 
 # Loop on all cities
-for(i in seq_along(fittedcurves)){
-    # Plot cold and heat separately
-  plot(st1curves[[i]], xlab = "Temperature (°C)", ylab = "RR", 
-    main = rownames(coefs)[i], lwd = 2, ylim = c(.5, 3))
-  lines(fittedcurves[[i]], col = 2, lwd = 2, ci = "lines")
-  abline(h = 1, lty = 2)
+for(i in seq_along(tokeep)){
+  # Plot cold and heat separately
+  plot(fserfs[[i]], xlab = "Temperature percentile", ylab = "RR", 
+    main = metadata$LABEL[repmcc][tokeep][i], 
+    ylim = c(.5, 3.5), cex.main = .9, xaxt = "n",
+    ci.arg = list(col = adjustcolor(grey(.5), .2)))
+  abline(v = fserfs[[i]]$cen, lty = 3)
+  lines(bluperfs[[i]], col = 2, ci = "area", 
+    ci.arg = list(col = adjustcolor(2, .2)))
+  abline(v = bluperfs[[i]]$cen, lty = 3, col = 2)
+  lines(prederfs[[i]], col = 4, ci = "area", 
+    ci.arg = list(col = adjustcolor(4, .2)))
+  abline(v = prederfs[[i]]$cen, lty = 3, col = 4)
+  axis(1, at = ovper[predper %in% c(1, 25, 50, 75, 99)], 
+    labels = c(1, 25, 50, 75, 99))
+  legend("topleft", legend = c("First-stage", "BLUP", "Prediction"),
+    lty = 1, col = c(1, 2, 4), horiz = T, bty = "n", cex = .8)
 }
 
 dev.off()

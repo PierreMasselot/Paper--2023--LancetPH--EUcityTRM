@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("05_ResultsPrep.R")
+source("06_ResultsPrep.R")
 
 #-------------------
 # Parameters
@@ -14,24 +14,24 @@ source("05_ResultsPrep.R")
 
 # List of compared ns parametrization
 comparedParam <- list(
-  lin = list(),
-  df2 = list(df = 2),
-  df3 = list(df = 3),
-  df4 = list(df = 4),
-  k65 = list(knots = 65),
-  k70 = list(knots = 70),
-  k75 = list(knots = 75),
-  k80 = list(knots = 80),
-  k5065 = list(knots = c(50, 65)),
-  k5070 = list(knots = c(50, 70)),
-  k5075 = list(knots = c(50, 75)),
-  k5080 = list(knots = c(50, 80)),
-  k6070 = list(knots = c(60, 70)),
-  k6075 = list(knots = c(60, 75)),
-  k6080 = list(knots = c(60, 80)),
-  k6575 = list(knots = c(65, 75)),
-  k6580 = list(knots = c(65, 80)),
-  k7080 = list(knots = c(70, 80))
+  Linear = list(),
+  '2 df' = list(df = 2),
+  '3 df' = list(df = 3),
+  '4 df' = list(df = 4),
+  'Knot 65' = list(knots = 65),
+  'Knot 70' = list(knots = 70),
+  'Knot 75' = list(knots = 75),
+  'Knot 80' = list(knots = 80),
+  'Knots 50, 65' = list(knots = c(50, 65)),
+  'Knots 50, 70' = list(knots = c(50, 70)),
+  'Knots 50, 75' = list(knots = c(50, 75)),
+  'Knots 50, 80' = list(knots = c(50, 80)),
+  'Knots 60, 70' = list(knots = c(60, 70)),
+  'Knots 60, 75' = list(knots = c(60, 75)),
+  'Knots 60, 80' = list(knots = c(60, 80)),
+  'Knots 65, 75' = list(knots = c(65, 75)),
+  'Knots 65, 80' = list(knots = c(65, 80)),
+  'Knots 70, 80' = list(knots = c(70, 80))
 )
 
 # baseline formula for mixmeta
@@ -71,5 +71,9 @@ aicvec <- sapply(allres, function(x) summary(x)$AIC)
 #-------------------
 
 # Plot AIC
-plot(aicvec, pch = 16, ylab = "AIC", xlab = "Parametrization", xaxt = "n")
+par(mar = c(7, 4, 4, 2) + .1)
+plot(aicvec, pch = 16, ylab = "AIC", xlab = "", xaxt = "n",
+  col = ifelse(aicvec == min(aicvec), 2, 1), cex = 1.5)
 axis(1, at = seq_along(aicvec), labels = names(aicvec), las = 3)
+
+dev.print(pdf, file = "figures/SupFig_agecomparison.pdf", width = 9, height = 6)

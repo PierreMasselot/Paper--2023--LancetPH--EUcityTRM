@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("05_ResultsPrep.R")
+source("06_ResultsPrep.R")
 
 #---------------------------
 # Prepare predictions
@@ -58,8 +58,16 @@ cityageres$age <- c(t(agepred))
 
 #----- Predict coefficients for each city
 
+# Fixed effects prediction
 cityagecoefs <- predict(stage2res, cityageres, vcov = T)
 names(cityagecoefs) <- with(cityageres, paste(URAU_CODE, agegroup, sep = "_"))
+
+# Add spatial blup predictions
+cityagecoefs <- Map(function(cfix, cran){
+  csum <- cfix$fit + cran$fit
+  cvcov <- cfix$vcov + cran$vcov
+  list(fit = csum, vcov = cvcov)
+}, cityagecoefs, ranpred[cityagegrid[,2]])
 
 #----- Predict overall curves
 
@@ -175,7 +183,8 @@ writeLines(c(""), "temp/logres.txt")
 cat(as.character(as.POSIXct(Sys.time())), file = "temp/logres.txt", append = T)
 
 #----- Compute annual AN / AF
-attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
+attrlist <- foreach(i = seq_len(nca), 
+  .packages = c("dlnm", "MASS", "Matrix")) %dopar% {
   
   # Store iteration (1 every 100)
   if(i %% 100 == 0) cat("\n", "iter = ", i, as.character(Sys.time()), "\n",
@@ -184,7 +193,7 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   # Get object for this city age
   era5 <- era5series[[cityagegrid[i,2]]]$era5landtmean
   icoefs <- cityagecoefs[[i]]
-  immt <- cityageres$mmt[i] 
+  immt <- cityageres$mmt[i]
   
   # Basis value for each day
   bvar <- onebasis(era5, fun = varfun, degree = vardegree, 
@@ -206,8 +215,15 @@ attrlist <- foreach(i = seq_len(nca), .packages = c("dlnm")) %dopar% {
   
   #----- Simulations for CI
   
-  # Obtain predicted city coef for each simulated meta coef set
-  coefsim <- metacoefsim %*% (cityageXdes[i,] %x% diag(nc))
+  # Obtain fixed city coef for each simulated meta coef set
+  fixsim <- metacoefsim %*% (cityageXdes[i,] %x% diag(nc))
+  
+  # Simulate the random part
+  iran <- ranpred[[cityagegrid[i,2]]]
+  ransim <- mvrnorm(nsim, iran$fit, nearPD(iran$vcov)$mat)
+  
+  # Total simulated coefs
+  coefsim <- fixsim + ransim
   
   # Estimate mmt for each simulation
   whichmmt <- apply((ov_basis %*% t(coefsim))[inrange,], 2, which.min)

@@ -22,6 +22,7 @@ library(stringr) # For label management
 library(abind) # Array binding
 library(raster) # Loading of some data
 library(readxl) # Load excel files
+library(kgc) # Koppen-Geiger climate classification
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -30,6 +31,7 @@ library(splines) # For natural splines
 library(mixmeta) # Second stage meta-analysis
 library(pls) # PLS variables
 library(MASS) # Multivariate normal simulation
+library(gstat) # Performs kriging
 
 #----- Plotting
 library(ggplot2) # Plotting
@@ -40,8 +42,9 @@ library(viridis) # For specific color palettes
 library(RColorBrewer) # For specific color palettes
 library(corrplot) # Plotting correlation matrices
 library(patchwork) # Putting together plots created with ggplot
-library(ggstance) # for position_dodgev
 library(ggpubr) # For get_legend
+library(ggstance) # For horizontal plot
+library(ggnewscale) # Two have several fill scales on the same plot
 
 #----------------------
 # Parameters
@@ -105,10 +108,17 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 5
+npc <- 4
 
 # Knots for age spline
 ageknots <- 65
+
+# Parameters for variogram model
+variopars <- list(
+  model = "Gau",
+  nugget = NA,
+  range = 350
+)
 
 #----- Results exploitation
 

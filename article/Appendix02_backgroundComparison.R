@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("05_ResultsPrep.R")
+source("06_ResultsPrep.R")
 
 #---------------------------
 #  Prepare comparison
@@ -15,9 +15,6 @@ source("05_ResultsPrep.R")
 #----- Baseline model
 
 # Baseline formula
-# baseform <- as.formula(sprintf("coefs ~ %s + 
-#     ns(age, knots = 65, Boundary.knots = c(0, 100))",
-#   paste(colnames(pcvar), collapse = " + ")))
 baseform <- as.formula(sprintf("coefs ~ 1",
   paste(colnames(pcvar), collapse = " + ")))
 
@@ -74,36 +71,36 @@ citydf <- data.frame(id = paste(metadata[cityind, "URAU_NAME"],
 
 
 #---------------------------
-#  Indicator for region
+# Climate classification
 #---------------------------
 
-# #----- Extract Koppen-Geiger class
-# # Rename values
-# coorddata <- stage2df[,c("city", "lon", "lat")]
-# names(coorddata) <- c("Site", "Longitude", "Latitude")
-# 
-# # Extract class
-# stage2df$kgc <- LookupCZ(coorddata, rc = T)
-# 
-# #----- Fit mixmeta
-# # Create formula
-# kgcform <- as.formula(sprintf("coefs ~ %s + ns(age, knots = c(50, 75)) + kgc",
-#   paste(colnames(pcvar), collapse = " + ")))
-# 
-# # Apply meta regression model
-# kgcres <- mixmeta(kgcform, data = stage2df, 
-#   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-# 
-# #----- Scores
-# 
-# # For Wald test
-# withoutres <- mixmeta(update(kgcform, ~ . - kgc), data = stage2df, 
-#   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-# 
-# # Keep scores
-# kgcscores <- c(aic = AIC(kgcres), i2 = summary(kgcres)$i2[1],
-#   wald = fwald(kgcres, withoutres)$pvalue)
-# 
+#----- Extract Koppen-Geiger class
+# Rename values
+coorddata <- metadata[, c("URAU_CODE", "lon", "lat")]
+names(coorddata) <- c("Site", "Longitude", "Latitude")
+
+# Extract class
+kgc <- LookupCZ(coorddata, rc = T)
+stage2df$kgc <- kgc[repmcc]
+
+#----- Fit mixmeta
+# Create formula
+kgcform <- update(baseform, ~ . + kgc)
+
+# Apply meta regression model
+kgcres <- mixmeta(kgcform, data = stage2df,
+  S = vcovs, random = ~ 1|city, na.action = na.exclude)
+
+#----- Scores
+
+# For Wald test
+withoutres <- mixmeta(update(kgcform, ~ . - kgc), data = stage2df,
+  S = vcovs, random = ~ 1|city, na.action = na.exclude)
+
+# Keep scores
+kgcscores <- c(aic = AIC(kgcres), i2 = summary(kgcres)$i2[1],
+  wald = fwald(kgcres, withoutres)$pvalue)
+
 # #----- Plot climate zone predictions
 # # Create prediction data.frame
 # bgdf <- data.frame(kgc = unique(stage2df$kgc), age = mean(agevals))
@@ -120,10 +117,10 @@ citydf <- data.frame(id = paste(metadata[cityind, "URAU_NAME"],
 # 
 # # Plot all for climate zones
 # layout(matrix(1:2, ncol = 2), width = c(4, 1))
-# plot(NA, bty = "l", xaxt = "n", 
+# plot(NA, bty = "l", xaxt = "n",
 #   xlab = "Temperature percentile", ylab = "RR",
 #   xlim = range(ovper), ylim = c(.9, 2.5)
-#   # ylim = c(min(sapply(bgcp, "[[", "allRRlow")), 
+#   # ylim = c(min(sapply(bgcp, "[[", "allRRlow")),
 #   #   max(sapply(bgcp, "[[", "allRRhigh")))
 # )
 # abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
@@ -134,9 +131,9 @@ citydf <- data.frame(id = paste(metadata[cityind, "URAU_NAME"],
 # abline(h = 1)
 # par(mar = c(5, 0, 4, 0) + .1)
 # plot.new()
-# legend("topleft", legend = sprintf("%s (n = %i)", unique(stage2df$kgc), 
-#     aggregate(city ~ kgc, 
-#       data = unique(stage2df[,c("city", "kgc")]), length)[,2]), 
+# legend("topleft", legend = sprintf("%s (n = %i)", unique(stage2df$kgc),
+#     aggregate(city ~ kgc,
+#       data = unique(stage2df[,c("city", "kgc")]), length)[,2]),
 #   col = pal, lty = 1, lwd = 2, title = "KG climate zone", bty = "n")
 # 
 # #----- Plot background predictions
@@ -153,46 +150,46 @@ citydf <- data.frame(id = paste(metadata[cityind, "URAU_NAME"],
 # bgcp <- lapply(bgcoefs, bgpred)
 # 
 # # Add summaries
-# bgdf$mmp <- predper[inrange][sapply(bgcp, 
+# bgdf$mmp <- predper[inrange][sapply(bgcp,
 #   function(x) which.min(x$allRRfit[inrange]))]
-# bgdf$mmt <- ovper[inrange][sapply(bgcp, 
+# bgdf$mmt <- ovper[inrange][sapply(bgcp,
 #   function(x) which.min(x$allRRfit[inrange]))]
 # bgdf$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
 # bgdf$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
 # 
 # # Plot MMP
-# mmpkgc <- ggplot(data = bgdf) + theme_void() + 
-#   geom_raster(aes(x = Longitude, y = Latitude, fill = mmp)) + 
-#   geom_sf(data = euromap, fill = NA) + 
-#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-#     name = "MMP", limits = c(50, 99)) + 
-#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-#   #   alpha = .4, pch = 1) + 
+# mmpkgc <- ggplot(data = bgdf) + theme_void() +
+#   geom_raster(aes(x = Longitude, y = Latitude, fill = mmp)) +
+#   geom_sf(data = euromap, fill = NA) +
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) +
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1],
+#     name = "MMP", limits = c(50, 99)) +
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat),
+#   #   alpha = .4, pch = 1) +
 #   labs(title = "KGC")
 # 
 # # Cold
-# coldkgc <- ggplot(data = bgdf) + theme_void() + 
-#   geom_raster(aes(x = Longitude, y = Latitude, fill = rrcold)) + 
-#   geom_sf(data = euromap, fill = NA) + 
-#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+# coldkgc <- ggplot(data = bgdf) + theme_void() +
+#   geom_raster(aes(x = Longitude, y = Latitude, fill = rrcold)) +
+#   geom_sf(data = euromap, fill = NA) +
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) +
 #   scale_fill_gradient(low = "white", high = "darkblue",
 #     name = sprintf("RR at percentile %i", resultper[1]),
-#     limits = c(1,1.7)) + 
-#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-#   #   alpha = .4, pch = 1) + 
+#     limits = c(1,1.7)) +
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat),
+#   #   alpha = .4, pch = 1) +
 #   labs(title = "KGC")
 # 
 # # Heat
-# heatkgc <- ggplot(data = bgdf) + theme_void() + 
-#   geom_raster(aes(x = Longitude, y = Latitude, fill = rrheat)) + 
-#   geom_sf(data = euromap, fill = NA) + 
-#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+# heatkgc <- ggplot(data = bgdf) + theme_void() +
+#   geom_raster(aes(x = Longitude, y = Latitude, fill = rrheat)) +
+#   geom_sf(data = euromap, fill = NA) +
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) +
 #   scale_fill_gradient(low = "white", high = "darkred",
 #     name = sprintf("RR at percentile %i", resultper[2]),
-#     limits = c(1,1.5)) + 
-#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-#   #   alpha = .4, pch = 1) + 
+#     limits = c(1,1.5)) +
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat),
+#   #   alpha = .4, pch = 1) +
 #   labs(title = "KGC")
 
 
@@ -221,68 +218,68 @@ latlonres <- mixmeta(as.formula(latlonform), data = stage2df,
 latlonscores <- c(aic = AIC(latlonres), i2 = summary(latlonres)$i2[1],
   wald = fwald(latlonres, basemod)$pvalue)
 
-#----- Background plots
-
-# Predict coefs
-bgcoefs <- predict(latlonres, bggrid, vcov = T)
-
-# Obtain curves
-bgcp <- lapply(bgcoefs, bgpred)
-
-# Summary data.frame
-bgres <- bggrid
-bgres$mmp <- predper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgres$mmt <- ovper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgres$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
-bgres$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
-
-# Plot MMP
-mmplatlon <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limits = c(50, 99)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat + lon")
-
-# Cold
-coldlatlon <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue",
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1,1.7)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat + lon")
-
-# Heat
-heatlatlon <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred",
-    name = sprintf("RR at percentile %i", resultper[2]),
-    limits = c(1,1.5)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat + lon")
-
-#----- Curve prediction for cities
-
-# Prediction data.frame
-latlondf <- cbind(citydf, pcvar[cityind,])
-
-# Predict coefficients
-citycoefs <- predict(latlonres, latlondf, vcov = T)
-
-# Obtain curves
-latloncitycp <- lapply(citycoefs, bgpred)
+# #----- Background plots
+# 
+# # Predict coefs
+# bgcoefs <- predict(latlonres, bggrid, vcov = T)
+# 
+# # Obtain curves
+# bgcp <- lapply(bgcoefs, bgpred)
+# 
+# # Summary data.frame
+# bgres <- bggrid
+# bgres$mmp <- predper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgres$mmt <- ovper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgres$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
+# bgres$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
+# 
+# # Plot MMP
+# mmplatlon <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+#     name = "MMP", limits = c(50, 99)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat + lon")
+# 
+# # Cold
+# coldlatlon <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkblue",
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1,1.7)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat + lon")
+# 
+# # Heat
+# heatlatlon <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkred",
+#     name = sprintf("RR at percentile %i", resultper[2]),
+#     limits = c(1,1.5)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat + lon")
+# 
+# #----- Curve prediction for cities
+# 
+# # Prediction data.frame
+# latlondf <- cbind(citydf, pcvar[cityind,])
+# 
+# # Predict coefficients
+# citycoefs <- predict(latlonres, latlondf, vcov = T)
+# 
+# # Obtain curves
+# latloncitycp <- lapply(citycoefs, bgpred)
 
 
 #---------------------------
@@ -306,68 +303,68 @@ latlontensres <- mixmeta(as.formula(latlontensform), data = stage2df,
 latlontenscores <- c(aic = AIC(latlontensres), i2 = summary(latlontensres)$i2[1],
   wald = fwald(latlontensres, basemod)$pvalue)
 
-#----- Background plots
-
-# Predict coefs
-bgcoefs <- predict(latlontensres, bggrid, vcov = T)
-
-# Obtain curves
-bgcp <- lapply(bgcoefs, bgpred)
-
-# Summary data.frame
-bgres <- bggrid
-bgres$mmp <- predper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgres$mmt <- ovper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-bgres$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
-bgres$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
-
-# Plot MMP
-mmplatlontens <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limits = c(50, 99)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat * lon")
-
-# Cold
-coldlatlontens <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue",
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1,1.7)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat * lon")
-
-# Heat
-heatlatlontens <- ggplot(data = bgres) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred",
-    name = sprintf("RR at percentile %i", resultper[2]),
-    limits = c(1,1.5)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "lat * lon")
-
-#----- Curve prediction for cities
-
-# Prediction data.frame
-latlontensdf <- cbind(citydf, pcvar[cityind,])
-
-# Predict coefficients
-citycoefs <- predict(latlontensres, latlontensdf, vcov = T)
-
-# Obtain curves
-latlontenscitycp <- lapply(citycoefs, bgpred)
+# #----- Background plots
+# 
+# # Predict coefs
+# bgcoefs <- predict(latlontensres, bggrid, vcov = T)
+# 
+# # Obtain curves
+# bgcp <- lapply(bgcoefs, bgpred)
+# 
+# # Summary data.frame
+# bgres <- bggrid
+# bgres$mmp <- predper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgres$mmt <- ovper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# bgres$rrcold <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[1]])
+# bgres$rrheat <- sapply(bgcp, function(x) x$allRRfit[predper %in% resultper[2]])
+# 
+# # Plot MMP
+# mmplatlontens <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+#     name = "MMP", limits = c(50, 99)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat * lon")
+# 
+# # Cold
+# coldlatlontens <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkblue",
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1,1.7)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat * lon")
+# 
+# # Heat
+# heatlatlontens <- ggplot(data = bgres) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkred",
+#     name = sprintf("RR at percentile %i", resultper[2]),
+#     limits = c(1,1.5)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "lat * lon")
+# 
+# #----- Curve prediction for cities
+# 
+# # Prediction data.frame
+# latlontensdf <- cbind(citydf, pcvar[cityind,])
+# 
+# # Predict coefficients
+# citycoefs <- predict(latlontensres, latlontensdf, vcov = T)
+# 
+# # Obtain curves
+# latlontenscitycp <- lapply(citycoefs, bgpred)
 
 
 # #---------------------------
@@ -602,79 +599,79 @@ regionres <- mixmeta(regionform, data = stage2df,
 regionscores <- c(aic = AIC(regionres), i2 = summary(regionres)$i2[1],
   wald = fwald(regionres, basemod)$pvalue)
 
-#----- Background prediction
-
-# Intersection with european map
-whichpoly <- st_intersects(st_as_sf(bggrid, coords = 1:2, crs = 4326), euromap)
-
-# Determine country
-whichcountry <- euromap$CNTR_CODE[unlist(whichpoly)]
-
-# Determine region
-bggrid$region <- region[whichcountry]
-regiongrid <- na.omit(bggrid)
-
-# Predict coefs
-bgcoefs <- predict(regionres, regiongrid, vcov = T)
-
-# Obtain curves
-bgcp <- lapply(bgcoefs, bgpred)
-
-# Summary data.frame
-regiongrid$mmp <- predper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-regiongrid$mmt <- ovper[inrange][sapply(bgcp, 
-  function(x) which.min(x$allRRfit[inrange]))]
-regiongrid$rrcold <- sapply(bgcp, function(x) 
-  x$allRRfit[predper %in% resultper[1]])
-regiongrid$rrheat <- sapply(bgcp, function(x) 
-  x$allRRfit[predper %in% resultper[2]])
-
-# Plot MMP
-mmpregion <- ggplot(data = regiongrid) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
-    name = "MMP", limits = c(50, 99)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region")
-
-# Cold
-coldregion <- ggplot(data = regiongrid) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkblue",
-    name = sprintf("RR at percentile %i", resultper[1]),
-    limits = c(1,1.7)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region")
-
-# Heat
-heatregion <- ggplot(data = regiongrid) + theme_void() + 
-  geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
-  geom_sf(data = euromap, fill = NA) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
-  scale_fill_gradient(low = "white", high = "darkred",
-    name = sprintf("RR at percentile %i", resultper[2]),
-    limits = c(1,1.5)) + 
-  # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
-  #   alpha = .4, pch = 1) + 
-  labs(title = "Region")
-
-#----- Curve prediction for cities
-
-# Prediction data.frame
-regiondf <- cbind(citydf, pcvar[cityind,], region = metadata[cityind, "region"])
-
-# Predict coefficients
-citycoefs <- predict(regionres, regiondf, vcov = T)
-
-# Obtain curves
-regioncitycp <- lapply(citycoefs, bgpred)
+# #----- Background prediction
+# 
+# # Intersection with european map
+# whichpoly <- st_intersects(st_as_sf(bggrid, coords = 1:2, crs = 4326), euromap)
+# 
+# # Determine country
+# whichcountry <- euromap$CNTR_CODE[unlist(whichpoly)]
+# 
+# # Determine region
+# bggrid$region <- region[whichcountry]
+# regiongrid <- na.omit(bggrid)
+# 
+# # Predict coefs
+# bgcoefs <- predict(regionres, regiongrid, vcov = T)
+# 
+# # Obtain curves
+# bgcp <- lapply(bgcoefs, bgpred)
+# 
+# # Summary data.frame
+# regiongrid$mmp <- predper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# regiongrid$mmt <- ovper[inrange][sapply(bgcp, 
+#   function(x) which.min(x$allRRfit[inrange]))]
+# regiongrid$rrcold <- sapply(bgcp, function(x) 
+#   x$allRRfit[predper %in% resultper[1]])
+# regiongrid$rrheat <- sapply(bgcp, function(x) 
+#   x$allRRfit[predper %in% resultper[2]])
+# 
+# # Plot MMP
+# mmpregion <- ggplot(data = regiongrid) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = mmp)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = heat_hcl(2)[2], high = heat_hcl(2)[1], 
+#     name = "MMP", limits = c(50, 99)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region")
+# 
+# # Cold
+# coldregion <- ggplot(data = regiongrid) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrcold)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkblue",
+#     name = sprintf("RR at percentile %i", resultper[1]),
+#     limits = c(1,1.7)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region")
+# 
+# # Heat
+# heatregion <- ggplot(data = regiongrid) + theme_void() + 
+#   geom_raster(aes(x = lon, y = lat, fill = rrheat)) + 
+#   geom_sf(data = euromap, fill = NA) + 
+#   coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)]) + 
+#   scale_fill_gradient(low = "white", high = "darkred",
+#     name = sprintf("RR at percentile %i", resultper[2]),
+#     limits = c(1,1.5)) + 
+#   # geom_point(data = metacomplete, mapping = aes(x = lon, y = lat), 
+#   #   alpha = .4, pch = 1) + 
+#   labs(title = "Region")
+# 
+# #----- Curve prediction for cities
+# 
+# # Prediction data.frame
+# regiondf <- cbind(citydf, pcvar[cityind,], region = metadata[cityind, "region"])
+# 
+# # Predict coefficients
+# citycoefs <- predict(regionres, regiondf, vcov = T)
+# 
+# # Obtain curves
+# regioncitycp <- lapply(citycoefs, bgpred)
 
 # #---------------------------
 # # Region integrated to PLS
@@ -784,39 +781,40 @@ regioncitycp <- lapply(citycoefs, bgpred)
 
 # Scores
 allaic <- c('lon+lat' = latlonscores[1], 'lon*lat' = latlontenscores[1], 
-  Region = regionscores[1])
+  Region = regionscores[1], kgc = kgcscores[1])
 alli2 <- c('lon+lat' = latlonscores[2], 'lon*lat' = latlontenscores[2], 
-  Region = regionscores[2])
+  Region = regionscores[2], kgc = kgcscores[2])
 allWald <- c('lon+lat' = latlonscores[3], 'lon*lat' = latlontenscores[3], 
-  Region = regionscores[3])
+  Region = regionscores[3], kgc = kgcscores[3])
 
-# Background summary
-(mmplatlon + mmplatlontens + mmpregion) # / (mmplatlonpls + mmpregionpls)
-(coldlatlon + coldlatlontens + coldregion) # / (coldlatlonpls + coldregionpls)
-(heatlatlon + heatlatlontens + heatregion) # / (heatlatlonpls + heatregionpls)
 
-# Random city prediction
-pal <- viridis(3)
-
-par(mfrow = c(3,2))
-for(i in 1:5){
-  plot(NA, xlim = range(ovper), ylim = c(1, 3),
-    xlab = c("Temperature percentile"), ylab = "RR", main = citydf$id[i],
-    xaxt = "n")
-  abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
-  axis(1, at = ovaxis, labels = axisper)
-  lines(latloncitycp[[i]], lwd = 2, col = pal[1], 
-    ci = "area", ci.arg = list(col = adjustcolor(pal[1], .2)))
-  lines(latlontenscitycp[[i]], lwd = 2, col = pal[2], 
-    ci = "area", ci.arg = list(col = adjustcolor(pal[2], .2)))
-  lines(regioncitycp[[i]], lwd = 2, col = pal[3], 
-    ci = "area", ci.arg = list(col = adjustcolor(pal[3], .2)))
-  # lines(latlonplscitycp[[i]], lwd = 2, col = pal[4], 
-  #   ci = "area", ci.arg = list(col = adjustcolor(pal[4], .2)))
-  # lines(regionplscitycp[[i]], lwd = 2, col = pal[5], 
-  #   ci = "area", ci.arg = list(col = adjustcolor(pal[5], .2)))
-}
-plot.new()
-legend("topleft", 
-  legend = c("lat + lon", "lat * lon", "Region"), #, "Lat/lon PLS", "Region PLS"),
-  col = pal, lwd = 2, bty = "n")
+# # Background summary
+# (mmplatlon + mmplatlontens + mmpregion) # / (mmplatlonpls + mmpregionpls)
+# (coldlatlon + coldlatlontens + coldregion) # / (coldlatlonpls + coldregionpls)
+# (heatlatlon + heatlatlontens + heatregion) # / (heatlatlonpls + heatregionpls)
+# 
+# # Random city prediction
+# pal <- viridis(3)
+# 
+# par(mfrow = c(3,2))
+# for(i in 1:5){
+#   plot(NA, xlim = range(ovper), ylim = c(1, 3),
+#     xlab = c("Temperature percentile"), ylab = "RR", main = citydf$id[i],
+#     xaxt = "n")
+#   abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
+#   axis(1, at = ovaxis, labels = axisper)
+#   lines(latloncitycp[[i]], lwd = 2, col = pal[1], 
+#     ci = "area", ci.arg = list(col = adjustcolor(pal[1], .2)))
+#   lines(latlontenscitycp[[i]], lwd = 2, col = pal[2], 
+#     ci = "area", ci.arg = list(col = adjustcolor(pal[2], .2)))
+#   lines(regioncitycp[[i]], lwd = 2, col = pal[3], 
+#     ci = "area", ci.arg = list(col = adjustcolor(pal[3], .2)))
+#   # lines(latlonplscitycp[[i]], lwd = 2, col = pal[4], 
+#   #   ci = "area", ci.arg = list(col = adjustcolor(pal[4], .2)))
+#   # lines(regionplscitycp[[i]], lwd = 2, col = pal[5], 
+#   #   ci = "area", ci.arg = list(col = adjustcolor(pal[5], .2)))
+# }
+# plot.new()
+# legend("topleft", 
+#   legend = c("lat + lon", "lat * lon", "Region"), #, "Lat/lon PLS", "Region PLS"),
+#   col = pal, lwd = 2, bty = "n")

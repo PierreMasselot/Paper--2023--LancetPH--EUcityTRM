@@ -14,7 +14,7 @@ library(doParallel)
 library(pls)
 library(dlnm)
 
-source("05_ResultsPrep.R")
+source("06_ResultsPrep.R")
 
 #---------------------------
 # Parameters
@@ -46,6 +46,9 @@ i2scores <- aicscores <- cvscores <- list()
 ncores <- detectCores()
 cl <- makeCluster(max(1, ncores - 2))
 registerDoParallel(cl)
+
+#----- Extract BLUPS
+blups <- blup(stage2res)
 
 #---------------------------
 # Baseline model (no component)
@@ -126,46 +129,50 @@ for (i in seq_len(maxk)){
   aicscores$PCA[i] <- summary(mixpca[[i]])$AIC
 }
  
-# #----- Cross-validation 
+# #----- Cross-validation
 # pccvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
-#   .packages = c("mixmeta", "rsample", "splines")) %dopar% 
+#   .packages = c("mixmeta", "rsample", "splines")) %dopar%
 # {
 #   # Initialize formula
 #   pcform <- basicform
-#   
+# 
 #   # Get training and validation fold indices
 #   trainind <- analysis(splitinds$splits[[i]])[,1]
 #   validind <- assessment(splitinds$splits[[i]])[,1]
-#   
+# 
 #   # Add object to global environment for mixmeta
 #   .GlobalEnv$coefs <- coefs
 #   .GlobalEnv$trainind <- trainind
-#   
+# 
 #   # Loop on number of components
-#   rmse <- vector("numeric", maxk)
-#   
+#   rmse <- rmseblup <-  vector("numeric", maxk)
+# 
 #   for (j in seq_len(maxk)){
 #     # Update formula
 #     pcform <- update(pcform, as.formula(sprintf("~ . + PC%i", j)))
-#     
+# 
 #     # Fit mixmeta model
 #     .GlobalEnv$pcform <- pcform
 #     pcresj <- mixmeta(pcform, data = pcdf, S = vcovs, random = ~ 1|city,
 #       subset = trainind)
-#     
+# 
 #     # Predict for validation data
 #     pred <- predict(pcresj, newdata = pcdf[validind,])
-#     
+# 
 #     # Compute RMSE
 #     err <- coefs[validind,] - pred
 #     rmse[j] <- sqrt(mean(err^2, na.rm = T))
+#     
+#     # Compared to BLUP
+#     err <- blups[validind,] - pred
+#     rmseblup[j] <- sqrt(mean(err^2, na.rm = T))
 #   }
-#   
+# 
 #   # Export
-#   rmse
+#   rmseblup
 # }
 # 
-# cvscores$PCA <- cbind(cvm = apply(pccvres, 1, mean), 
+# cvscores$PCA <- cbind(cvm = apply(pccvres, 1, mean),
 #   cvsd = apply(pccvres, 1, function(x) sqrt(var(x) / length(splitinds$splits))))
 
 
@@ -362,63 +369,67 @@ for (i in seq_len(maxk)){
   i2scores$PLS[i] <- summary(mixpls[[i]])$i2stat[1] 
   aicscores$PLS[i] <- summary(mixpls[[i]])$AIC
 }
- 
-#----- Cross-validation 
+
+# #----- Cross-validation 
 # plscvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
-#   .packages = c("mixmeta", "rsample", "splines", "pls")) %dopar% 
+#   .packages = c("mixmeta", "rsample", "splines", "pls")) %dopar%
 # {
 #   # Initialize formula
 #   plsform <- update(basicform, coeftrain ~ .)
-#   
+# 
 #   # Get training and validation fold indices
 #   trainind <- analysis(splitinds$splits[[i]])[,1]
 #   validind <- assessment(splitinds$splits[[i]])[,1]
-#   
+# 
 #   # Subset
 #   coeftrain <- coefs[trainind,]
 #   metatrain <- metavar[trainind,]
-#   
+# 
 #   # Create PLS variable on training sample only
 #   plsres <- plsr(coeftrain ~ metatrain, scale = T)
 #   plsvar <- scores(plsres)
 #   colnames(plsvar) <- sprintf("pls%i", seq_len(ncol(plsvar)))
 #   plsdf <- cbind(stage2df[trainind,], unclass(plsvar))
-#   
+# 
 #   # Predict PLS scores on validation data
-#   plspred <- predict(plsres, newdata = metavar[validind,], ncomp = 1:maxk, 
+#   plspred <- predict(plsres, newdata = metavar[validind,], ncomp = 1:maxk,
 #     type = "scores")
 #   colnames(plspred) <- sprintf("pls%i", seq_len(ncol(plspred)))
 #   validdf <- cbind(stage2df[validind,], plspred)
-#   
+# 
 #   # Add object to global environment for mixmeta
 #   .GlobalEnv$coeftrain <- coeftrain
-#   
+# 
 #   # Loop on number of components
-#   rmse <- vector("numeric", maxk)
-#   
+#   rmse <- rmseblup <- vector("numeric", maxk)
+# 
 #   for (j in seq_len(maxk)){
 #     # Update formula
 #     plsform <- update(plsform, as.formula(sprintf("~ . + pls%i", j)))
-#     
+# 
 #     # Fit mixmeta model
 #     .GlobalEnv$plsform <- plsform
-#     plsresj <- mixmeta(plsform, data = plsdf, S = vcovs[trainind], 
+#     plsresj <- mixmeta(plsform, data = plsdf, S = vcovs[trainind],
 #       random = ~ 1|city)
-#     
+# 
 #     # Predict coefs with new scores
 #     pred <- predict(plsresj, newdata = validdf)
-#     
+# 
 #     # Compute RMSE
 #     err <- coefs[validind,] - pred
 #     rmse[j] <- sqrt(mean(err^2, na.rm = T))
+#     
+#     # Compared to BLUP
+#     err <- blups[validind,] - pred
+#     rmseblup[j] <- sqrt(mean(err^2, na.rm = T))
 #   }
-#   
+# 
 #   # Export
-#   rmse
+#   rmseblup
 # }
 # 
-# cvscores$PLS <- cbind(cvm = apply(plscvres, 1, mean), 
-#   cvsd = apply(plscvres, 1, 
+# cvscores$PLS <- cbind(cvm = apply(plscvres, 1, mean),
+#   cvsd = apply(plscvres, 1,
 #     function(x) sqrt(var(x) / length(splitinds$splits))))
 
 #---------------------------

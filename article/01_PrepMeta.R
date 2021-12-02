@@ -24,10 +24,10 @@ urau_nuts <- read.csv(paste0(path_urau, "/lookup/URAU_NUTS2020.csv"),
   encoding = "UTF-8")
 
 # Lookup table between MCC and URAU
-urau_mcc_age <- read.table(sprintf("%s/lookup/URAU_MCC_AgeCause_20200907.csv", 
+urau_mcc_age <- read.table(sprintf("%s/lookup/URAU_MCC_AgeCause_20211007.csv", 
     path_urau),
   header = T, sep = ";", quote = "\"")
-urau_mcc_all <- read.table(sprintf("%s/lookup/URAU_MCCdata_20210407.csv", 
+urau_mcc_all <- read.table(sprintf("%s/lookup/URAU_MCCdata_20211007.csv", 
     path_urau),
   header = T, sep = ";", quote = "\"")
 
@@ -119,7 +119,8 @@ metadata <- metadata[!duplicated(metadata),]
 #----- Add other information
 
 # Add region
-metadata$region <- as.factor(regionlist[metadata$CNTR_CODE])
+metadata$region <- factor(regionlist[metadata$CNTR_CODE], 
+  c("Western", "Southern", "Northern", "Eastern"))
 
 # Add indicator for whether it is in MCC
 metadata$inmcc <- !is.na(metadata$mcc_code)
@@ -773,7 +774,7 @@ metadata$heatdegdays <- sapply(metaseries,
 metadesc <- rbind(metadesc, 
   cbind(metavar = c("tmean", "cooldegdays", "heatdegdays"), 
     label = c("Mean temperature", "Cooling degree days", "Heating degree days"), 
-    source = "ERA5land"))
+    source = "Copernicus"))
 
 #---------------------------
 # Alternative sources to fill missings

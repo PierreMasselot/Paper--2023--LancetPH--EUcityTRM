@@ -63,6 +63,13 @@ cityres <-  cbind(cityres, pcvar)
 # Predict coefficients
 citycoefs <- predict(stage2res, cityres, vcov = T)
 
+# Add spatial blup predictions
+citycoefs <- Map(function(cfix, cran){
+  csum <- cfix$fit + cran$fit
+  cvcov <- cfix$vcov + cran$vcov
+  list(fit = csum, vcov = cvcov)
+}, citycoefs, ranpred)
+
 #----- Predict overall curves
 
 cityERF <- Map(function(b, era5){
