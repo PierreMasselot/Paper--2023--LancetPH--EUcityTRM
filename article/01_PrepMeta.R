@@ -119,8 +119,7 @@ metadata <- metadata[!duplicated(metadata),]
 #----- Add other information
 
 # Add region
-metadata$region <- factor(regionlist[metadata$CNTR_CODE], 
-  c("Western", "Southern", "Northern", "Eastern"))
+metadata$region <- as.factor(regionlist[metadata$CNTR_CODE])
 
 # Add indicator for whether it is in MCC
 metadata$inmcc <- !is.na(metadata$mcc_code)
@@ -536,6 +535,10 @@ metadesc <- rbind(metadesc, cbind(metavar = c("blueshare", "greenshare"),
 read_typo <- read.table(sprintf("%s/metadata/NUTS_AT_2021.csv", path_nuts), 
   header = T, sep = ",", quote = "\"", na.strings = "0")
 type_vars <- grep("TYPE", names(read_typo), value = T)
+
+# Reverse the scale of typologies
+for (var in type_vars) read_typo[,var] <- max(read_typo[,var], na.rm = T) - 
+  read_typo[,var] + 1
 
 # Fill NUTS1 and NUTS2 levels with modal value (useful for London)
 # Compute modes
