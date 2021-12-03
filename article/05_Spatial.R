@@ -61,5 +61,5 @@ ranpred <- apply(data.matrix(allkrig@data), 1, function(x){
   vcov[upper.tri(vcov)] <- x[-(1:(nc * 2))]
   vcov[lower.tri(vcov)] <- t(vcov)[lower.tri(vcov)]
   list(fit = fit, vcov = vcov)
-}, simplify = F)
+})
 names(ranpred) <- metageo$URAU_CODE

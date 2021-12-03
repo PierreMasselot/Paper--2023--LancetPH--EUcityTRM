@@ -108,7 +108,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 # Knots for age spline
 ageknots <- 65
