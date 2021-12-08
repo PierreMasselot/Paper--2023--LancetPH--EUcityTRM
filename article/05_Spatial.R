@@ -35,18 +35,19 @@ mccgeo <- st_transform(mccgeo, crs = st_crs(metageo))
 cokrig <- NULL
 for (i in 1:nc) {
   form <- sprintf("b%i ~ 1", i)
-  cokrig <- gstat(cokrig, formula = as.formula(form), data = mccgeo,
-    set = list(nocheck = 1))
+  cokrig <- gstat(cokrig, id = sprintf("b%i", i), formula = as.formula(form), 
+    data = mccgeo, set = list(nocheck = 1))
 }
 
 #----- Fit variogram for correlation structure
 
 # Compute semi variogram
-mccvario <- variogram(cokrig, cutoff = 2000)
+mccvario <- variogram(cokrig, cutoff = 1000)
 
 # Initial variogram model
 varmod <- do.call(vgm, variopars)
-vgfit <- fit.lmc(mccvario, cokrig, varmod)
+vgfit <- fit.lmc(mccvario, cokrig, varmod,
+  fit.method = 6, correct.diagonal = 1.01)
 
 #----- Predict at every location
 

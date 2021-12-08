@@ -27,7 +27,7 @@ basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) +
     barwidth = 20, barheight = .8, even.steps = T))
 
 #---------------------------
-#  Figure 3: Big maps of results
+#  Figure 4: Big maps of results
 #---------------------------
 
 #----- Add aesthetic and scale for different result variables
@@ -84,7 +84,7 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
   plot_layout(height = c(1, .05))
 
 # Save
-ggsave("figures/Fig3_cityMap.pdf", width = 15, height = 8, units = "in")
+ggsave("figures/Fig4_cityMap.pdf", width = 15, height = 8, units = "in")
 
 
 # # Cold with white to blue
@@ -134,8 +134,15 @@ ggsave("figures/SupFig_URAUcities.pdf", width = 7, height = 7)
 
 # Loop
 plsmaps <- lapply(seq_len(npc), function(i){
+  cutpts <- unname(round(quantile(cityres[, sprintf("pls%i", i)], 
+    seq(0, 1, length.out = 7))))
   basic_map + aes_string(fill = sprintf("pls%i", i)) + 
-    scale_fill_viridis(name = sprintf("Comp. %i", i))
+    # scale_fill_viridis(name = sprintf("Comp. %i", i), direction = -1) + 
+    # guides(fill = guide_colourbar(title.position = "top", title.hjust = .5,
+    #   barwidth = 10, barheight = .8))
+    scale_fill_stepsn(colours = viridis(length(cutpts) - 1, direction = -1),
+      values = rescale(cutpts), breaks = cutpts,
+      name = sprintf("Comp. %i", i))
 })
 names(plsmaps) <- letters[1:npc]
 
@@ -143,18 +150,21 @@ names(plsmaps) <- letters[1:npc]
 plsmaps$leg <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
   scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
     labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
-    guide = guide_legend(override.aes = list(colour = "black"))) + 
+    guide = guide_legend(override.aes = list(colour = "black"), 
+     title.position = "top")) + 
   theme(legend.position = "right")
 
-# Design 
-plsmaps$nrow = 1
-plsmaps$widths = c(rep(1, npc), .1)
+# Design
+design <- matrix(1:floor(npc), ncol = 2, byrow = T)
+if (npc %% 2 == 1) design <- rbind(design, npc)
+design <- cbind(design, npc + 1)
+design_char <- paste(apply(design, 1, paste, collapse = ""), collapse = "\n")
 
-# plot
-do.call(wrap_plots, plsmaps)
+# Plot
+wrap_plots(plsmaps, widths = c(1, 1, .1), design = design_char)
 
 # Save
-ggsave("figures/SupFig_PLSmaps.pdf", width = 15)
+ggsave("figures/SupFig_PLSmaps.pdf", width = 15, height = 12)
 
 #-------------------------
 # Background map
@@ -184,23 +194,45 @@ ggsave("figures/SupFig_Region_maps.pdf", width = 7, height = 7)
 # Kriging
 #-------------------------
 
-#----- Predict on a grid
+#----- Predict each random effect on a grid
 
-xyrst <- raster(extent(euromap), nrow=400, ncol=400) |>
-  coordinates() |>
-  as.data.frame() |>
-  st_as_sf(coords=c("x","y"), crs=st_crs(euromap)) |>
-  st_intersection(st_union(euromap)) |>
-  st_transform(crs=st_crs(mccgeo))
+# Create grid
+createraster <- raster(extent(metageo), nrow = 100, ncol = 100, 
+  crs = st_crs(metageo))
+rastcoord <- st_as_sf(as.data.frame(coordinates(createraster)), 
+  coords = c("x","y"), crs = st_crs(metageo))
+euroraster <- st_intersection(rastcoord, st_union(euromap))
 
-surfpred <- predict(vgfit, xyrst)
+# Predict kriging on each cell
+surfpred <- predict(vgfit, euroraster)
 
-ggplot(data=surfpred) + 
-  geom_sf(aes(col=var5.pred), alpha=0.7) +
-  geom_sf(data = euromap, fill=NA, inherit.aes = F, col = grey(.5)) + 
-  scale_colour_gradient2(low="blue", mid="white", high="red", midpoint=0,
-    name = "Coef 5 (heat) pred") + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+#----- Plot each coefficient
+
+# Create plot layout
+rasterplot <- ggplot(data = surfpred) + 
+  geom_sf(pch = 15) +
+  geom_sf(data = euromap, fill = NA, inherit.aes = F, col = grey(.5)) + 
+  coord_sf(xlim = extent(surfpred)[1:2], ylim = extent(surfpred)[3:4],
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box") +
-  theme_void() 
+  scale_colour_gradient2(low = muted("blue"), high = muted("red"),
+    limits = c(-1, 1) * max(abs(st_drop_geometry(surfpred[,1:nc * 2 - 1]))),
+    name = "Random coefficient") +
+  theme_void()
+
+# Loop on variables to create plots
+ranplots <- vector("list", nc)
+for (i in seq_len(nc)){
+  ranplots[[i]] <- rasterplot + aes_string(col = sprintf("b%i.pred", i)) + 
+    ggtitle(sprintf("b%i", i))
+} 
+
+# Put plots together
+design = "12
+  34
+  55
+"
+wrap_plots(ranplots, guides = "collect", design = design)
+
+# Save
+ggsave("figures/SupFig_krigmaps.pdf", width = 10, height = 20)

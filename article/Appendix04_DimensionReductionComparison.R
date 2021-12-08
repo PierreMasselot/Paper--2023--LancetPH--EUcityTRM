@@ -453,44 +453,53 @@ save(cvscores, i2scores, aicscores, splitinds,
 # cvmat <- do.call(cbind, lapply(cvscores[-1], "[", , 1))
 # cvmat <- rbind(cvscores[[1]][1], cvmat)
 
-#----- Extract AIC values for each method
+# Extract AIC values for each method
 aicmat <- do.call(cbind, aicscores[-1])
 aicmat <- rbind(aicscores[[1]], aicmat)
 
+# Plot (only PLS)
+plot(0:maxk, aicmat[,"PLS"], type = "b", pch = 16, cex = 1.5,
+  xlim = c(0, maxk), xlab = "", ylab = "AIC", 
+  col = ifelse(0:maxk == npc, 2, 1))
+abline(v = npc, lty = 2)
+
+dev.print(pdf, file = "figures/SupFig_nPCchoice.pdf", width = 9, height = 6)
+
+
 #----- Extract I2 values for each method
-i2mat <- do.call(cbind, i2scores[-1])
-i2mat <- rbind(i2scores[[1]], i2mat)
-
-#----- Plot the values
-
-# Plot layout
-# x11(height = 10)
-layout(cbind(1, 2), width = c(4, 1))
-
-# CV
-# matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_len(ncol(cvmat)) + 1,
-#   xlim = c(0, maxk), xlab = "", ylab = "Cross-validated RMSE",
-#   main = "CV")
-
-# AIC
-matplot(0:maxk, aicmat, type = "b", pch = 16, col = seq_len(ncol(aicmat)) + 1,
-  xlim = c(0, maxk), xlab = "", ylab = "AIC",
-  main = "AIC")
-
-# # I2
-# matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_len(ncol(i2mat)) + 1,
-#   xlim = c(0, maxk), xlab = "", ylab = "I2",
-#   main = "I2")
-
-# Add legend
-par(mar = c(5, 0, 4, 0))
-plot.new()
-legend("center", legend = names(aicscores)[-1],
-  pch = 16, lty = seq_len(ncol(aicmat)), col = seq_len(ncol(aicmat)) + 1,
-  bty = "n", title = "Method")
-
-# Save
-# dev.print(pdf, file = "figures/FigS2_1_CrossValidation.pdf")
+# i2mat <- do.call(cbind, i2scores[-1])
+# i2mat <- rbind(i2scores[[1]], i2mat)
+# 
+# #----- Plot the values
+# 
+# # Plot layout
+# # x11(height = 10)
+# layout(cbind(1, 2), width = c(4, 1))
+# 
+# # CV
+# # matplot(0:maxk, cvmat, type = "b", pch = 16, col = seq_len(ncol(cvmat)) + 1,
+# #   xlim = c(0, maxk), xlab = "", ylab = "Cross-validated RMSE",
+# #   main = "CV")
+# 
+# # AIC
+# matplot(0:maxk, aicmat, type = "b", pch = 16, col = seq_len(ncol(aicmat)) + 1,
+#   xlim = c(0, maxk), xlab = "", ylab = "AIC",
+#   main = "AIC")
+# 
+# # # I2
+# # matplot(0:maxk, i2mat, type = "b", pch = 16, col = seq_len(ncol(i2mat)) + 1,
+# #   xlim = c(0, maxk), xlab = "", ylab = "I2",
+# #   main = "I2")
+# 
+# # Add legend
+# par(mar = c(5, 0, 4, 0))
+# plot.new()
+# legend("center", legend = names(aicscores)[-1],
+#   pch = 16, lty = seq_len(ncol(aicmat)), col = seq_len(ncol(aicmat)) + 1,
+#   bty = "n", title = "Method")
+# 
+# # Save
+# # dev.print(pdf, file = "figures/FigS2_1_CrossValidation.pdf")
 
 
 # #---------------------------

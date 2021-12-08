@@ -57,6 +57,10 @@ country_summary <- merge(metasumdf, mccsumdf, by = "cntr_code", all.x = T)
 
 #----- Clean and export
 
+# Format total deaths
+country_summary$deaths <- gsub("NA", "", formatC(country_summary$deaths,
+  format = "f", big.mark = " ", digits = 0))
+
 # Add names
 country_summary$cntr_name <- eurcntr[match(country_summary$cntr_code, 
   eurcntr[,1]),2]
