@@ -32,7 +32,7 @@ basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) +
 
 #----- Add aesthetic and scale for different result variables
 
-# MMT with heat colors
+# MMT 
 cutpts <- unname(round(quantile(cityres$mmt, seq(0, 1, length.out = 7))))
 # cutpts <- c(13, 16, 17, 18, 19, 20, 21, 22, 25)
 mmtmap <- basic_map + aes(fill = mmt) + 
@@ -42,6 +42,16 @@ mmtmap <- basic_map + aes(fill = mmt) +
   # scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
   #   values = rescale(cutpts),
   #   name = "MMT")
+
+# MMP 
+cutpts <- unname(round(quantile(cityres$mmp, seq(0, 1, length.out = 7))))
+mmpmap <- basic_map + aes(fill = mmp) + 
+  scale_fill_stepsn(colours = cividis(length(cutpts) - 1, direction = 1),
+    values = rescale(cutpts), breaks = cutpts,
+    name = "\nMMP (%)")
+# scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
+#   values = rescale(cutpts),
+#   name = "MMT")
 
 # Cold excess rates
 cutpts <- unname(round(quantile(cityres$stdrate_cold_est, 
@@ -69,7 +79,7 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
 #----- Put maps together
 
 # Put them side-by-side
-(stdcoldmap + mmtmap + stdheatmap) /
+(mmtmap + mmpmap) / (stdcoldmap + stdheatmap) / 
 
 # Add legend for point size
   basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
@@ -81,10 +91,10 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
       label.position = "bottom", override.aes = list(colour = "black"))) +
     theme(legend.position = "top", 
       legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")) +
-  plot_layout(height = c(1, .05))
+  plot_layout(height = c(1, 1, .05))
 
 # Save
-ggsave("figures/Fig4_cityMap.pdf", width = 15, height = 8, units = "in")
+ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
 
 
 # # Cold with white to blue

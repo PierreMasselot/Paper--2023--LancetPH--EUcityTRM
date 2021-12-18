@@ -154,15 +154,12 @@ legplot <- ggplot(big_cityres, aes(x = id, group = agegroup, col = agegroup)) +
   theme_void() + ylim(c(0,0)) +
   geom_pointrange(aes(y = rrheat, ymin = rrheat_low, ymax = rrheat_hi)) +
   scale_color_manual(name = "Age group",
-    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)])
+    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)]) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
 
 # Put everything together
-design <- "
-  13
-  23
-"
-coldplot + heatplot + legplot + 
-  plot_layout(widths = c(1, .1), guides = "collect", design = design)
+coldplot / heatplot / legplot + 
+  plot_layout(heights = c(1, 1, .1))
 
 
 # Save
@@ -233,15 +230,16 @@ ggplot(plotageres, aes(y = id)) + theme_classic() +
   scale_x_continuous(
     breaks = c(prettyheat / scaleheat, -prettycold / scalecold),
     labels = c(prettyheat, prettycold),
-    name = sprintf("Death rate (x %s)",
+    name = sprintf("Excess death rate (x %s)",
       formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
   geom_vline(xintercept = 0) + 
   facet_grid(rows = vars(region), scales = "free_y", space = "free_y") +
   theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
-    axis.text.y.left = element_text(size = 10, vjust = 0.2),
+    axis.text.y.left = element_text(size = 10, vjust = 0.2, colour = "black"),
     panel.grid.major.x = element_line(linetype = 3, colour = "grey"),
     strip.background = element_rect(color = NA), 
-    strip.text = element_text(size = 12)) + 
+    strip.text = element_text(size = 12),
+    legend.position = "top", legend.direction = "horizontal") + 
   scale_alpha_manual(values = c(.5, .9, 1), guide = "none") + 
   new_scale("fill") + 
   geom_colh(aes(x = ratetotpop_cold_est - ratetotpop_cold_est, 

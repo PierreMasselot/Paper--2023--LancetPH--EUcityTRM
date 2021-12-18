@@ -11,7 +11,7 @@ source("00_Packages_Parameters.R")
 load("results/cityResults.RData")
 
 #---------------------------
-# Excess rates by country
+# Country-age results
 #---------------------------
 
 #----- Compute excess deaths by country and age group
@@ -24,6 +24,18 @@ attrcountry <- tapply(attrlist, cityageres[, c("agegroup", "CNTR_CODE")],
     sim <- apply(cntrarr, 1:2, sum)
     list(est = est, sim = sim)
   })
+
+# Extract AN estimates
+attrest <- t(sapply(attrcountry, "[[", "est"))
+colnames(attrest) <- sprintf("excess_%s_est", colnames(attrest))
+
+# Compute CIs for AN
+attrCIs <- t(sapply(attrcountry, 
+  function(x) apply(x$sim, 2, quantile, c(.025, .975))))
+colnames(attrCIs) <- sprintf("excess_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
+
+#----- Compute excess rates by country and age group
 
 # Aggregate pop by country and age
 popcountry <- aggregate(agepop ~ agegroup + CNTR_CODE, data = cityageres, sum)
@@ -64,7 +76,7 @@ colnames(excesstotpopCIs) <- sprintf("ratetotpop_%s",
 #----- Put everything in a data.frame
 
 # Bind them
-countryageres <- cbind(popcountry, excessest, excessCIs,
+countryageres <- cbind(popcountry, attrest, attrCIs, excessest, excessCIs,
   excesstotpopest, excesstotpopCIs)
 
 # Add country name
@@ -74,8 +86,41 @@ countryageres$cntr_name <- eurcntr[match(countryageres$CNTR_CODE, eurcntr[,1]),2
 countryageres$region <- regionlist[countryageres$CNTR_CODE]
 
 #---------------------------
-# Standardized rates
+# Country overall results
 #---------------------------
+
+#----- Aggregate age-group rates
+
+# Sum excess and rates
+countrysum <- aggregate(
+  cbind(excess_total_est, excess_cold_est, excess_heat_est, 
+    ratetotpop_total_est, ratetotpop_cold_est, ratetotpop_heat_est) ~ CNTR_CODE,
+  countryageres, sum)
+colnames(countrysum) <- gsub("ratetotpop", "rate", colnames(countrysum))
+
+# Compute CIs for excess number
+countryexcesssumCIs <- tapply(seq_along(attrcountry), popcountry$CNTR_CODE,
+  function(i){
+    totalsim <- Reduce("+", lapply(attrcountry[i], "[[", "sim"))
+    c(apply(totalsim, 2, quantile, c(.025, .975)))
+  }
+)
+countryexcesssumCIs <- do.call(rbind, countryexcesssumCIs)
+colnames(countryexcesssumCIs) <- sprintf("excess_%s", 
+  t(outer(c("total", "cold", "heat"), 
+    c("low", "hi"), FUN = "paste", sep = "_")))
+
+# Compute CIs for excess rates
+countryratesumCIs <- tapply(seq_along(excesstotpop), popcountry$CNTR_CODE,
+  function(i){
+    totalsim <- Reduce("+", lapply(excesstotpop[i], "[[", "sim"))
+    c(apply(totalsim, 2, quantile, c(.025, .975))) * byrate
+  }
+)
+countryratesumCIs <- do.call(rbind, countryratesumCIs)
+colnames(countryratesumCIs) <- sprintf("rate_%s", 
+  t(outer(c("total", "cold", "heat"), 
+    c("low", "hi"), FUN = "paste", sep = "_")))
 
 #----- Compute standardized rates by country
 
@@ -95,22 +140,22 @@ countrystd <- tapply(seq_len(nrow(popcountry)), popcountry$CNTR_CODE,
     c(stdest, t(apply(stdsim, 2, quantile, c(.025, .975)))) * byrate
   })
 
-#----- Create results as a data.frame
-
 # Reorganise as a data.frame
-countryres <- data.frame(do.call(rbind, countrystd))
-names(countryres) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"), 
+countrystd <- data.frame(do.call(rbind, countrystd))
+names(countrystd) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"), 
   c("est", "low", "hi"), paste, sep = "_")))
 
-# Add country codes and names
-countryres$CNTR_CODE <- names(countrystd)
+#----- Create results as a data.frame
+
+# Put together in a df
+countryres <- cbind(countrysum, countryexcesssumCIs, countryratesumCIs,
+  countrystd)
+
+# Add country names
 countryres$cntr_name <- eurcntr[match(countryres$CNTR_CODE, eurcntr[,1]),2]
 
 # Add pop
 countryres <- merge(countryres, cntrtotpop)
-
-# Add country name
-countryres$cntr_name <- eurcntr[match(countryres$CNTR_CODE, eurcntr[,1]),2]
 
 # Add region
 countryres$region <- regionlist[countryres$CNTR_CODE]
@@ -129,6 +174,18 @@ attrregion <- tapply(attrlist, cityageres[, c("agegroup", "region")],
     sim <- apply(cntrarr, 1:2, sum)
     list(est = est, sim = sim)
   })
+
+# Extract excess deaths
+attrregest <- t(sapply(attrregion, "[[", "est"))
+colnames(attrregest) <- sprintf("excess_%s_est", colnames(attrregest))
+
+# Compute CIs for excesses
+attrregCIs <- t(sapply(attrregion, 
+  function(x) apply(x$sim, 2, quantile, c(.025, .975))))
+colnames(attrregCIs) <- sprintf("excess_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
+
+#----- Compute excess rates by region and age group
 
 # Aggregate pop by region and age
 popregion <- aggregate(agepop ~ agegroup + region, data = cityageres, sum)
@@ -169,12 +226,45 @@ colnames(rateregtotpopCIs) <- sprintf("ratetotpop_%s",
 #----- Put everything in a data.frame
 
 # Bind them
-regionageres <- cbind(popregion, rateregion, rateregCIs,
+regionageres <- cbind(popregion, attrregest, attrregCIs, rateregion, rateregCIs,
   rateregtotpop, rateregtotpopCIs)
 
 #---------------------------
-# Standardized rates by region
+# Region results all ages
 #---------------------------
+
+#----- Aggregate age-group rates
+
+# Sum excess and rates
+regionsum <- aggregate(
+  cbind(excess_total_est, excess_cold_est, excess_heat_est, 
+    ratetotpop_total_est, ratetotpop_cold_est, ratetotpop_heat_est) ~ region,
+  regionageres, sum)
+colnames(regionsum) <- gsub("ratetotpop", "rate", colnames(regionsum))
+
+# Compute CIs for excess number
+regionexcesssumCIs <- tapply(seq_along(attrregion), popregion$region,
+  function(i){
+    totalsim <- Reduce("+", lapply(attrregion[i], "[[", "sim"))
+    c(apply(totalsim, 2, quantile, c(.025, .975)))
+  }
+)
+regionexcesssumCIs <- do.call(rbind, regionexcesssumCIs)
+colnames(regionexcesssumCIs) <- sprintf("excess_%s", 
+  t(outer(c("total", "cold", "heat"), 
+    c("low", "hi"), FUN = "paste", sep = "_")))
+
+# Compute CIs for excess rates
+regionratesumCIs <- tapply(seq_along(excessregtotpop), popregion$region,
+  function(i){
+    totalsim <- Reduce("+", lapply(excessregtotpop[i], "[[", "sim"))
+    c(apply(totalsim, 2, quantile, c(.025, .975))) * byrate
+  }
+)
+regionratesumCIs <- do.call(rbind, regionratesumCIs)
+colnames(regionratesumCIs) <- sprintf("rate_%s", 
+  t(outer(c("total", "cold", "heat"), 
+    c("low", "hi"), FUN = "paste", sep = "_")))
 
 #----- Compute standardized rates by country
 
@@ -194,15 +284,15 @@ regionstd <- tapply(seq_len(nrow(popregion)), popregion$region,
     c(stdest, t(apply(stdsim, 2, quantile, c(.025, .975)))) * byrate
   })
 
-#----- Create results as a data.frame
-
 # Reorganise as a data.frame
-regionres <- data.frame(do.call(rbind, regionstd))
-names(regionres) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"), 
+regstdres <- data.frame(do.call(rbind, regionstd))
+names(regstdres) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"), 
   c("est", "low", "hi"), paste, sep = "_")))
 
-# Add region
-regionres$region <- rownames(regionres)
+#----- Create results as a data.frame
+
+regionres <- cbind(regionsum, regionexcesssumCIs, 
+  regionratesumCIs, regstdres)
 
 # Add pop
 regionres <- merge(regionres, regtotpop)
@@ -211,7 +301,7 @@ regionres <- merge(regionres, regtotpop)
 # Total for whole dataset
 #---------------------------
 
-#----- Compute excess deaths by region and age group
+#----- Compute total excess deaths by age group
 
 # Aggregate AN estimates
 attrtot <- tapply(attrlist, cityageres$agegroup, 
@@ -221,6 +311,18 @@ attrtot <- tapply(attrlist, cityageres$agegroup,
     sim <- apply(cntrarr, 1:2, sum)
     list(est = est, sim = sim)
   })
+
+# Extract excess deaths
+attrtotest <- t(sapply(attrtot, "[[", "est"))
+colnames(attrtotest) <- sprintf("excess_%s_est", colnames(attrtotest))
+
+# Compute CIs for excesses
+attrtotCIs <- t(sapply(attrtot, 
+  function(x) apply(x$sim, 2, quantile, c(.025, .975))))
+colnames(attrtotCIs) <- sprintf("excess_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
+
+#----- Compute total excess rates by age group
 
 # Aggregate pop by age
 popage <- aggregate(agepop ~ agegroup, data = cityageres, sum)
@@ -255,28 +357,46 @@ colnames(ratetotpopCIs) <- sprintf("ratetotpop_%s",
 #----- Add to regional data.frame
 
 # Bind them
-totageres <- cbind(popage, ratetot, ratetotCIs,
+totageres <- cbind(popage, attrtotest, attrtotCIs, ratetot, ratetotCIs,
   ratetotpop, ratetotpopCIs)
 totageres$region <- "Total"
 
 # Add to regional data.frame
 regionageres <- rbind(regionageres, totageres)
 
-#----- Compute total standardized rates
+#----- Results for all ages
+
+# Total excess
+totexcess <- apply(sapply(attrtot, "[[", "est"), 1, sum)
+names(totexcess) <- sprintf("excess_%s_est", names(totexcess))
+totexcessCIs <- c(apply(Reduce("+", lapply(attrtot, "[[", "sim")), 2, 
+  quantile, c(.025, .975)))
+names(totexcessCIs) <- sprintf("excess_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
+
+# Total rates
+totrates <- apply(ratetotpop, 2, sum)
+names(totrates) <- sprintf("rate_%s_est", c("total", "cold", "heat"))
+totratesCIs <- apply(Reduce("+", lapply(excesstotpop, "[[", "sim")), 2, 
+  quantile, c(.025, .975)) * byrate
+names(totratesCIs) <- sprintf("rate_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
 
 # Standardized rates
 stdtot <- apply(sapply(excesstot, "[[", "est"), 1, 
-  weighted.mean, esptot[popage[, "agegroup"]])
+  weighted.mean, esptot[popage[, "agegroup"]]) * byrate
+names(stdtot) <- sprintf("stdrate_%s_est", names(stdtot))
 
 # Confidence intervals
 stdsim <- apply(sapply(excesstot, "[[", "sim", simplify = "array"), 1:2,
   weighted.mean, esptot[popage[, "agegroup"]])
-stdtotCIS <- t(apply(stdsim, 2, quantile, c(.025, .975)))
+stdtotCIs <- c(apply(stdsim, 2, quantile, c(.025, .975))) * byrate
+names(stdtotCIs) <- sprintf("stdrate_%s", t(outer(c("total", "cold", "heat"), 
+  c("low", "hi"), FUN = "paste", sep = "_")))
 
 # Put into a df
-totres <- as.data.frame(t(c(stdtot, stdtotCIS) * byrate))
-names(totres) <- sprintf("stdrate_%s", c(outer(c("total", "cold", "heat"), 
-  c("est", "low", "hi"), paste, sep = "_")))
+totres <- as.data.frame(t(c(totexcess, totexcessCIs, totrates, totratesCIs, 
+  stdtot, stdtotCIs)))
 
 # Add region
 totres$region <- "Total"
