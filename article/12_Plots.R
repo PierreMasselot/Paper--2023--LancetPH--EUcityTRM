@@ -23,7 +23,6 @@ pal <- viridis(length(agebreaks), direction = -1)
 #----- Plot all for ages
 
 # Plot outline
-layout(matrix(1:2, ncol = 2), width = c(4, 1))
 plot(NA, bty = "l", xaxt = "n", 
   xlab = "Temperature percentile", ylab = "RR",
   xlim = range(ovper), 
@@ -38,12 +37,17 @@ for (i in seq_along(agebreaks)){
     lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
 }
 abline(h = 1)
-par(mar = c(5, 0, 4, 0) + .1)
-plot.new()
-legend("topleft", legend = agebreaks, col = pal, lty = 1, lwd = 2, 
-  title = "Age", bty = "n")
 
-dev.print(pdf, file = "figures/Fig1a_AgeERF.pdf")
+# Add legend
+legpars <- list(legend = agebreaks, col = pal, lty = 1, lwd = 2, 
+  title = "Age", bty = "n", horiz = T, xpd = T)
+legdim <- do.call(legend, c(legpars, list(x = "center", plot = F)))
+do.call(legend, c(legpars, 
+  list(x = mean(par("usr")[1:2]) - legdim$rect$w / 2, 
+    y = par("usr")[4] + legdim$rect$h)))
+
+# Save
+dev.print(pdf, file = "figures/Fig1a_AgeERF.pdf", width = 10, height = 8)
 
 #----------------------
 # Figure 1b: MMP versus age

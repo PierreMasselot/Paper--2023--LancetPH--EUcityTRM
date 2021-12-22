@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-load("results/FirstStage.RData")
+load("data/FirstStage.RData")
 
 source("00_Packages_Parameters.R")
 

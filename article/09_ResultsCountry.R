@@ -8,7 +8,7 @@
 
 source("00_Packages_Parameters.R")
 
-load("results/cityResults.RData")
+load("data/cityResults.RData")
 
 #---------------------------
 # Country-age results

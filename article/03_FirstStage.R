@@ -158,4 +158,4 @@ stopCluster(cl)
 names(stage1res) <- cities$city
 
 # Export
-save.image(file = "results/FirstStage.RData")
+save.image(file = "data/FirstStage.RData")

@@ -90,12 +90,48 @@ cityERF <- Map(function(b, era5){
   }, citycoefs, era5series)
 names(cityERF) <- cityres$URAU_CODE
 
+#----- MMP & MMT uncertainty
+
+# create design matrix for mixmeta
+cityXdes <- model.matrix(delete.response(terms(stage2res)), cityres)
+
+# Loop on cities
+mmtci <- sapply(seq_len(nrow(metadata)), simplify = "array", function(i){
+  
+  # Simulate fixed part
+  fixsim <- metacoefsim %*% (cityXdes[i,] %x% diag(nc))
+  
+  # Simulate the random part
+  iran <- ranpred[[i]]
+  ransim <- mvrnorm(nsim, iran$fit, nearPD(iran$vcov)$mat)
+  
+  # Total simulated coefs
+  coefsim <- fixsim + ransim
+  
+  # Compute MMP and MMT
+  whichmmt <- apply((ov_basis %*% t(coefsim))[inrange,], 2, which.min)
+  mmpsim <- predper[inrange][whichmmt]
+  mmtsim <- quantile(era5series[[i]]$era5landtmean, 
+    predper / 100)[inrange][whichmmt]
+  
+  # Confidence intervals
+  cbind(mmp = quantile(mmpsim, c(.025, .975)), 
+    mmt = quantile(mmtsim, c(.025, .975)))
+})
+
+
 #----- ERF summary
 
-# MMP & MMT
-cityres$mmt <- sapply(cityERF, "[[", "cen")
+# MMP
 cityres$mmp <- as.numeric(gsub("%", "", 
   sapply(cityERF, function(x) attr(x$cen, "names"))))
+cityres$mmp_low <- mmtci[1,1,]
+cityres$mmp_hi <- mmtci[2,1,]
+
+# MMT
+cityres$mmt <- sapply(cityERF, "[[", "cen")
+cityres$mmt_low <- mmtci[1,2,]
+cityres$mmt_hi <- mmtci[2,2,]
 
 # Relative risks at extreme percentiles
 cityres$rrcold <- sapply(cityERF, "[[", "allRRfit")[predper == resultper[1],]
@@ -114,4 +150,4 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
 # Save
 #---------------------------
 
-save.image("results/cityResults.RData")
+save.image("data/cityResults.RData")

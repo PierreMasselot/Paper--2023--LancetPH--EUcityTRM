@@ -260,3 +260,11 @@ colnames(allcityan) <- sprintf("an_%s", t(outer(c("total", "cold", "heat"),
 
 # Add to result summary object
 cityageres <- cbind(cityageres, allcityan)
+
+#----- Death rates
+nm_suf <- c(t(outer(c("total", "cold", "heat"), 
+  c("est", "low", "hi"), FUN = "paste", sep = "_")))
+cityageres[, sprintf("rate_%s", nm_suf)] <- 
+  cityageres[, sprintf("an_%s", nm_suf)] / cityageres[, "agepop"] * byrate
+cityageres[, sprintf("ratetotpop_%s", nm_suf)] <- 
+  cityageres[, sprintf("an_%s", nm_suf)] / cityageres[, "pop"] * byrate
