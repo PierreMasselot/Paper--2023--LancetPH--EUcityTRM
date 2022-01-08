@@ -168,8 +168,13 @@ metadata$LABEL <- gsub("[[:blank:][:punct:]]*$", "", metadata$LABEL)
 # First letter upper case
 metadata$LABEL <- str_to_title(metadata$LABEL)
 
-#----- Prepare meta-metadata
+#----- Descriptions of meta-variables
+
+# Descriptive summary
 metadesc <- data.frame(metavar = c(), label = c(), source = c())
+
+# Keep available years
+meta_avail <- data.frame(year = year)
 
 #---------------------------
 #  Load Eurostat's Urban Audit data
@@ -193,22 +198,22 @@ urb_dat <- lapply(sprintf("urb_c%s", names(datasets)), get_eurostat,
   time_format = "num")
 names(urb_dat) <- names(datasets)
 
+# Remove tibble class
+urb_dat <- lapply(urb_dat, as.data.frame)
+
 # Keep only selected variables
 urb_dat <- Map(function(x, y) subset(x, indic_ur %in% y),
   urb_dat, datasets)
 
-# Keep only selected years and aggregate
+# Keep only selected years 
 urb_dat <- lapply(urb_dat, subset, time %in% year)
-agg_dat <- lapply(urb_dat, function(x){
-  aggregate(values ~ indic_ur + cities, data = x, mean, na.rm = T)
-})
 
 # Reshape as wide
-res_dat <- lapply(agg_dat, reshape, timevar = "indic_ur", idvar = "cities",
-  ids = "values", direction = "wide")
+res_dat <- lapply(urb_dat, reshape, timevar = "indic_ur", 
+  idvar = c("cities", "time"), ids = "values", direction = "wide")
 
 # Merge
-urb_df <- Reduce(function(x, y) merge(x, y, all = T, by = "cities"),
+urb_df <- Reduce(function(x, y) merge(x, y, all = T, by = c("cities", "time")),
   res_dat)
 
 # Rename
@@ -216,26 +221,36 @@ namevec <- unlist(unname(datasets))
 names(urb_df) <- gsub("values\\.", "", names(urb_df))
 names(urb_df)[match(namevec, names(urb_df))] <- names(namevec)
 
-#----- Create additional variables
+#----- Create final variables
 
 # Prop or population 65+
 urb_df$prop_65p <- rowSums(urb_df[,c("pop_6574", "pop75p")]) /
   urb_df[,"pop"]
 
+# Drop variables
+urb_df <- urb_df[,-(4:5)]
+
+# Aggregate years
+agg_df <- aggregate(urb_df[,-(1:2)], urb_df["cities"], mean, na.rm = T)
+
 #----- Merge to the list of cities
 
-# Drop variables
-urb_df <- urb_df[,-c(3:4)]
-
 # Merge with metadata
-metadata <- merge(metadata, urb_df, by.x = "URAU_CODE2", by.y = "cities",
+metadata <- merge(metadata, agg_df, by.x = "URAU_CODE2", by.y = "cities",
   all.x = T, all.y = F, sort = F)
 
 # Add description
-metadesc <- rbind(metadesc, cbind(metavar = colnames(urb_df)[-1], 
+metadesc <- rbind(metadesc, cbind(metavar = colnames(agg_df)[-1], 
   label = c("Total population", "Isolation", "Population above 65"),
   source = "Urban Audit"))
- 
+
+# Keep the number of cities with available data for each year
+selcities <- subset(urb_df, cities %in% metadata$URAU_CODE2)
+urb_avail <- aggregate(selcities[,-(1:2)], selcities[2], 
+  function(x) sum(complete.cases(x)))
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #---------------------------
 #  Load Eurostat's regional data
 #---------------------------
@@ -300,11 +315,11 @@ varnames <- c("prop_0004", "prop_0509", "prop_1014", "prop_1519",
   "prop_7074", "prop_7579", "prop_8084", "prop_8599")#, "prop_65p")
 
 # Load variables from eurostat
-popstr <- get_eurostat("demo_r_pjanind3", time_format = "num",
+popstr_dl <- get_eurostat("demo_r_pjanind3", time_format = "num",
   filters = list(indic_de = indicde_list, time = year))
 
 # Average years
-popstr <- aggregate(values ~ indic_de + geo, data = popstr, mean)
+popstr <- aggregate(values ~ indic_de + geo, data = popstr_dl, mean)
 
 # Reshape
 popstr <- reshape(popstr, timevar = "indic_de", idvar = "geo",
@@ -321,13 +336,23 @@ metadesc <- rbind(metadesc, cbind(metavar = varnames,
     substr(varnames, 6, 10)),
   source = "NUTS3"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ indic_de + time, data = na.omit(popstr_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS3_2021, x))))
+res_avail <- reshape(urb_avail, timevar = "indic_de", idvar = "time", 
+  ids = "geo", direction = "wide")
+names(res_avail)[match(sprintf("geo.%s", indicde_list), names(res_avail))] <- 
+  varnames
+meta_avail <- merge(meta_avail, res_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Population density
-popdens <- get_eurostat("demo_r_d3dens", time_format = "num",
+popdens_dl <- get_eurostat("demo_r_d3dens", time_format = "num",
   filters = list(unit = "PER_KM2", time = year)
 )
 
 # Average years
-popdens <- aggregate(values ~ geo, data = popdens, mean)
+popdens <- aggregate(values ~ geo, data = popdens_dl, mean)
 names(popdens)[-1] <- "popdens"
 
 # Merge with metadata
@@ -337,6 +362,13 @@ metadata <- nuts_merge(metadata, popdens, level = 3, highest = 2)
 metadesc <- rbind(metadesc, cbind(metavar = "popdens", 
   label = "Population density", source = "NUTS3"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(popdens_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS3_2021, x))))
+names(urb_avail)[2] <- "popdens"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Life expectancy
 
 # Selected ages
@@ -344,12 +376,12 @@ ages <- c("Y_LT1", sprintf("Y%i", seq(5, 80, by = 5)), "Y_GE85")
 varnames <- sprintf("lifexp_%02i", c(0, seq(5, 80, by = 5), 85))
 
 # Download data
-lifexp <- get_eurostat("demo_r_mlifexp", time_format = "num",
+lifexp_dl <- get_eurostat("demo_r_mlifexp", time_format = "num",
   filters = list(sex = "T", age = ages, time = year)
 )
 
 # Average years
-lifexp <- aggregate(values ~ geo + age, data = lifexp, mean)
+lifexp <- aggregate(values ~ geo + age, data = lifexp_dl, mean)
 
 # Reshape
 lifexp <- reshape(lifexp, timevar = "age", idvar = "geo",
@@ -365,13 +397,23 @@ metadesc <- rbind(metadesc, cbind(metavar = varnames,
   label = sprintf("Life expectancy %s", gsub("Y_LT1", "", ages)), 
   source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ age + time, data = na.omit(lifexp_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+res_avail <- reshape(urb_avail, timevar = "age", idvar = "time", 
+  ids = "geo", direction = "wide")
+names(res_avail)[match(sprintf("geo.%s", ages), names(res_avail))] <- 
+  varnames
+meta_avail <- merge(meta_avail, res_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- GDP per capita
-gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
+gdp_dl <- get_eurostat("nama_10r_3gdp", time_format = "num",
   filters = list(unit = "EUR_HAB", time = year)
 )
 
 # Average years
-gdp <- aggregate(values ~ geo, data = gdp, mean)
+gdp <- aggregate(values ~ geo, data = gdp_dl, mean)
 names(gdp)[-1] <- "gdp"
 
 # Merge with metadata
@@ -381,13 +423,20 @@ metadata <- nuts_merge(metadata, gdp, level = 3, highest = 0)
 metadesc <- rbind(metadesc, cbind(metavar = "gdp", 
   label = "GDP", source = "NUTS3"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(gdp_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS3_2021, x))))
+names(urb_avail)[2] <- "gdp"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Proportion of active population (25-64) with ISCED level 5 and above
-educ <- get_eurostat("edat_lfse_04", time_format = "num",
+educ_dl <- get_eurostat("edat_lfse_04", time_format = "num",
   filters = list(isced11 = "ED5-8", sex = "T", age = "Y25-64", time = year)
 )
 
 # Average years
-educ <- aggregate(values ~ geo, data = educ, mean)
+educ <- aggregate(values ~ geo, data = educ_dl, mean)
 names(educ)[-1] <- "educ"
 
 # Merge with metadata
@@ -397,13 +446,20 @@ metadata <- nuts_merge(metadata, educ, level = 2, highest = 0)
 metadesc <- rbind(metadesc, cbind(metavar = "educ",
   label = "Education level", source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(educ_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+names(urb_avail)[2] <- "educ"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Unemployment rate
-unempl <- get_eurostat("lfst_r_lfu3rt", time_format = "num",
+unempl_dl <- get_eurostat("lfst_r_lfu3rt", time_format = "num",
   filters = list(isced11 = "TOTAL", sex = "T", age = "Y20-64", time = year)
 )
 
 # Average years
-unempl <- aggregate(values ~ geo, data = unempl, mean)
+unempl <- aggregate(values ~ geo, data = unempl_dl, mean)
 names(unempl)[-1] <- "unempl"
 
 # Merge with metadata
@@ -413,13 +469,20 @@ metadata <- nuts_merge(metadata, unempl, level = 2, highest = 0)
 metadesc <- rbind(metadesc, cbind(metavar = "unempl", 
   label = "Unemployment rate", source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(unempl_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+names(urb_avail)[2] <- "unempl"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Severe material deprivation rate
-depriv <- get_eurostat("ilc_mddd21", time_format = "num",
+depriv_dl <- get_eurostat("ilc_mddd21", time_format = "num",
   filters = list(unit = "PC", time = year)
 )
 
 # Average years
-depriv <- aggregate(values ~ geo, data = depriv, mean)
+depriv <- aggregate(values ~ geo, data = depriv_dl, mean)
 names(depriv)[-1] <- "depriv"
 
 # Merge with metadata
@@ -429,13 +492,20 @@ metadata <- nuts_merge(metadata, depriv, level = 2, highest = 0)
 metadesc <- rbind(metadesc, cbind(metavar = "depriv", 
   label = "Deprivation rate", source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(depriv_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+names(urb_avail)[2] <- "depriv"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Hospital bed rates
-bedrates <- get_eurostat("hlth_rs_bdsrg", time_format = "num",
+bedrates_dl <- get_eurostat("hlth_rs_bdsrg", time_format = "num",
   filters = list(unit = "P_HTHAB", facility = "HBEDT", time = year)
 )
 
 # Average years
-bedrates <- aggregate(values ~ geo, data = bedrates, mean)
+bedrates <- aggregate(values ~ geo, data = bedrates_dl, mean)
 names(bedrates)[-1] <- "bedrates"
 
 # Merge with metadata
@@ -445,13 +515,20 @@ metadata <- nuts_merge(metadata, bedrates, level = 2, highest = 0)
 metadesc <- rbind(metadesc, cbind(metavar = "bedrates", 
   label = "Hospital bed rates", source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(bedrates_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+names(urb_avail)[2] <- "bedrates"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Share of urbanised land
-urbshare <- get_eurostat("lan_lcv_art", time_format = "num",
+urbshare_dl <- get_eurostat("lan_lcv_art", time_format = "num",
   filters = list(unit = "PC", landcover = "LCA", time = year)
 )
 
 # Average years
-urbshare <- aggregate(values ~ geo, data = urbshare, mean)
+urbshare <- aggregate(values ~ geo, data = urbshare_dl, mean)
 names(urbshare)[-1] <- "urbshare"
 
 # Merge with metadata
@@ -461,14 +538,21 @@ metadata <- nuts_merge(metadata, urbshare, level = 2)
 metadesc <- rbind(metadesc, cbind(metavar = "urbshare", 
   label = "Share of urban area", source = "NUTS2"))
 
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ time, data = na.omit(urbshare_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+names(urb_avail)[2] <- "urbshare"
+meta_avail <- merge(meta_avail, urb_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
+
 #----- Landcover
-landshare <- get_eurostat("lan_lcv_ovw", time_format = "num",
+landshare_dl <- get_eurostat("lan_lcv_ovw", time_format = "num",
   filters = list(unit = "PC", landcover = c("LCB", "LCC", "LCD", "LCE", "LCG"), 
     time = year)
 )
 
 # Average years
-landshare <- aggregate(values ~ geo + landcover, data = landshare, mean)
+landshare <- aggregate(values ~ geo + landcover, data = landshare_dl, mean)
 
 # Reshape
 landshare <- reshape(landshare, timevar = "landcover", idvar = "geo",
@@ -485,6 +569,17 @@ metadata <- nuts_merge(metadata, landshare, level = 2)
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = c("blueshare", "greenshare"), 
   label = sprintf("Share of %s", c("water", "green area")), source = "NUTS2"))
+
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ landcover + time, data = na.omit(landshare_dl), 
+  function(x) sum(!is.na(match(metadata$NUTS2_2021, x))))
+res_avail <- reshape(urb_avail, timevar = "landcover", idvar = "time", 
+  ids = "geo", direction = "wide")
+names(res_avail)[2] <- "blueshare"
+res_avail$greenshare <- apply(res_avail[,3:6], 1, min)
+res_avail <- res_avail[,-(3:6)]
+meta_avail <- merge(meta_avail, res_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
 
 # #----- Degree days
 # degdays <- get_eurostat("nrg_chddr2_a", time_format = "num",
@@ -570,6 +665,10 @@ metadesc <- rbind(metadesc, cbind(metavar = tolower(type_vars),
   label = sprintf("%s region type", c("Mountain", "Urban", "Coastal")), 
   source = "NUTS3"))
 
+# Keep the number of cities with available data for each year
+meta_avail[,tolower(type_vars)] <- replicate(length(type_vars), 
+  rep(nrow(metadata), length(year)))
+
 #----- Death rate
 age_list <- c("Y_LT5", "Y5-9", "Y10-14", "Y15-19", 
   "Y20-24", "Y25-29", "Y30-34", "Y35-39", "Y40-44", 
@@ -602,22 +701,27 @@ popdeaths <- merge(deaths, pop)
 popdeaths$deathrate <- with(popdeaths, deaths / pop)
 
 # Average years
-popdeaths <- aggregate(deathrate ~ age + geo, data = popdeaths, mean)
+popdeaths_agg <- aggregate(deathrate ~ age + geo, data = popdeaths, mean)
 
 # Reshape
-popdeaths <- reshape(popdeaths, timevar = "age", idvar = "geo",
+popdeaths_agg <- reshape(popdeaths_agg, timevar = "age", idvar = "geo",
   ids = "values", direction = "wide")
-names(popdeaths)[match(sprintf("deathrate.%s", age_list), names(popdeaths))] <- 
-  varnames
+names(popdeaths_agg)[match(sprintf("deathrate.%s", age_list), 
+  names(popdeaths_agg))] <- varnames
 
 # Sum 85-89 and ge90 to match population
-popdeaths$deathrate_8599 <- popdeaths$deathrate_8589 + popdeaths$deathrate_90p
+deathrate_8599 <- aggregate(deathrate ~ geo + time, 
+  data = subset(popdeaths, age %in% c("Y85-89", "Y_GE90")), sum)
+names(deathrate_8599)[3] <- "deathrate_8599"
+popdeaths_agg <- merge(popdeaths_agg, 
+  aggregate(deathrate_8599 ~ geo, data = deathrate_8599, mean),
+  by = "geo", all = T)
 
 # Remove variables
-popdeaths[c("deathrate.UNK", "deathrate_8589", "deathrate_90p")] <- NULL
+popdeaths_agg[c("deathrate.UNK", "deathrate_8589", "deathrate_90p")] <- NULL
 
 # Merge with metadata
-metadata <- nuts_merge(metadata, popdeaths, level = 3, highest = 0)
+metadata <- nuts_merge(metadata, popdeaths_agg, level = 3, highest = 0)
 
 # Add description
 metadesc <- rbind(metadesc, cbind(metavar = colnames(popdeaths)[-1], 
@@ -625,6 +729,17 @@ metadesc <- rbind(metadesc, cbind(metavar = colnames(popdeaths)[-1],
     substr(colnames(popdeaths)[-(1:2)], 11, 12), 
     substr(colnames(popdeaths)[-(1:2)], 13, 14))),
   source = "NUTS3"))
+
+# Keep the number of cities with available data for each year
+urb_avail <- aggregate(geo ~ age + time, data = na.omit(popdeaths), 
+  function(x) sum(!is.na(match(metadata$NUTS3_2021, x))))
+res_avail <- reshape(urb_avail, timevar = "age", idvar = "time", 
+  ids = "geo", direction = "wide")
+names(res_avail)[match(sprintf("geo.%s", age_list), 
+  names(res_avail))] <- varnames
+
+meta_avail <- merge(meta_avail, res_avail, by.x = "year", by.y = "time",
+  all.x = T, all.y = F)
 
 # #---------------------------
 # # Add Urban Centre Database
@@ -666,14 +781,16 @@ ndvi_sel <- modis_250m_annual_median_NDVI_URAU_LB_2020[,c(1,
   which(substr(colnames(modis_250m_annual_median_NDVI_URAU_LB_2020), 6, 9) %in% 
       year))]
 st_geometry(ndvi_sel) <- NULL
-ndvi_sel$ndvi <- rowMeans(ndvi_sel[,-1])
 
 # Remove duplicates
 ndvi_sel <- subset(ndvi_sel, !duplicated(URAU_CODE))
 
-# Merge with metadata
-metadata <- merge(metadata, ndvi_sel[,c("URAU_CODE", "ndvi")], 
-  by.x = "URAU_CODE", by.y = "URAU_CODE",
+# Reshape and merge
+ndvi_long <- reshape(ndvi_sel, direction = "long", 
+  varying = names(ndvi_sel)[-1], v.names = "ndvi", 
+  idvar = "URAU_CODE", times = year)
+metacityyear <- merge(metacityyear, ndvi_long, 
+  by.x = c("URAU_CODE", "year"), by.y = c("URAU_CODE", "time"),
   all.x = T, all.y = F, sort = F)
 
 # Add description
@@ -686,17 +803,19 @@ metadesc <- rbind(metadesc, cbind(metavar = "ndvi",
 load(paste0(path_urau, "/data/air_pollutants/city_shapes",
   "/PM25_URAU_LB_2001_2018_city_shapes.RData"))
 
-# Select years and aggregate
+# Select years
 pm25_sel <- pm2p5_URAU_LB_2020_DF[,c(1, 
   which(substr(colnames(pm2p5_URAU_LB_2020_DF), 6, 9) %in% year))]
-pm25_sel$pm25 <- rowMeans(pm25_sel[,-1])
 
 # Remove duplicates
 pm25_sel <- subset(pm25_sel, !duplicated(URAU_CODE))
 
-# Merge with metadata
-metadata <- merge(metadata, pm25_sel[,c("URAU_CODE", "pm25")], 
-  by.x = "URAU_CODE", by.y = "URAU_CODE",
+# Reshape and merge
+pm25_long <- reshape(pm25_sel, direction = "long", 
+  varying = names(pm25_sel)[-1], v.names = "pm25", 
+  idvar = "URAU_CODE", times = substr(colnames(pm25_sel)[-1], 6, 9))
+metacityyear <- merge(metacityyear, pm25_long, 
+  by.x = c("URAU_CODE", "year"), by.y = c("URAU_CODE", "time"),
   all.x = T, all.y = F, sort = F)
 
 # Add description
@@ -710,17 +829,19 @@ load(paste0(path_urau, "/data/air_pollutants/city_shapes",
   "/NO2_URAU_LB_1996_2012_city_shapes.RData"))
 st_geometry(no2_URAU_LB_2020_sf) <- NULL
 
-# Select years and aggregate
+# Select years
 no2_sel <- no2_URAU_LB_2020_sf[,c(1, 
   which(substr(colnames(no2_URAU_LB_2020_sf), 5, 8) %in% year))]
-no2_sel$no2 <- rowMeans(no2_sel[,-1])
 
 # Remove duplicates
 no2_sel <- subset(no2_sel, !duplicated(URAU_CODE))
 
-# Merge with metadata
-metadata <- merge(metadata, no2_sel[,c("URAU_CODE", "no2")], 
-  by.x = "URAU_CODE", by.y = "URAU_CODE",
+# Reshape and merge
+no2_long <- reshape(no2_sel, direction = "long", 
+  varying = names(no2_sel)[-1], v.names = "no2", 
+  idvar = "URAU_CODE", times = substr(colnames(no2_sel)[-1], 5, 8))
+metacityyear <- merge(metacityyear, no2_long, 
+  by.x = c("URAU_CODE", "year"), by.y = c("URAU_CODE", "time"),
   all.x = T, all.y = F, sort = F)
 
 # Add description

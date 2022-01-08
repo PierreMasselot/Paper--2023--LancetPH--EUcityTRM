@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("10_ResultsVulnerability.R")
+source("11_ResultsVulnerability.R")
 
 #---------------------------
 # Table 1 : country summary

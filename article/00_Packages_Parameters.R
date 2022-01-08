@@ -52,7 +52,7 @@ library(ggnewscale) # Two have several fill scales on the same plot
 
 #----- Data
 # Years selected for metapredictors. Averaged if several
-year <- as.character(2000:2018)
+year <- 2000:2018
 
 # Starting year for analysis
 yearstart <- 1990
@@ -108,7 +108,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 # Knots for age spline
 ageknots <- 65

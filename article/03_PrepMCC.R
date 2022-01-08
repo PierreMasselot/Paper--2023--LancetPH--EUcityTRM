@@ -95,5 +95,7 @@ ord <- match(na.omit(metadata$mcc_code), cities$city)
 cities <- cities[ord,]
 dlist <- dlist[ord]
 
-save(dlist, cities, metadata, metadesc, imputed, metageo, meta_imp, era5series,
+# Save
+save(dlist, cities, metadata, metadesc, metacityyear, 
+  imputed, metageo, meta_imp, era5series,
   file = "data/Alldata.RData")
