@@ -118,7 +118,7 @@ metadata <- metadata[!duplicated(metadata),]
 #----- Add other information
 
 # Add region
-metadata$region <- as.factor(regionlist[metadata$CNTR_CODE])
+metadata$region <- factor(regionlist[metadata$CNTR_CODE], levels = regord)
 
 # Add indicator for whether it is in MCC
 metadata$inmcc <- !is.na(metadata$mcc_code)
@@ -166,3 +166,8 @@ metadata$LABEL <- gsub("[[:blank:][:punct:]]*$", "", metadata$LABEL)
 
 # First letter upper case
 metadata$LABEL <- str_to_title(metadata$LABEL)
+
+# Label country
+eurcntr <- rbind(eu_countries, efta_countries)
+metadata$cntr_name <- factor(eurcntr[match(metadata$CNTR_CODE, eurcntr[,1]),2],
+  level = sort(eurcntr[,2]))

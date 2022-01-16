@@ -6,13 +6,13 @@
 #
 ################################################################################
 
-source("07_ResultsPrep.R")
+source("11_ResultsVulnerability.R")
 
 #---------------------------
 #  Prepare comparison
 #---------------------------
 
-#----- Baseline model
+#----- Baseline model: random intercept model
 
 # Baseline formula
 baseform <- as.formula(sprintf("coefs ~ 1",
@@ -21,19 +21,6 @@ baseform <- as.formula(sprintf("coefs ~ 1",
 # Baseline model for comparison
 basemod <- mixmeta(baseform, data = stage2df, 
   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-
-#----- Function for wald test
-
-# Wald test
-fwald <- function(full, null) {
-  ind <- !names(coef(full)) %in% names(coef(null))
-  coef <- coef(full)[ind]
-  vcov <- vcov(full)[ind,ind]
-  waldstat <- coef %*% solve(vcov) %*% coef
-  df <- length(coef)
-  pval <- 1 - pchisq(waldstat, df)
-  return(list(waldstat = waldstat, pvalue = pval))
-}
 
 #----- Objects for prediction
 

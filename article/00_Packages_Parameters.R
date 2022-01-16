@@ -23,6 +23,7 @@ library(abind) # Array binding
 library(raster) # Loading of some data
 library(readxl) # Load excel files
 library(kgc) # Koppen-Geiger climate classification
+library(xlsx) # Export of all results in Excel
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -78,6 +79,9 @@ regionlist <- c(BG = "Eastern", CZ = "Eastern", HU = "Eastern", RO = "Eastern",
   AT = "Western", BE = "Western", FR = "Western", LU = "Western", 
   DE = "Western", NL = "Western", CH = "Western", LI = "Western")
 
+# Region order for displaying in Tables and Figure
+regord <- c("Northern", "Western", "Eastern", "Southern")
+
 #----- First-stage analysis
 
 # Exposure dimension
@@ -108,7 +112,7 @@ metapreds <- list(Demographic = c("pop", "prop_65p",
   Climatological = c("cooldegdays", "heatdegdays", "tmean"))
 
 # Number of metapredictor components
-npc <- 5
+npc <- 4
 
 # Knots for age spline
 ageknots <- 65

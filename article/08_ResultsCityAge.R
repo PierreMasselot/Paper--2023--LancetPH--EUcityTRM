@@ -20,17 +20,13 @@ nca <- nrow(cityagegrid)
 
 # Initialize data.frame
 cityageres <- metadata[cityagegrid[,2], c("URAU_CODE", "LABEL", "CNTR_CODE", 
-  "region", "lon", "lat", "pop", "inmcc")]
+  "cntr_name", "region", "lon", "lat", "pop", "inmcc")]
 
 # Add PLS components
 cityageres <- cbind(cityageres, pcvar[cityagegrid[,2],])
 
 # Add Age group information
 cityageres$agegroup <- agelabs[cityagegrid[,1]]
-
-# Add country name
-eurcntr <- rbind(eu_countries, efta_countries) # Objects from eurostat
-cityageres$cntr_name <- eurcntr[match(cityageres$CNTR_CODE, eurcntr[,1]),2]
 
 #----- Compute average age of death for each city/age group
 

@@ -88,13 +88,7 @@ dev.print(pdf, file = "figures/Fig1b_AgeMMP.pdf")
 
 #----- Select capital city of each country
 
-# Find largest pop in each country
-# capitals <- unlist(by(metadata, metadata$CNTR_CODE, function(d){
-#   d[which.max(d$pop), "URAU_CODE"]
-# }))
-
 # Select cities in result (city with number 001 is usually the capital)
-# big_cityres <- subset(cityres, URAU_CODE %in% capitals)
 big_cityres <- subset(cityageres, substr(URAU_CODE, 3, 5) == "001")
 
 # Order by region and age
@@ -201,7 +195,7 @@ plotageres <- rbind(plotageres, regionageres2)
 
 # Transform some variables into factors
 plotageres$region <- factor(plotageres$region, 
-  levels = c("Northern", "Western", "Eastern", "Southern", ""))
+  levels = c(regord, ""))
 plotageres$type <- factor(plotageres$type, 
   levels = c("cntr", "reg", "eu"), ordered = T)
 
@@ -251,104 +245,99 @@ ggplot(plotageres, aes(y = id)) + theme_classic() +
   scale_fill_manual(values = brewer.pal(length(agelabs) + 2, "Greys")[-(1:2)],
     name = "Age group")
 
-# #----- Create background plot
-# bgplot <- ggplot(countryageres, 
-#     aes(x = id, group = rev(agegroup), fill = agegroup)) + 
-#   theme_classic() + 
-#   scale_x_continuous(name = "",
-#     breaks = unique(countryageres$id), 
-#     labels = unique(countryageres$cntr_name)) + 
-#   theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(),
-#     axis.text.x.top = element_text(size = 15),
-#     axis.text.x.bottom = element_text(size = 12, angle = 90, vjust = .5, 
-#       hjust = 1),
-#     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) +
-#   geom_hline(yintercept = 0)
-# 
-# #----- Add values for heat and cold
-# 
-# ratecoldplot <- bgplot +
-#   geom_col(aes(y = ratetotpop_cold_est)) +
-#   scale_fill_manual(guide = "none",
-#     values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
-#   scale_y_continuous(name = sprintf("Cold-related\ndeath rate (x %s)",
-#       formatC(byrate, digits = 0, format = "f", big.mark = ",")))  +
-#   scale_x_continuous(name = "", breaks = NULL, 
-#     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id,
-#       labels = regpos$region))
-# 
-# rateheatplot <- bgplot +
-#   geom_col(aes(y = ratetotpop_heat_est)) +
-#   scale_fill_manual(guide = "none",
-#     values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
-#   scale_y_continuous(name = sprintf("Heat-related\ndeath rate (x %s)",
-#       formatC(byrate, digits = 0, format = "f", big.mark = ",")))
-# 
-# #----- Put together and save
-# 
-# # Create a "legend-plot" for the common color scale legend
-# g <- ggplot(countryageres, aes(x = id, group = agegroup, fill = agegroup)) + 
-#   geom_col(aes(y = rate_heat_est)) +
-#   scale_fill_manual(name = "Age group",
-#     values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)])
-# 
-# # Extract only legend
-# legplot <- as_ggplot(get_legend(g))
-# 
-# # Put everything together
-# design <- "
-#   13
-#   23
-# "
-# ratecoldplot + rateheatplot + legplot + 
-#   plot_layout(widths = c(1, .2), design = design, guides = "collect")
-
 # Save
 ggsave("figures/Fig3_CountryExcess.pdf", height = 8, width = 12)
 
 
 
+#---------------------------
+#  Figure 4: Big maps of results
+#---------------------------
 
-# #----- Extract information at all ages and put
-# 
-# # Creates matrix grid
-# agedf <- expand.grid(age = agegrid, temp = ovper)
-# 
-# # Add width between temp grid points for plotting
-# rectlims <- (c(ovper[1] - .1, ovper) + c(ovper, tail(ovper, 1) + .1)) / 2
-# agedf$xmin <- rep(rectlims[-length(rectlims)], each = length(agegrid))
-# agedf$xmax <- rep(rectlims[-1], each = length(agegrid))
-# 
-# # Extract all ERF and add as long format
-# ageERFs <- sapply(agecp, "[[", "allRRfit")
-# agedf$rr <- c(t(ageERFs))
-# 
-# # Extract all MMT
-# ageMMT <- sapply(agecp, "[[", "cen")
-# agedf$mmt <- rep(ageMMT, length(ovper))
-# 
-# #----- Plot as an image
-# ggplot(agedf) + theme_classic() + 
-#   geom_rect(aes(xmin = xmin, xmax = xmax, ymin = age - .5, ymax = age + .5, 
-#     fill = rr)) + 
-#   scale_fill_gradient2(low = "darkblue", mid = "white", high = "darkred",
-#     midpoint = 1, name = "RR") + 
-#   geom_line(aes(x = mmt, y = age, col = "MMT"), size = 1) +
-#   scale_colour_manual(name = "", values = "darkgrey") + 
-#   scale_x_continuous(name = "Temperature percentile", 
-#     breaks = ovper[predper %in% axisper], labels = axisper, expand = c(0, 0)) + 
-#   scale_y_continuous(name = "Age", expand = c(0, 0)) + 
-#   theme(panel.border = element_rect(fill = NA), 
-#     panel.grid.major = element_line(linetype = 2, colour = "darkgrey", 
-#       size = .4), 
-#     panel.ontop = T, panel.background = element_rect(fill = NA), 
-#     axis.text = element_text(size = 12), 
-#     axis.title = element_text(size = 14),
-#     axis.title.x = element_text(margin = margin(15, 0, 1, 0)),
-#     axis.title.y = element_text(margin = margin(0, 15, 0, 1)),
-#     legend.title = element_text(size = 14))
-# 
-# dev.print(pdf, file = "figures/Fig4_AgeImage.pdf")
+#----- Create a standard map layout
+
+basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+    crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
+    lims_method = "box") +
+  scale_size(range = c(2, 8), guide = "none",
+    breaks = c(1, 5, 10, 50) * 10^5, labels = c(1, 5, 10, 50) / 10, 
+    name = "Population (millions)") + 
+  theme(legend.position = "bottom", legend.box = "vertical") + 
+  geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) + 
+  guides(fill = guide_coloursteps(title.position = "top", title.hjust = .5,
+    barwidth = 20, barheight = .8, even.steps = T))
+
+#----- Add aesthetic and scale for different result variables
+
+# MMT 
+cutpts <- unname(round(quantile(cityres$mmt, seq(0, 1, length.out = 7))))
+# cutpts <- c(13, 16, 17, 18, 19, 20, 21, 22, 25)
+mmtmap <- basic_map + aes(fill = mmt) + 
+  scale_fill_stepsn(colours = cividis(length(cutpts) - 1, direction = 1),
+    values = rescale(cutpts), breaks = cutpts,
+    name = "\nMMT (C) at 65")
+# scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
+#   values = rescale(cutpts),
+#   name = "MMT")
+
+# MMP 
+cutpts <- unname(round(quantile(cityres$mmp, seq(0, 1, length.out = 7))))
+mmpmap <- basic_map + aes(fill = mmp) + 
+  scale_fill_stepsn(colours = cividis(length(cutpts) - 1, direction = 1),
+    values = rescale(cutpts), breaks = cutpts,
+    name = "\nMMP (%) at 65")
+# scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
+#   values = rescale(cutpts),
+#   name = "MMT")
+
+# Cold excess rates
+cutpts <- unname(round(quantile(cityres$stdrate_cold_est, 
+  seq(0, 1, length.out = 9)), -1))
+stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) + 
+  scale_fill_stepsn(
+    colours = mako(length(cutpts) - 1, direction = -1, begin = .3),
+    values = rescale(cutpts), breaks = cutpts,
+    name = sprintf("Cold-related\nstd death rate (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ",")),
+    limits = c(0, max(cityres$stdrate_cold_est)))
+
+
+# Heat with white to red
+cutpts <- unname(round(quantile(cityres$stdrate_heat_est / 5, 
+  seq(0, 1, length.out = 7))) * 5)
+stdheatmap <- basic_map + aes(fill = stdrate_heat_est) + 
+  scale_fill_stepsn(
+    colours = rocket(length(cutpts) - 1, direction = -1, begin = .3),
+    values = rescale(cutpts), breaks = cutpts, 
+    name = sprintf("Heat-related\nstd death rate (x %s)", 
+      formatC(byrate, digits = 0, format = "f", big.mark = ",")),
+    limits = c(0, max(cityres$stdrate_heat_est)))
+
+#----- Put maps together
+
+# Put them side-by-side
+(mmtmap + mmpmap) / (stdcoldmap + stdheatmap) / 
+  
+  # Add legend for point size
+  basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
+  # scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
+  #   labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
+  #   guide = guide_legend(title.position = "top", title.hjust = 0.5,
+  #     label.position = "bottom", override.aes = list(colour = "black"))) + 
+  guides(size = guide_legend(title.position = "top", title.hjust = 0.5,
+    label.position = "bottom", override.aes = list(colour = "black"))) +
+  theme(legend.position = "top", 
+    legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt")) +
+  plot_layout(height = c(1, 1, .05))
+
+# Save
+ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
+
+
+
 
 
 #---------------------------
@@ -518,109 +507,12 @@ ggplot(plotres, aes(y = id)) + theme_classic() +
 ggsave("figures/SupFig_CountryStdRate.pdf", height = 10, width = 15)
 
 
-#---------------------------
-#  Figure 5: PLS components
-#---------------------------
 
-# Change col and row names for plot labelling
-plotload <- plsres$projection[,1:npc]
-colnames(plotload) <- sprintf("Comp. %i", 1:npc)
-rownames(plotload) <- metadesc$label[match(metaprednames, metadesc$metavar)]
 
-# Color scale
-pal <- colorRampPalette(rev(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
-  "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
-  "#4393C3", "#2166AC", "#053061")))
 
-# Plot loadings (correlation between components and meta-variables)
-corrplot(t(plotload), method = "square", is.corr = F, col.lim = c(-1, 1), 
-  tl.srt = 45, tl.col = "black", cl.cex = .7, cl.align.text = "l",
-  col = pal(200))
 
-# Save
-dev.print(pdf, file = "figures/Fig5_PLScor.pdf")
 
-#---------------------------
-#  Sup Figure: Co-variogram
-#---------------------------
 
-#----- Plot variogram
-
-# Plot
-plot(mccvario, vgfit, pch = 16, col = 1, lwd = 2, ylab = "Semi-variance",
-  xlab = "Distance (km)")
-
-# Save
-dev.print(pdf, file = "figures/SupFig_variogram.pdf", width = 10, height = 7)
-
-#---------------------------
-#  Sup Figure: Correlation matrix between metapredictors variables
-#---------------------------
-
-# Compute correlation matrix
-metacor <- cor(metadata[,metaprednames])
-colnames(metacor) <- rownames(metacor) <- metadesc$label[match(metaprednames, 
-  metadesc$metavar)]
-
-# Color scale
-pal <- colorRampPalette(rev(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
-  "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
-  "#4393C3", "#2166AC", "#053061")))
-
-# Plot correlation matrix
-corrplot.mixed(metacor, upper = "square", tl.pos = "lt",
-  tl.srt = 45, tl.col = "black", cl.cex = 1.1, cl.align.text = "l",
-  upper.col = pal(200), lower.col = pal(200))
-
-# Save
-dev.print(pdf, file = "figures/SupFig_metacor.pdf", width = 15, height = 15)
-
-#---------------------------
-#  Sup Figure: Curve changes at extreme PLS
-#---------------------------
-
-# Colors
-pal <- viridis(2, direction = -1)
-
-# Plot layout
-design <- matrix(1:floor(npc), ncol = 2, byrow = T)
-if (npc %% 2 == 1) design <- rbind(design, npc)
-design <- cbind(design, npc + 1)
-
-# Initialize layout
-layout(design, widths = c(1, 1, .2))
-
-# Loop on PLS components
-for (i in seq_len(npc)){
-  inds <- 1:2 + (2 * (i - 1))
-  
-  # Lowest
-  plot(plscp[inds][[1]], xlab = "Temperature precentile", ylab = "RR", 
-    main = sprintf("Comp. %i", i), col = pal[1], lwd = 2, ylim = c(.8, 2.5), 
-    cex.main = .9, ci.arg = list(col = adjustcolor(pal[1], .2)), xaxt = "n")
-  
-  # Highest
-  lines(plscp[inds][[2]], lwd = 2, col = pal[2], ci = "area", 
-    ci.arg = list(col = adjustcolor(pal[2], .2)))
-  
-  # Axis
-  abline(v = ovaxis, h = axTicks(2), lty = 3, col = "lightgrey")
-  axis(1, at = ovaxis, labels = axisper)
-  abline(h = 1)
-  
-  # MMTs
-  abline(v = plscp[inds][[1]]$cen, col = pal[1], lty = 2)
-  abline(v = plscp[inds][[2]]$cen, col = pal[2], lty = 2)
-}
-
-# Add legend
-par(mar = rep(0, 4))
-plot.new()
-legend("center", legend = c("1st", "99th"), lwd = 2,
-  col = pal, bty = "n", title = "Component\npercentile")
-
-# Save
-dev.print(pdf, file = "figures/SupFig_PLS_ERF.pdf", height = 7, width = 8)
 
 # #---------------------------
 # #  Sup Figure: RR increase
@@ -673,33 +565,7 @@ dev.print(pdf, file = "figures/SupFig_PLS_ERF.pdf", height = 7, width = 8)
 # # Save
 # ggsave("figures/SupFig_EffectModification.pdf", height = 10)
 
-#---------------------------
-# Sup. Figure : Regional effect
-#---------------------------
 
-# Palette
-regpal <- viridis(4)
-names(regpal) <- c("Western", "Northern", "Eastern", "Southern")
-regpal <- regpal[names(regERF)]
-
-# Plot outline
-plot(NA, bty = "l", xaxt = "n", 
-  xlab = "Temperature percentile", ylab = "RR",
-  xlim = range(ovper), 
-  # ylim = c(min(sapply(regERF, "[[", "allRRlow")), 
-  #   max(sapply(regERF, "[[", "allRRhigh")))
-  ylim = c(.8, 2.5))
-abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
-axis(1, at = ovaxis, labels = axisper)
-
-# Add age curves
-for (i in seq_along(regERF)){
-  lines(regERF[[i]], ptype = "overall", col = regpal[i], ci = "area", 
-    lwd = 2, ci.arg = list(col = adjustcolor(regpal[i], .2)))
-}
-abline(h = 1)
-
-dev.print(pdf, file = "figures/SupFig_regionERF.pdf")
 
 #---------------------------
 # Sup. Figure : Exposure response functions

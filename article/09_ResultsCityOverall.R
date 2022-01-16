@@ -11,7 +11,7 @@
 #---------------------------
 
 # Extract from metadata
-cityres <- metadata[, c("URAU_CODE", "LABEL", "CNTR_CODE", 
+cityres <- metadata[, c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name",
   "region", "lon", "lat", "pop", "inmcc")]
 
 #---------------------------
@@ -55,7 +55,10 @@ cityres <- cbind(cityres, allcitystdrt)
 #----- Predict coefficients for each city
 
 # Consider life expectancy at birth as age
-cityres$age <- metadata$lifexp_00
+# cityres$age <- metadata$lifexp_00
+
+# Consider 65 as a common age
+cityres$age <- rep(65, nrow(cityres))
 
 # Add PLS values
 cityres <-  cbind(cityres, pcvar)

@@ -22,7 +22,6 @@ citymis <- apply(imputed, 1, sum)
 # Check cities with more than 10 missings
 metadata[citymis > 10, ]
 
-
 #-----------------------
 # Comparing density of observed and imputed
 #-----------------------
