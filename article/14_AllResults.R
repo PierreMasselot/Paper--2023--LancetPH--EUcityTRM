@@ -40,7 +40,7 @@ bigtable$StdRate_heat <- with(bigtable, sprintf("%1.0f (%1.0f - %1.0f)",
 #----- Tidy table
 
 # Reorder Table
-bigtable <- bigtable[with(bigtable, order(region, CNTR_CODE, URAU_CODE)),]
+bigtable <- bigtable[with(bigtable, order(region, cntr_name, URAU_CODE)),]
 
 # Select variables to export
 bigtable <- bigtable[,c("region", "cntr_name", "URAU_CODE", "LABEL", 
@@ -94,5 +94,101 @@ for (i in seq_len(nrow(metadata))){
 }
 
 # Save workbook
-path <- "temp/CityResults.xlsx"
+path <- "figures/TableX_AllCityResults.xlsx"
 saveWorkbook(wb, path)
+
+#---------------------------
+# Sup. Figure : Exposure response functions
+#---------------------------
+
+#----- Recompute all ERF with a common MMT for cities
+
+# Loop on cities
+cityERFplot <- lapply(metadata$URAU_CODE, function(cd){
+  # Get era 5 series for current city
+  era5cd <- era5series[[cd]]$era5landtmean
+  
+  # Compute basis
+  bvar <- onebasis(quantile(era5cd, predper / 100), 
+    fun = varfun, degree = vardegree, 
+    knots = quantile(era5cd, varper / 100))
+  
+  # Extract common mmt
+  mmt <- median(subset(cityageres, URAU_CODE == cd, mmt, drop = T))
+  
+  # Extract coefs for each age group
+  coefcd <- cityagecoefs[cityageres$URAU_CODE == cd]
+  
+  # Final prediction centered on the MMT
+  lapply(coefcd, function(b){
+    crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
+      model.link = "log", at = quantile(era5cd, predper / 100))
+  })
+})
+names(cityERFplot) <- metadata$URAU_CODE
+
+# Reorder
+cityERFplot <- cityERFplot[with(metadata, 
+  order(region, cntr_name, URAU_CODE))]
+
+#----- Plot all ERF
+
+# Prepare palettes
+# coldpal <- brewer.pal(length(agelabs) + 1, "Blues")[-1]
+# coldpal <- mako(length(agelabs), direction = -1)
+# heatpal <- brewer.pal(length(agelabs) + 1, "Reds")[-1]
+# heatpal <- rocket(length(agelabs), direction = -1)
+# cipal <- rev(grey(seq(.1, .5, length.out = length(agelabs)), .2))
+pal <- viridis(length(agelabs), direction = -1)
+
+# Dimensions
+nrows <- 6
+ncols <- 4
+
+# Prepare output
+pdf("figures/FigX_AllERF.pdf", width = 11, height = 15)
+layout(matrix(seq(nrows * ncols), nrow = nrows, byrow = T))
+par(mar = c(4, 3.8, 3, 2.4), mgp = c(2.5,1,0), las = 1)
+
+# Loop on all cities
+for(i in seq_along(cityERFplot)){
+  # Part of the curve above MMP
+  heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
+  
+  # Initialize plot
+  plot(cityERFplot[[i]][[1]], xlab = "Temperature (C)", ylab = "RR", 
+    main = sprintf("%s\n(%s)", metadata$LABEL[i], metadata$cntr_name[i]), 
+    col = NA, lwd = 2, ylim = c(.5, 3), 
+    cex.main = .8, cex.lab = .8, cex.axis = .8, ci = "n")
+  
+  # Loop on age groups
+  for (a in seq_along(cityERFplot[[i]])){
+    # # Cold part
+    # lines(cityERFplot[[i]][[a]], col = coldpal[a], lwd = 2,
+    #   ci = "area", ci.arg = list(col = cipal[a]))
+    # 
+    # # Heat part
+    # lines(cityERFplot[[i]][[a]]$predvar[heatind], 
+    #   cityERFplot[[i]][[a]]$allRRfit[heatind], 
+    #   col = heatpal[a], lwd = 2)
+    
+    lines(cityERFplot[[i]][[a]], col = pal[a], lwd = 1,
+      ci = "area", ci.arg = list(col = adjustcolor(pal[a], .1)))
+  }
+  
+  # MMT
+  abline(v = cityERFplot[[i]][[1]]$cen)
+  
+  # Add percentiles
+  cityper <- cityERFplot[[i]][[1]]$predvar[predper %in% c(1, 99)]
+  abline(v = cityper, lty = 2)
+  
+  # Unit line
+  abline(h = 1)
+  
+  # Add legend
+  if (i %% ncols == 1) legend("top", legend = agelabs, lwd = 1,
+    col = pal, horiz = T, cex = .4, bg = "white")
+}
+
+dev.off()

@@ -143,7 +143,8 @@ ngrid <- 50
 
 # Age groups for excess mortality
 agebreaks <- c(45, 65, 75, 85)
-agelabs <- paste(c(minage, agebreaks), c(agebreaks - 1, 99), sep = "-")
+agelabs <- c(paste(c(minage, agebreaks[-length(agebreaks)]), 
+  agebreaks, sep = "-"), sprintf("%i+", agebreaks[length(agebreaks)]))
 
 # Grid for age prediction
 agegrid <- minage:99

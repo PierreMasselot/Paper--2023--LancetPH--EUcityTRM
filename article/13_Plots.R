@@ -91,7 +91,7 @@ dev.print(pdf, file = "figures/Fig1b_AgeMMP.pdf")
 # Select cities in result (city with number 001 is usually the capital)
 big_cityres <- subset(cityageres, substr(URAU_CODE, 3, 5) == "001")
 
-# Order by region and age
+# Order by region, country name and age
 big_cityres <- big_cityres[with(big_cityres, 
   order(region, cntr_name, URAU_CODE, agegroup)),]
 big_cityres$id <- as.numeric(factor(big_cityres$URAU_CODE, 
@@ -169,7 +169,7 @@ ggsave("figures/Fig2_CapitalRes.pdf", height = 8, width = 15)
 
 #----- Prepare data
 
-# Order by region and age
+# Order by region, country name and age
 plotageres <- countryageres[with(countryageres, 
   order(region, cntr_name, agegroup)),]
 plotageres$id <- as.numeric(factor(plotageres$CNTR_CODE, 
@@ -247,8 +247,6 @@ ggplot(plotageres, aes(y = id)) + theme_classic() +
 
 # Save
 ggsave("figures/Fig3_CountryExcess.pdf", height = 8, width = 12)
-
-
 
 #---------------------------
 #  Figure 4: Big maps of results
@@ -435,84 +433,77 @@ ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
 #   geom_errorbar(aes(ymax = -stdrate_heat_low / scaleheat, 
 #     ymin = -stdrate_heat_hi / scaleheat), width = .5, size = .7)
 
-#----- Prepare useful objects
-
-# Order by region and country
-plotres <- countryres[with(countryres, 
-  order(region, cntr_name)),]
-plotres$id <- seq_len(nrow(plotres)) + 
-  as.numeric(factor(plotres$region, 
-    levels = unique(plotres$region))) - 1
-
-# Compute id for regional and total results
-regionres2 <- merge(regionres, aggregate(id ~ region, data = plotres, max),
-  all.x = T)
-regionres2$id <- regionres2$id + 1
-regionres2[regionres2$region == "Total", "id"] <- 
-  max(regionres2$id, na.rm = T) + 1
-
-# Add to plot data.frame
-regionres2$CNTR_CODE <- "TOT"
-regionres2$cntr_name <- "Total"
-plotres <- rbind(plotres, regionres2)
-
-# Add some info
-plotres[plotres$region == "Total", c("CNTR_CODE", "cntr_name", "region")] <- 
-  c("EU", "Europe", "")
-plotres$region <- factor(plotres$region, 
-  levels = c("Northern", "Western", "Eastern", "Southern", ""))
-# plotres$istotal <- as.factor(plotres$CNTR_CODE %in% c("TOT", "EU"))
-plotres$istotal <- factor(plotres$CNTR_CODE, levels = c("CNTR", "TOT", "EU"))
-plotres$istotal[is.na(plotres$istotal)] <- "CNTR"
-
-# Compute scaling factor for cold and heat
-scalecold <- max(plotres$stdrate_cold_est)
-scaleheat <- max(plotres$stdrate_heat_est)
-
-# Derive pretty breaks for heat and cold
-prettycold <- pretty(c(0, scalecold))
-prettyheat <- pretty(c(0, scaleheat))[-1]
-
-#----- Create plot
-ggplot(plotres, aes(y = id)) + theme_classic() + 
-  scale_y_continuous(name = "", labels = plotres$cntr_name, 
-    breaks = plotres$id, trans = "reverse") + 
-  geom_colh(aes(x = -stdrate_cold_est / scalecold, fill = istotal), 
-    width = .8) +
-  scale_fill_manual(values = brewer.pal(4, "Blues")[-1],
-    guide = "none") +
-  new_scale("fill") + 
-  geom_colh(aes(x = stdrate_heat_est / scaleheat, fill = istotal), 
-    width = .8) +
-  scale_fill_manual(values = brewer.pal(4, "Reds")[-1], 
-    guide = "none") + 
-  scale_x_continuous(
-    breaks = c(prettyheat / scaleheat, -prettycold / scalecold),
-    labels = c(prettyheat, prettycold),
-    name = sprintf("Std death rate (x %s)",
-      formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
-  geom_vline(xintercept = 0) + 
-  geom_errorbarh(aes(xmin = -stdrate_cold_low / scalecold, 
-    xmax = -stdrate_cold_hi / scalecold), width = .5, size = .7) +
-  geom_errorbarh(aes(xmax = stdrate_heat_low / scaleheat, 
-    xmin = stdrate_heat_hi / scaleheat), width = .5, size = .7) +
-  facet_grid(rows = vars(region), scales = "free_y", space = "free_y") +
-  theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
-    axis.text.y.left = element_text(size = 10, vjust = 0.2),
-    panel.grid.major.x = element_line(linetype = 3, colour = "grey"),
-    strip.background = element_rect(color = NA), 
-    strip.text = element_text(size = 12))
-
-# Save
-ggsave("figures/SupFig_CountryStdRate.pdf", height = 10, width = 15)
-
-
-
-
-
-
-
-
+# #----- Prepare useful objects
+# 
+# # Order by region and country
+# plotres <- countryres[with(countryres, 
+#   order(region, cntr_name)),]
+# plotres$id <- seq_len(nrow(plotres)) + 
+#   as.numeric(factor(plotres$region, 
+#     levels = unique(plotres$region))) - 1
+# 
+# # Compute id for regional and total results
+# regionres2 <- merge(regionres, aggregate(id ~ region, data = plotres, max),
+#   all.x = T)
+# regionres2$id <- regionres2$id + 1
+# regionres2[regionres2$region == "Total", "id"] <- 
+#   max(regionres2$id, na.rm = T) + 1
+# 
+# # Add to plot data.frame
+# regionres2$CNTR_CODE <- "TOT"
+# regionres2$cntr_name <- "Total"
+# plotres <- rbind(plotres, regionres2)
+# 
+# # Add some info
+# plotres[plotres$region == "Total", c("CNTR_CODE", "cntr_name", "region")] <- 
+#   c("EU", "Europe", "")
+# plotres$region <- factor(plotres$region, 
+#   levels = c("Northern", "Western", "Eastern", "Southern", ""))
+# # plotres$istotal <- as.factor(plotres$CNTR_CODE %in% c("TOT", "EU"))
+# plotres$istotal <- factor(plotres$CNTR_CODE, levels = c("CNTR", "TOT", "EU"))
+# plotres$istotal[is.na(plotres$istotal)] <- "CNTR"
+# 
+# # Compute scaling factor for cold and heat
+# scalecold <- max(plotres$stdrate_cold_est)
+# scaleheat <- max(plotres$stdrate_heat_est)
+# 
+# # Derive pretty breaks for heat and cold
+# prettycold <- pretty(c(0, scalecold))
+# prettyheat <- pretty(c(0, scaleheat))[-1]
+# 
+# #----- Create plot
+# ggplot(plotres, aes(y = id)) + theme_classic() + 
+#   scale_y_continuous(name = "", labels = plotres$cntr_name, 
+#     breaks = plotres$id, trans = "reverse") + 
+#   geom_colh(aes(x = -stdrate_cold_est / scalecold, fill = istotal), 
+#     width = .8) +
+#   scale_fill_manual(values = brewer.pal(4, "Blues")[-1],
+#     guide = "none") +
+#   new_scale("fill") + 
+#   geom_colh(aes(x = stdrate_heat_est / scaleheat, fill = istotal), 
+#     width = .8) +
+#   scale_fill_manual(values = brewer.pal(4, "Reds")[-1], 
+#     guide = "none") + 
+#   scale_x_continuous(
+#     breaks = c(prettyheat / scaleheat, -prettycold / scalecold),
+#     labels = c(prettyheat, prettycold),
+#     name = sprintf("Std death rate (x %s)",
+#       formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
+#   geom_vline(xintercept = 0) + 
+#   geom_errorbarh(aes(xmin = -stdrate_cold_low / scalecold, 
+#     xmax = -stdrate_cold_hi / scalecold), width = .5, size = .7) +
+#   geom_errorbarh(aes(xmax = stdrate_heat_low / scaleheat, 
+#     xmin = stdrate_heat_hi / scaleheat), width = .5, size = .7) +
+#   facet_grid(rows = vars(region), scales = "free_y", space = "free_y") +
+#   theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
+#     axis.text.y.left = element_text(size = 10, vjust = 0.2),
+#     panel.grid.major.x = element_line(linetype = 3, colour = "grey"),
+#     strip.background = element_rect(color = NA), 
+#     strip.text = element_text(size = 12))
+# 
+# # Save
+# ggsave("figures/SupFig_CountryStdRate.pdf", height = 10, width = 15)
+# 
 
 # #---------------------------
 # #  Sup Figure: RR increase
@@ -564,84 +555,4 @@ ggsave("figures/SupFig_CountryStdRate.pdf", height = 10, width = 15)
 # 
 # # Save
 # ggsave("figures/SupFig_EffectModification.pdf", height = 10)
-
-
-
-#---------------------------
-# Sup. Figure : Exposure response functions
-#---------------------------
-
-#----- Recompute all ERF with a common MMT for cities
-
-# Loop on cities
-cityERFplot <- lapply(metadata$URAU_CODE, function(cd){
-  # Get era 5 series for current city
-  era5cd <- era5series[[cd]]$era5landtmean
-  
-  # Compute basis
-  bvar <- onebasis(quantile(era5cd, predper / 100), 
-    fun = varfun, degree = vardegree, 
-    knots = quantile(era5cd, varper / 100))
-  
-  # Extract common mmt
-  mmt <- median(subset(cityageres, URAU_CODE == cd, mmt, drop = T))
-  
-  # Extract coefs for each age group
-  coefcd <- cityagecoefs[cityageres$URAU_CODE == cd]
-  
-  # Final prediction centered on the MMT
-  lapply(coefcd, function(b){
-    crosspred(bvar, coef = b$fit, vcov = b$vcov, cen = mmt, 
-      model.link = "log", at = quantile(era5cd, predper / 100))
-  })
-})
-names(cityERFplot) <- metadata$URAU_CODE
-
-#----- Plot all ERF
-
-# Prepare palettes
-coldpal <- brewer.pal(length(agelabs) + 1, "Blues")[-1]
-heatpal <- brewer.pal(length(agelabs) + 1, "Reds")[-1]
-# cipal <- rev(grey(seq(.1, .5, length.out = length(agelabs)), .2))
-
-# Prepare output
-pdf("figures/SupFig_ERFcities.pdf", width = 11, height = 13)
-layout(matrix(seq(6 * length(agelabs)), nrow = 6, byrow = T))
-par(mar = c(4,3.8,3,2.4), mgp = c(2.5,1,0), las = 1)
-
-# Loop on all cities
-for(i in seq_along(cityERFplot)){
-  # Part of the curve above MMP
-  heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
-  
-  # Initialize plot
-  plot(cityERFplot[[i]][[1]], xlab = "Temperature (C)", ylab = "RR", 
-    main = metadata$LABEL[i], col = NA, lwd = 2, ylim = c(.5, 3), 
-    cex.main = .9, ci = "n")
-  
-  # Loop on age groups
-  for (a in seq_along(cityERFplot[[i]])){
-    # Cold part
-    lines(cityERFplot[[i]][[a]], col = coldpal[a], lwd = 2)
-    
-    # Heat part
-    lines(cityERFplot[[i]][[a]]$predvar[heatind], 
-      cityERFplot[[i]][[a]]$allRRfit[heatind], 
-      col = heatpal[a], lwd = 2)
-  }
-  
-  # MMT
-  abline(v = cityERFplot[[i]][[1]]$cen)
-  
-  # Add percentiles
-  cityper <- cityERFplot[[i]][[1]]$predvar[predper %in% c(1, 99)]
-  abline(v = cityper, lty = 2)
-  
-  # Unit line
-  abline(h = 1)
-}
-
-dev.off()
-
-
 
