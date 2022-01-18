@@ -80,10 +80,13 @@ countryageres <- cbind(popcountry, attrest, attrCIs, excessest, excessCIs,
   excesstotpopest, excesstotpopCIs)
 
 # Add country name
-countryageres$cntr_name <- eurcntr[match(countryageres$CNTR_CODE, eurcntr[,1]),2]
+eurcntr <- rbind(eu_countries, efta_countries)
+countryageres$cntr_name <- factor(eurcntr[match(countryageres$CNTR_CODE, 
+  eurcntr[,1]),2], level = sort(eurcntr[,2]))
 
 # Add region
-countryageres$region <- regionlist[countryageres$CNTR_CODE]
+countryageres$region <- factor(regionlist[countryageres$CNTR_CODE], 
+  level = regord)
 
 #---------------------------
 # Country overall results
@@ -152,13 +155,14 @@ countryres <- cbind(countrysum, countryexcesssumCIs, countryratesumCIs,
   countrystd)
 
 # Add country names
-countryres$cntr_name <- eurcntr[match(countryres$CNTR_CODE, eurcntr[,1]),2]
+countryres$cntr_name <- factor(eurcntr[
+  match(countryres$CNTR_CODE, eurcntr[,1]),2], level = sort(eurcntr[,2]))
 
 # Add pop
 countryres <- merge(countryres, cntrtotpop)
 
 # Add region
-countryres$region <- regionlist[countryres$CNTR_CODE]
+countryres$region <- factor(regionlist[countryres$CNTR_CODE], level = regord)
 
 #---------------------------
 # Results by region
