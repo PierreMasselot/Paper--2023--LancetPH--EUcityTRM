@@ -130,7 +130,7 @@ variopars <- list(
 predper <- c(seq(0.1,1,0.1), 2:98, seq(99,99.9,0.1))
 
 # Acceptable MMP range
-mmprange <- c(1, 99)
+mmprange <- c(25, 99)
 
 # Reported percentiles for cold and heat
 resultper <- c(1, 99)

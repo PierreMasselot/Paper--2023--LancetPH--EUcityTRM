@@ -93,6 +93,7 @@ euromap$region <- regionlist[euromap$CNTR_CODE]
 # Color palette
 regpal <- viridis(4)
 names(regpal) <- c("Western", "Northern", "Eastern", "Southern")
+regpal <- regpal[regord]
 
 # Plot regions
 ggplot(data = euromap) + theme_void() + 
@@ -112,7 +113,7 @@ ggsave("figures/SupFig_Region_maps.pdf", width = 7, height = 7)
 # Palette
 regpal <- viridis(4)
 names(regpal) <- c("Western", "Northern", "Eastern", "Southern")
-regpal <- regpal[names(regERF)]
+regpal <- regpal[regord]
 
 # Plot outline
 plot(NA, bty = "l", xaxt = "n", 

@@ -153,7 +153,7 @@ par(mar = c(4, 3.8, 3, 2.4), mgp = c(2.5,1,0), las = 1)
 # Loop on all cities
 for(i in seq_along(cityERFplot)){
   # Part of the curve above MMP
-  heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
+  # heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
   
   # Initialize plot
   plot(cityERFplot[[i]][[1]], xlab = "Temperature (C)", ylab = "RR", 

@@ -274,7 +274,7 @@ basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) +
 cutpts <- unname(round(quantile(cityres$mmt, seq(0, 1, length.out = 7))))
 # cutpts <- c(13, 16, 17, 18, 19, 20, 21, 22, 25)
 mmtmap <- basic_map + aes(fill = mmt) + 
-  scale_fill_stepsn(colours = cividis(length(cutpts) - 1, direction = 1),
+  scale_fill_stepsn(colours = magma(length(cutpts) - 1, direction = 1),
     values = rescale(cutpts), breaks = cutpts,
     name = "\nMMT (C) at 65")
 # scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
@@ -333,9 +333,6 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
 
 # Save
 ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
-
-
-
 
 
 #---------------------------

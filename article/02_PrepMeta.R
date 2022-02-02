@@ -613,7 +613,8 @@ metadata$nmiss <- apply(imputed, 1, sum)
 imputvars <- c(metadesc$metavar, "CNTR_CODE", "AREA_SQM", "region")
 
 # Impute using cart because of complex interactions
-meta_imp <- mice(metadata[,imputvars], method = "cart", seed = 12345, print = F)
+meta_imp <- mice(metadata[,imputvars], method = "cart", maxit = 20,
+  seed = 12345, print = F)
 
 # Get the imputed dataset (as the median of the 5 iterations)
 impdat <- complete(meta_imp, "long")

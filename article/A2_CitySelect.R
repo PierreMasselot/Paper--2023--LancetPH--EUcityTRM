@@ -32,7 +32,8 @@ ggsave("figures/SupFig_URAUcities.pdf", width = 7, height = 7)
 
 # Extract metadata summary for each country
 meta_summary <- by(metadata, metadata$CNTR_CODE, function(x){
-  data.frame(region = unique(x$region), ncities = nrow(x), nmcc = sum(x$inmcc))
+  data.frame(region = unique(x$region), cntr_name = unique(x$cntr_name), 
+    ncities = nrow(x), nmcc = sum(x$inmcc))
 })
 
 # Bind everything
@@ -65,20 +66,16 @@ mcc_summary <- merge(metasumdf, mccsumdf, by = "cntr_code", all.x = T)
 mcc_summary$deaths <- gsub("NA", "-", formatC(mcc_summary$deaths,
   format = "f", big.mark = " ", digits = 0))
 
-# Add names
-mcc_summary$cntr_name <- eurcntr[match(mcc_summary$cntr_code, 
-  eurcntr[,1]),2]
-
 # Add percentage of MCC
 mcc_summary$nmcc <- with(mcc_summary, 
   sprintf("%i (%1.0f%%)", nmcc, 100 * nmcc / ncities))
 
 # Reorder variables
-mcc_summary <- mcc_summary[,c("cntr_name", "region", "ncities", 
-  "nmcc", "deaths")]
+mcc_summary <- mcc_summary[with(mcc_summary, order(region, cntr_name)),
+  c("region", "cntr_name", "ncities", "nmcc", "deaths")]
 
 # Rename columns
-colnames(mcc_summary) <- c("Country", "Region", "City number", "Cities in MCC",
+colnames(mcc_summary) <- c("Region", "Country", "City number", "Cities in MCC",
   "MCC deaths")
 
 # Export

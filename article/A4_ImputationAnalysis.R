@@ -10,17 +10,28 @@ source("00_Packages_Parameters.R")
 
 load("data/Alldata.RData")
 
+# #-----------------------
+# # Checking missing values
+# #-----------------------
+# 
+# #----- Number of missing per city
+# 
+# # Extract number of missings
+# citymis <- apply(imputed, 1, sum)
+# 
+# # Check cities with more than 10 missings
+# metadata[citymis > 10, ]
+
 #-----------------------
-# Checking missing values
+# Checking convergence
 #-----------------------
 
-#----- Number of missing per city
+# Create plot
+plot(meta_imp, layout = c(2, sum(metadesc$nmiss > 0)))
 
-# Extract number of missings
-citymis <- apply(imputed, 1, sum)
-
-# Check cities with more than 10 missings
-metadata[citymis > 10, ]
+# Save
+dev.print(pdf, file = "figures/SupFig_mice_convergence.pdf", 
+  width = 8, height = 15)
 
 #-----------------------
 # Comparing density of observed and imputed
