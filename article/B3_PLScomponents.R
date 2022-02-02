@@ -26,7 +26,9 @@ aicscores <- vector("numeric", maxk + 1)
 #----- Baseline model (No component)
 
 # baseline formula
-basicform <- coefs ~ region + ns(age, knots = 65, Boundary.knots = c(0, 100))
+basicform <- sprintf("coefs ~ region + 
+    ns(age, knots = %s, Boundary.knots = c(0, 100))",
+  deparse(ageknots))
 
 # Fit mixmeta model
 mixbasic <- mixmeta(basicform, data = stage2df, S = vcovs, random = ~ 1|city) 

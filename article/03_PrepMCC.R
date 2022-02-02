@@ -13,14 +13,14 @@
 path <- "V:/VolumeQ/AGteam/MCCdata/data"
 
 #----- Load age causes MCC dataset
-load(sprintf("%s/MCC_age_classes/MCC_AgeCause_20200907.RData", path))
+load(sprintf("%s/MCC_age_classes/MCC_AgeCause_20211007.RData", path))
 
 # Select cities in the meta dataset constructed
 dlist_eu <- dlist[cities$city %in% na.omit(metadata$mcc_code)]
 cities_eu <- cities[cities$city %in% na.omit(metadata$mcc_code),]
 
 #----- Add countries with all age group
-load(sprintf("%s/MCC_all/MCCdata_20210407.RData", path))
+load(sprintf("%s/MCC_all/MCCdata_20211007.RData", path))
 
 # Select cities 
 citylistnoage <- setdiff(na.omit(metadata$mcc_code), cities_eu$city)
@@ -31,16 +31,55 @@ cities_noage <- cities[cities$city %in% citylistnoage,]
 dlist <- c(dlist_eu, dlist_noage)
 cities <- rbind(cities_eu, cities_noage[,names(cities_eu)])
 
+#----- Additional data from Cyprus
+
+# Read data
+cyprusdat <- read.csv(paste0("V:/VolumeQ/AGteam/MCCdata/original/CyprusTemp", 
+  "/Cyprus.csv"))
+
+# Select Nicosia and Limassol
+cyprusdat <- subset(cyprusdat, City %in% c("NICOSIA", "LIMASSOL"))
+
+# Create date variables
+cyprusdat$date <- as.Date(cyprusdat$date, "%d/%m/%Y")
+cyprusdat$year <- as.numeric(format(cyprusdat$date, "%Y"))
+cyprusdat$month <- as.numeric(format(cyprusdat$date, "%m"))
+cyprusdat$day <- as.numeric(format(cyprusdat$date, "%d"))
+cyprusdat$doy <- as.numeric(format(cyprusdat$date, "%j"))
+cyprusdat$dow <- factor(weekdays(cyprusdat$date))
+
+# Rename outcome variables
+names(cyprusdat) <- gsub("total", "all", names(cyprusdat))
+names(cyprusdat) <- gsub("to", "", names(cyprusdat))
+names(cyprusdat) <- gsub("0", "00", names(cyprusdat))
+names(cyprusdat) <- gsub("above", "99", names(cyprusdat))
+
+# create tmean variable
+cyprusdat$tmean <- as.numeric(cyprusdat$MaxT_oC) + cyprusdat$MinT_oC / 2
+
+# Separate cities
+cypruslist <- split(cyprusdat[,!names(cyprusdat) %in% "City"], cyprusdat$City)
+
+# Rename and link to Urban Audit
+names(cypruslist) <- sprintf("%s.cyp0419", tolower(names(cypruslist)))
+metadata[metadata$CNTR_CODE == "CY", "mcc_code"] <- names(cypruslist)[2:1]
+metadata[metadata$CNTR_CODE == "CY", "inmcc"] <- T
+
+# Add to dist
+dlist <- c(dlist, cypruslist)
+cities <- rbind(cities, data.frame(city = names(cypruslist), 
+  cityname = c("Limassol", "Nicosia"), country = "cyp0419", 
+  countryname = "Cyprus", lat = NA, long = NA, region = "South Europe"))
+
 #----- Tidy data
 
-# Exclude everything before starting year
-for(i in seq(dlist)) dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= yearstart,]
-
-# # Reorder as in metadata
-# ord <- match(na.omit(metadata$mcc_code), cities$city)
-# 
-# cities <- cities[ord,]
-# dlist <- dlist[ord]
+for(i in seq(dlist)) {
+  # Exclude everything before starting year
+  dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= yearstart,]
+  
+  # Reorder by date
+  dlist[[i]] <- dlist[[i]][order(dlist[[i]]$date),]
+}
 
 # Remove unused levels in factors
 ind1 <- c("cityname","country","countryname")
