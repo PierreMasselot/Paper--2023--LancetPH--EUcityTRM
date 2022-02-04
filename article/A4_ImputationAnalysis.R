@@ -27,7 +27,7 @@ load("data/Alldata.RData")
 #-----------------------
 
 # Create plot
-plot(meta_imp, layout = c(2, sum(metadesc$nmiss > 0)))
+plot(meta_imp, layout = c(2, sum(metadesc$nmis > 0)))
 
 # Save
 dev.print(pdf, file = "figures/SupFig_mice_convergence.pdf", 

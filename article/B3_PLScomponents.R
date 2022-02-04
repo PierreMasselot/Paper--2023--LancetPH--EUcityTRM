@@ -14,7 +14,7 @@ source("13_Plots.R") # To have the map object defined
 #---------------------------
 
 # Maximum number of components
-maxk <- 10
+maxk <- 15
 
 #---------------------------
 # Fit models with different number of components
@@ -26,9 +26,9 @@ aicscores <- vector("numeric", maxk + 1)
 #----- Baseline model (No component)
 
 # baseline formula
-basicform <- sprintf("coefs ~ region + 
+basicform <- as.formula(sprintf("coefs ~ region + 
     ns(age, knots = %s, Boundary.knots = c(0, 100))",
-  deparse(ageknots))
+  deparse(ageknots)))
 
 # Fit mixmeta model
 mixbasic <- mixmeta(basicform, data = stage2df, S = vcovs, random = ~ 1|city) 
@@ -128,7 +128,7 @@ dev.print(pdf, file = "figures/SupFig_PLScor.pdf")
 # Loop
 plsmaps <- lapply(seq_len(npc), function(i){
   cutpts <- unname(round(quantile(cityres[, sprintf("pls%i", i)], 
-    seq(0, 1, length.out = 7))))
+    seq(0, 1, length.out = 5))))
   basic_map + aes_string(fill = sprintf("pls%i", i)) + 
     # scale_fill_viridis(name = sprintf("Comp. %i", i), direction = -1) + 
     # guides(fill = guide_colourbar(title.position = "top", title.hjust = .5,
@@ -140,7 +140,7 @@ plsmaps <- lapply(seq_len(npc), function(i){
 names(plsmaps) <- letters[1:npc]
 
 # Add legend for size
-plsmaps$leg <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
+plsmaps[[letters[npc + 1]]] <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) + 
   scale_size(breaks = c(1, 5, 10, 50) * 10^5, 
     labels = c(1, 5, 10, 50) / 10, name = "Population (millions)",
     guide = guide_legend(override.aes = list(colour = "black"), 
@@ -148,16 +148,16 @@ plsmaps$leg <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 0)) +
   theme(legend.position = "right")
 
 # Design
-design <- matrix(1:floor(npc), ncol = 2, byrow = T)
-if (npc %% 2 == 1) design <- rbind(design, npc)
-design <- cbind(design, npc + 1)
+design <- matrix(letters[1:floor(npc)], ncol = 2, byrow = T)
+if (npc %% 2 == 1) design <- rbind(design, letters[npc])
+design <- cbind(design, letters[npc + 1])
 design_char <- paste(apply(design, 1, paste, collapse = ""), collapse = "\n")
 
 # Plot
 wrap_plots(plsmaps, widths = c(1, 1, .1), design = design_char)
 
 # Save
-ggsave("figures/SupFig_PLSmaps.pdf", width = 15, height = 12)
+ggsave("figures/SupFig_PLSmaps.pdf", width = 15, height = 30)
 
 
 #----- Curve changes at extreme PLS
@@ -171,6 +171,7 @@ if (npc %% 2 == 1) design <- rbind(design, npc)
 design <- cbind(design, npc + 1)
 
 # Initialize layout
+pdf(file = "figures/SupFig_PLS_ERF.pdf", height = 30, width = 15)
 layout(design, widths = c(1, 1, .2))
 
 # Loop on PLS components
@@ -203,4 +204,5 @@ legend("center", legend = c("1st", "99th"), lwd = 2,
   col = pal, bty = "n", title = "Component\npercentile")
 
 # Save
-dev.print(pdf, file = "figures/SupFig_PLS_ERF.pdf", height = 7, width = 8)
+dev.off()
+# dev.print(pdf, file = "figures/SupFig_PLS_ERF.pdf", height = 7, width = 8)

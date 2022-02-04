@@ -134,8 +134,8 @@ coldplot <- bgplot +
   scale_x_continuous(name = "", breaks = NULL,
     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
       labels = regpos$region)) + 
-  coord_cartesian(ylim = c(.8, 2.2)) + 
-  scale_y_continuous(breaks = c(1, 1.5, 2))
+  coord_cartesian(ylim = c(.8, 2.5)) + 
+  scale_y_continuous(breaks = c(1, 1.5, 2, 2.5))
 
 heatplot <- bgplot + 
   aes(y = rrheat, ymin = rrheat_low, ymax = rrheat_hi) + 
