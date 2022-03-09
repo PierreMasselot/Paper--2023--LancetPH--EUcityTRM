@@ -81,32 +81,34 @@ disp <- "%s (%s - %s)"
 
 # Create pretty display
 country_res_export <- data.frame(countryres[,c("region", "cntr_name")],
-  sapply(grep("est", colnames(countryres), value = T),
-    function(x)  sprintf(disp, 
-      formatC(countryres[, x], format = "f", big.mark = ",", digits = 0), 
-      formatC(countryres[, gsub("est", "low", x)], format = "f", 
-        big.mark = ",", digits = 0),
-      formatC(countryres[, gsub("est", "hi", x)], format = "f", 
-        big.mark = ",", digits = 0))))
-
-# Remove sum of heat and cold
-country_res_export <- country_res_export[,-grep("total", 
-  colnames(country_res_export))]
+  mapply(function(x, digits) sprintf(disp, 
+    formatC(countryres[, paste0(x, "_est")], format = "f", big.mark = ",", 
+      digits = digits), 
+    formatC(countryres[, paste0(x, "_low")], format = "f", 
+      big.mark = ",", digits = digits),
+    formatC(countryres[, paste0(x, "_hi")], format = "f", 
+      big.mark = ",", digits = digits)),
+  x = c("excess_cold", "excess_heat", "af_cold", "af_heat", 
+    "rate_cold", "rate_heat", "stdrate_cold", "stdrate_heat"), 
+  digits = rep(c(0, 2, 0, 0), each = 2)))
 
 # Total lines
-totform <- formatC(data.matrix(regionres[-1]), 
-  format = "f", big.mark = ",", digits = 0)
-totline <- apply(expand.grid(c("cold", "heat"), c("excess", "rate", "stdrate")), 
-  1, function(x){
-    sprintf(disp, totform[,paste(x[2], x[1], "est", sep = "_")],
-      totform[,paste(x[2], x[1], "low", sep = "_")],
-      totform[,paste(x[2], x[1], "hi", sep = "_")])
-})
+totline <- which(regionres$region == "Total")
+tot_pretty <- mapply(function(x, digits) sprintf(disp, 
+  formatC(regionres[totline, paste0(x, "_est")], format = "f", big.mark = ",", 
+    digits = digits), 
+  formatC(regionres[totline, paste0(x, "_low")], format = "f", 
+    big.mark = ",", digits = digits),
+  formatC(regionres[totline, paste0(x, "_hi")], format = "f", 
+    big.mark = ",", digits = digits)),
+  x = c("excess_cold", "excess_heat", "af_cold", "af_heat", 
+    "rate_cold", "rate_heat", "stdrate_cold", "stdrate_heat"), 
+  digits = rep(c(0, 2, 0, 0), each = 2))
 
 # Add total lines
-totline <- data.frame(regionres[,1], "Total", totline)
-colnames(totline) <- colnames(country_res_export)
-country_res_export <- rbind(country_res_export, totline)
+tot_pretty <- data.frame("Total", "Total", t(tot_pretty))
+colnames(tot_pretty) <- colnames(country_res_export)
+country_res_export <- rbind(country_res_export, tot_pretty)
 
 # Reorder
 # country_res_export$region <- factor(country_res_export$region, 

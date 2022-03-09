@@ -60,15 +60,15 @@ mmpdf <- data.frame(age = agegrid, mmp = agemmp,
 
 #----- Plot it
 
-ggplot(subset(mmpdf, age >= 45), aes(x = age)) + theme_classic() +
+ggplot(mmpdf, aes(x = age)) + theme_classic() +
   geom_ribbon(aes(ymin = low, ymax = high), fill = adjustcolor(4, .4)) + 
   geom_line(aes(y = mmp), size = 1.5) + 
   scale_x_continuous(name = "Age", 
-    breaks = seq(50, 90, by = 10)) + 
+    breaks = seq(minage, 100, by = 10)) + 
   scale_y_continuous(name = "MMP",
-    breaks = ovper[predper %in% c(50, 60, 70, 80, 90)], 
-    labels = c(50, 60, 70, 80, 90)) + 
-  coord_cartesian(ylim = ovper[predper %in% c(50, 90)]) +
+    breaks = ovper[predper %in% seq(30, 90, by = 10)], 
+    labels = seq(30, 90, by = 10)) + 
+  # coord_cartesian(ylim = ovper[predper %in% c(50, 90)]) +
   theme(axis.text = element_text(size = 12), 
     axis.text.x = element_text(margin = margin(t = 6)),
     axis.text.y = element_text(margin = margin(r = 6)),
@@ -122,7 +122,9 @@ bgplot <- ggplot(big_cityres,
       size = 12),
     axis.text.x.top = element_text(size = 15),
     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) + 
-  geom_pointrange(position = position_dodge(.8), size = .3)
+  geom_pointrange(position = position_dodge(.8), size = .3) + 
+  coord_cartesian(ylim = c(.8, 2.5)) + 
+  scale_y_continuous(breaks = c(1, 1.5, 2, 2.5))
 
 #----- Add values for heat and cold
 
@@ -133,17 +135,13 @@ coldplot <- bgplot +
   ylab(sprintf("RR at temperature\npercentile %i", resultper[1])) + 
   scale_x_continuous(name = "", breaks = NULL,
     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
-      labels = regpos$region)) + 
-  coord_cartesian(ylim = c(.8, 2.5)) + 
-  scale_y_continuous(breaks = c(1, 1.5, 2, 2.5))
+      labels = regpos$region))
 
 heatplot <- bgplot + 
   aes(y = rrheat, ymin = rrheat_low, ymax = rrheat_hi) + 
   scale_color_manual(guide = "none",
     values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
-  ylab(sprintf("RR at temperature\npercentile %i", resultper[2])) + 
-  coord_cartesian(ylim = c(.8, 4)) + 
-  scale_y_continuous(n.breaks = 4)
+  ylab(sprintf("RR at temperature\npercentile %i", resultper[2]))
 
 #----- Put together and save
 
@@ -158,7 +156,6 @@ legplot <- ggplot(big_cityres, aes(x = id, group = agegroup, col = agegroup)) +
 # Put everything together
 coldplot / heatplot / legplot + 
   plot_layout(heights = c(1, 1, .1))
-
 
 # Save
 ggsave("figures/Fig2_CapitalRes.pdf", height = 8, width = 15)
@@ -276,7 +273,7 @@ cutpts <- unname(round(quantile(cityres$mmt, seq(0, 1, length.out = 7))))
 mmtmap <- basic_map + aes(fill = mmt) + 
   scale_fill_stepsn(colours = magma(length(cutpts) - 1, direction = 1),
     values = rescale(cutpts), breaks = cutpts,
-    name = "\nMMT (C) at 65")
+    name = "\nMMT (C) at 65 years")
 # scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
 #   values = rescale(cutpts),
 #   name = "MMT")
@@ -286,7 +283,7 @@ cutpts <- unname(round(quantile(cityres$mmp, seq(0, 1, length.out = 7))))
 mmpmap <- basic_map + aes(fill = mmp) + 
   scale_fill_stepsn(colours = cividis(length(cutpts) - 1, direction = 1),
     values = rescale(cutpts), breaks = cutpts,
-    name = "\nMMP (%) at 65")
+    name = "\nMMP (%) at 65 years")
 # scale_fill_gradientn(colours = viridis(length(cutpts) - 1, direction = 1),
 #   values = rescale(cutpts),
 #   name = "MMT")
@@ -298,7 +295,7 @@ stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) +
   scale_fill_stepsn(
     colours = mako(length(cutpts) - 1, direction = -1, begin = .3),
     values = rescale(cutpts), breaks = cutpts,
-    name = sprintf("Cold-related\nstd death rate (x %s)", 
+    name = sprintf("Cold-related\nstd excess death rate (x %s)", 
       formatC(byrate, digits = 0, format = "f", big.mark = ",")),
     limits = c(0, max(cityres$stdrate_cold_est)))
 
@@ -310,7 +307,7 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
   scale_fill_stepsn(
     colours = rocket(length(cutpts) - 1, direction = -1, begin = .3),
     values = rescale(cutpts), breaks = cutpts, 
-    name = sprintf("Heat-related\nstd death rate (x %s)", 
+    name = sprintf("Heat-related\nstd excess death rate (x %s)", 
       formatC(byrate, digits = 0, format = "f", big.mark = ",")),
     limits = c(0, max(cityres$stdrate_heat_est)))
 
@@ -333,223 +330,4 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
 
 # Save
 ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
-
-
-#---------------------------
-#  Supplementary Figure: Standardized death rates by country 
-#---------------------------
-
-# #----- Prepare useful objects
-# 
-# # Order by region and country
-# countryres <- countryres[with(countryres, 
-#   order(region, cntr_name)),]
-# countryres$id <- as.numeric(factor(countryres$CNTR_CODE, 
-#   levels = unique(countryres$CNTR_CODE))) + 
-#   as.numeric(factor(countryres$region, 
-#     levels = unique(countryres$region))) - 1
-# 
-# # Region label position
-# regpos <- aggregate(id ~ region, data = countryres, mean)
-#
-# #----- Create background plot
-# bgplot <- ggplot(countryres, aes(x = id)) + theme_classic() + 
-#   scale_x_continuous(name = "", labels = unique(countryres$cntr_name), 
-#     breaks = unique(countryres$id)) +
-#   # geom_hline(data = bglines, aes(yintercept = pos), lty = 3) + 
-#   theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(),
-#     axis.text.x.top = element_text(size = 15),
-#     axis.text.x.bottom = element_text(size = 12, angle = 90, vjust = .5, 
-#       hjust = 1),
-#     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) + 
-#   geom_col(aes(fill = "a"), position = position_dodge(), show.legend = F,
-#     width = .8) +
-#   geom_hline(yintercept = 0)
-# 
-# #----- Add values for heat and cold
-# 
-# # Cold
-# stdcoldplot <- bgplot + 
-#   aes(y = stdrate_cold_est) + 
-#   geom_errorbar(aes(ymin = stdrate_cold_low, ymax = stdrate_cold_hi),
-#     width = .5) +
-#   scale_fill_manual(values = 4) + 
-#   ylab(sprintf("Cold-related\nstd death rate (x %s)", 
-#     formatC(byrate, digits = 0, format = "f", big.mark = ","))) + 
-#   scale_x_continuous(name = "", breaks = NULL, 
-#     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
-#       labels = regpos$region))
-# 
-# # Heat
-# stdheatplot <- bgplot + 
-#   aes(y = stdrate_heat_est) + 
-#   geom_errorbar(aes(ymin = stdrate_heat_low, ymax = stdrate_heat_hi),
-#     width = .5) +
-#   scale_fill_manual(values = 2) + 
-#   ylab(sprintf("Heat-related\nstd death rate (x %s)", 
-#     formatC(byrate, digits = 0, format = "f", big.mark = ",")))
-# 
-# #----- Put together and save
-# 
-# # Put everything together
-# stdcoldplot + stdheatplot + 
-#   plot_layout(ncol = 1, guides = "collect")
-
-#####################################
-
-# # Store the scaling factor
-# scalecold <- max(countryres$stdrate_cold_est)
-# scaleheat <- max(countryres$stdrate_heat_est)
-# 
-# # Derive pretty breaks for heat and cold
-# prettycold <- pretty(c(0, scalecold))
-# prettyheat <- pretty(c(0, scaleheat))[-1]
-# 
-# # Plot back-to-back bars
-# ggplot(countryres, aes(x = id)) + theme_classic() + 
-#   scale_x_continuous(name = "", labels = unique(countryres$cntr_name), 
-#     breaks = unique(countryres$id),
-#     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id,
-#       labels = regpos$region)) +
-#   theme(axis.ticks.x = element_blank(), axis.line.x = element_blank(),
-#     axis.text.x.top = element_text(size = 15),
-#     axis.text.x.bottom = element_text(size = 12, angle = 90, vjust = .5, 
-#       hjust = 1),
-#     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) + 
-#   geom_col(aes(y = stdrate_cold_est / scalecold), fill = 4, width = .8,
-#     position = position_dodge()) +
-#   geom_col(aes(y = -stdrate_heat_est / scaleheat), fill = 2, width = .8) +
-#   scale_y_continuous(
-#     breaks = c(-prettyheat / scaleheat, prettycold / scalecold),
-#     labels = c(prettyheat, prettycold),
-#     name = sprintf("Std death rate (x %s)",
-#       formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
-#   geom_hline(yintercept = 0) + 
-#   geom_errorbar(aes(ymin = stdrate_cold_low / scalecold, 
-#     ymax = stdrate_cold_hi / scalecold), width = .5, size = .7) +
-#   geom_errorbar(aes(ymax = -stdrate_heat_low / scaleheat, 
-#     ymin = -stdrate_heat_hi / scaleheat), width = .5, size = .7)
-
-# #----- Prepare useful objects
-# 
-# # Order by region and country
-# plotres <- countryres[with(countryres, 
-#   order(region, cntr_name)),]
-# plotres$id <- seq_len(nrow(plotres)) + 
-#   as.numeric(factor(plotres$region, 
-#     levels = unique(plotres$region))) - 1
-# 
-# # Compute id for regional and total results
-# regionres2 <- merge(regionres, aggregate(id ~ region, data = plotres, max),
-#   all.x = T)
-# regionres2$id <- regionres2$id + 1
-# regionres2[regionres2$region == "Total", "id"] <- 
-#   max(regionres2$id, na.rm = T) + 1
-# 
-# # Add to plot data.frame
-# regionres2$CNTR_CODE <- "TOT"
-# regionres2$cntr_name <- "Total"
-# plotres <- rbind(plotres, regionres2)
-# 
-# # Add some info
-# plotres[plotres$region == "Total", c("CNTR_CODE", "cntr_name", "region")] <- 
-#   c("EU", "Europe", "")
-# plotres$region <- factor(plotres$region, 
-#   levels = c("Northern", "Western", "Eastern", "Southern", ""))
-# # plotres$istotal <- as.factor(plotres$CNTR_CODE %in% c("TOT", "EU"))
-# plotres$istotal <- factor(plotres$CNTR_CODE, levels = c("CNTR", "TOT", "EU"))
-# plotres$istotal[is.na(plotres$istotal)] <- "CNTR"
-# 
-# # Compute scaling factor for cold and heat
-# scalecold <- max(plotres$stdrate_cold_est)
-# scaleheat <- max(plotres$stdrate_heat_est)
-# 
-# # Derive pretty breaks for heat and cold
-# prettycold <- pretty(c(0, scalecold))
-# prettyheat <- pretty(c(0, scaleheat))[-1]
-# 
-# #----- Create plot
-# ggplot(plotres, aes(y = id)) + theme_classic() + 
-#   scale_y_continuous(name = "", labels = plotres$cntr_name, 
-#     breaks = plotres$id, trans = "reverse") + 
-#   geom_colh(aes(x = -stdrate_cold_est / scalecold, fill = istotal), 
-#     width = .8) +
-#   scale_fill_manual(values = brewer.pal(4, "Blues")[-1],
-#     guide = "none") +
-#   new_scale("fill") + 
-#   geom_colh(aes(x = stdrate_heat_est / scaleheat, fill = istotal), 
-#     width = .8) +
-#   scale_fill_manual(values = brewer.pal(4, "Reds")[-1], 
-#     guide = "none") + 
-#   scale_x_continuous(
-#     breaks = c(prettyheat / scaleheat, -prettycold / scalecold),
-#     labels = c(prettyheat, prettycold),
-#     name = sprintf("Std death rate (x %s)",
-#       formatC(byrate, digits = 0, format = "f", big.mark = ","))) +
-#   geom_vline(xintercept = 0) + 
-#   geom_errorbarh(aes(xmin = -stdrate_cold_low / scalecold, 
-#     xmax = -stdrate_cold_hi / scalecold), width = .5, size = .7) +
-#   geom_errorbarh(aes(xmax = stdrate_heat_low / scaleheat, 
-#     xmin = stdrate_heat_hi / scaleheat), width = .5, size = .7) +
-#   facet_grid(rows = vars(region), scales = "free_y", space = "free_y") +
-#   theme(axis.ticks.y = element_blank(), axis.line.y = element_blank(),
-#     axis.text.y.left = element_text(size = 10, vjust = 0.2),
-#     panel.grid.major.x = element_line(linetype = 3, colour = "grey"),
-#     strip.background = element_rect(color = NA), 
-#     strip.text = element_text(size = 12))
-# 
-# # Save
-# ggsave("figures/SupFig_CountryStdRate.pdf", height = 10, width = 15)
-# 
-
-# #---------------------------
-# #  Sup Figure: RR increase
-# #---------------------------
-# 
-# #----- Prepare data
-# 
-# # Add id
-# compres$id <- 1:nrow(compres)
-# 
-# # Prepare background
-# bgreg <- aggregate(id ~ category, compres, range)
-# bgreg <- do.call(data.frame, bgreg)
-# names(bgreg)[-1] <- c("min", "max")
-# 
-# #----- Create background plot
-# bgplot <- ggplot(compres, aes(y = id)) + theme_classic() +
-#   geom_rect(data = bgreg, mapping = aes(ymin = min - .5, ymax = max + .5, 
-#     xmin = -Inf, xmax = Inf, fill = category), alpha = .2, inherit.aes = F) +
-#   scale_fill_viridis(discrete = T, name = "Category") + 
-#   scale_y_continuous(name = "", labels = compres$label, 
-#     breaks = compres$id, trans = "reverse") +
-#   geom_hline(aes(yintercept = id - .5), lty = 3) + 
-#   geom_vline(xintercept = 1) + 
-#   theme(axis.ticks.y = element_blank()) + 
-#   scale_x_continuous(limits = c(.95, 1.05))
-# 
-# #----- Add RR change for heat and cold
-# 
-# # Cold
-# compcoldplot <- bgplot + 
-#   geom_pointrangeh(aes(x = rrcold, xmin = rrcold_low, xmax = rrcold_hi),
-#     col = "darkblue") + 
-#   xlab(sprintf("RR change at percentile %i", resultper[1]))
-# 
-# # Heat
-# compheatplot <- bgplot + 
-#   geom_pointrangeh(aes(x = rrheat, xmin = rrheat_low, xmax = rrheat_hi),
-#     col = "darkred") + 
-#   xlab(sprintf("RR change at percentile %i", resultper[2])) + 
-#   theme(axis.title.y = element_blank(),
-#     axis.text.y = element_blank())
-# 
-# #----- Put together and save
-# 
-# # Put everything together
-# compcoldplot + compheatplot + 
-#   plot_layout(guides = "collect")
-# 
-# # Save
-# ggsave("figures/SupFig_EffectModification.pdf", height = 10)
 

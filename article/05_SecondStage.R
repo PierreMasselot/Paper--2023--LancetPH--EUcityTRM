@@ -86,8 +86,3 @@ st2form <- sprintf("coefs ~ %s + region +
 # Apply meta regression model
 stage2res <- mixmeta(as.formula(st2form), data = stage2df, 
   S = vcovs, random = ~ 1|city, na.action = na.exclude) 
-
-## Waaaaaaaaaaaaaaaaaaaaaay too long
-# stage2res <- mixmeta(as.formula(st2form), data = stage2df,
-#   S = vcovs, random = ~ 1|country/city,
-#   control = list(showiter = T))

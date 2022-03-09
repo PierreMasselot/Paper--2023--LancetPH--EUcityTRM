@@ -9,6 +9,13 @@
 source("11_ResultsVulnerability.R")
 
 #-------------------------
+# Parameters
+#-------------------------
+
+# Select a specific country
+whichcount <- "FR"
+
+#-------------------------
 # Creates pretty Table
 #-------------------------
 
@@ -16,6 +23,10 @@ source("11_ResultsVulnerability.R")
 bigtable <- merge(cityageres, 
   cityres[,c("URAU_CODE", grep("stdrate", names(cityres), value = T))], 
   by = "URAU_CODE")
+
+if (whichcount != ""){
+  bigtable <- subset(bigtable, CNTR_CODE %in% "FR")
+}
 
 #----- Pretty variables
 
@@ -94,7 +105,7 @@ for (i in seq_len(nrow(metadata))){
 }
 
 # Save workbook
-path <- "figures/TableX_AllCityResults.xlsx"
+path <- sprintf("figures/TableX_AllCityResults%s.xlsx", whichcount)
 saveWorkbook(wb, path)
 
 #---------------------------
@@ -128,8 +139,8 @@ cityERFplot <- lapply(metadata$URAU_CODE, function(cd){
 names(cityERFplot) <- metadata$URAU_CODE
 
 # Reorder
-cityERFplot <- cityERFplot[with(metadata, 
-  order(region, cntr_name, URAU_CODE))]
+# cityERFplot <- cityERFplot[with(metadata, 
+#   order(region, cntr_name, URAU_CODE))]
 
 #----- Plot all ERF
 
@@ -146,12 +157,12 @@ nrows <- 6
 ncols <- 4
 
 # Prepare output
-pdf("figures/FigX_AllERF.pdf", width = 11, height = 15)
+pdf(sprintf("figures/FigX_AllERF%s.pdf", whichcount), width = 11, height = 15)
 layout(matrix(seq(nrows * ncols), nrow = nrows, byrow = T))
 par(mar = c(4, 3.8, 3, 2.4), mgp = c(2.5,1,0), las = 1)
 
 # Loop on all cities
-for(i in seq_along(cityERFplot)){
+for(i in which(substr(names(cityERFplot), 1, 2) %in% whichcount)){
   # Part of the curve above MMP
   # heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
   
@@ -192,3 +203,4 @@ for(i in seq_along(cityERFplot)){
 }
 
 dev.off()
+

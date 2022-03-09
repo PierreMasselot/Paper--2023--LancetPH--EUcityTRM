@@ -105,7 +105,7 @@ dev.print(pdf, file = "figures/SupFig_metacor.pdf", width = 15, height = 15)
 #----- Image of PLS components
 
 # Change col and row names for plot labelling
-plotload <- plsres$projection[,1:npc]
+plotload <- plsres$loadings[,1:npc]
 colnames(plotload) <- sprintf("Comp. %i", 1:npc)
 rownames(plotload) <- metadesc$label[match(metaprednames, metadesc$metavar)]
 

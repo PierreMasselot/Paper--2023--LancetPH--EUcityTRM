@@ -72,11 +72,12 @@ mcc_summary$nmcc <- with(mcc_summary,
 
 # Reorder variables
 mcc_summary <- mcc_summary[with(mcc_summary, order(region, cntr_name)),
-  c("region", "cntr_name", "ncities", "nmcc", "deaths")]
+  c("region", "cntr_name", "ncities", "nmcc", "deaths", 
+    "agegrps", "mcc_period")]
 
 # Rename columns
 colnames(mcc_summary) <- c("Region", "Country", "City number", "Cities in MCC",
-  "MCC deaths")
+  "MCC deaths", "Age groups", "Data period")
 
 # Export
 write.table(mcc_summary, "figures/SuppTable_MCCdesc.csv", sep = ",",

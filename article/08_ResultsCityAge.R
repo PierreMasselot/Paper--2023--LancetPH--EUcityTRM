@@ -264,3 +264,13 @@ cityageres[, sprintf("rate_%s", nm_suf)] <-
   cityageres[, sprintf("an_%s", nm_suf)] / cityageres[, "agepop"] * byrate
 cityageres[, sprintf("ratetotpop_%s", nm_suf)] <- 
   cityageres[, sprintf("an_%s", nm_suf)] / cityageres[, "pop"] * byrate
+
+#----- Add Attributable fractions
+
+# Compute attributable fractions
+cityageAFs <- sapply(cityageres[grep("an", names(cityageres))], "/", 
+  cityageres$death, simplify = "data.frame") * 100
+
+# Add to data.frame
+colnames(cityageAFs) <- gsub("an", "af", colnames(cityageAFs))
+cityageres <- cbind(cityageres, cityageAFs)

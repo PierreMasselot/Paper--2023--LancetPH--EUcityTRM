@@ -164,6 +164,20 @@ countryres <- merge(countryres, cntrtotpop)
 # Add region
 countryres$region <- factor(regionlist[countryres$CNTR_CODE], level = regord)
 
+#----- Attributable fractions
+
+# Compute total deaths by country
+countrydeaths <- aggregate(death ~ CNTR_CODE, data = cityageres, sum)
+countryres <- merge(countryres, countrydeaths, sort = F)
+
+# Compute AFs
+countryAFs <- sapply(countryres[grep("excess", names(countryres))], "/", 
+  countryres$death, simplify = "data.frame") * 100
+
+# Add to results data.frame
+colnames(countryAFs) <- gsub("excess", "af", colnames(countryAFs))
+countryres <- cbind(countryres, countryAFs)
+
 #---------------------------
 # Results by region
 #---------------------------
@@ -410,3 +424,19 @@ totres$pop <- sum(popage[,2])
 
 # Add to regional results
 regionres <- rbind(regionres, totres)
+
+#----- Add attributable fraction to the totals
+
+# Compute total deaths by region and total
+regiondeaths <- aggregate(death ~ region, data = cityageres, sum)
+regiondeaths <- rbind(regiondeaths, 
+  data.frame(region = "Total", death = sum(regiondeaths$death)))
+regionres <- merge(regionres, regiondeaths, sort = F)
+
+# Compute AF
+totalAFs <- sapply(regionres[grep("excess", names(regionres))], "/", regionres$death,
+  simplify = "data.frame") * 100
+colnames(totalAFs) <- gsub("excess", "af", colnames(totalAFs))
+
+# Add to result data.frame
+regionres <- cbind(regionres, totalAFs)

@@ -122,8 +122,11 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     }
     
     # Run model
+    # res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 
+    #   dat, family = quasipoisson))
+    # Exclusion of August 2003
     res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 
-      dat, family = quasipoisson))
+      dat, family = quasipoisson, subset = !(month == 8 & year == 2003)))
     
     # Some models fail completely (pseudo-weights of IRLS become Inf)
     # Exit current iteration with NAs and a flag for non-convergence

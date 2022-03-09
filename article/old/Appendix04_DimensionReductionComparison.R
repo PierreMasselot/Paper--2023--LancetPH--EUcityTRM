@@ -21,7 +21,7 @@ source("07_ResultsPrep.R")
 #---------------------------
 
 # Maximum number of components
-maxk <- 10
+maxk <- 15
 
 #---------------------------
 # Prepare cross validation
@@ -245,40 +245,40 @@ for (i in seq_len(maxk)){
 # }
 
 
-# #---------------------------
-# # CCA
-# #---------------------------
-# 
-# #----- apply on all data 
-# 
-# # Apply CCA
-# ccares <- cancor(metavar, coefs)
-# 
-# # Create new metavariables
-# ccavar <- scale(metavar) %*% ccares$xcoef
-# ccadf <- cbind(stage2df, cca = ccavar)
-# 
-# # Initialize formula and result object
-# ccaform <- basicform
-# i2scores$CCA <- aicscores$CCA <- vector("numeric", maxk)
-# mixcca <- vector("list", maxk)
-# 
-# # Loop on number of components
-# for (i in seq_len(maxk)){
-#   
-#   print(sprintf("CCA : %i / %i", i, maxk))
-#   
-#   # Update formula
-#   ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", i)))
-#   
-#   # Fit mixmeta model
-#   mixcca[[i]] <- mixmeta(ccaform, data = ccadf, S = vcovs, random = ~ 1|city)
-#   
-#   # Extract scores
-#   i2scores$CCA[i] <- summary(mixcca[[i]])$i2stat[1] 
-#   aicscores$CCA[i] <- summary(mixcca[[i]])$AIC
-# }
-#  
+#---------------------------
+# CCA
+#---------------------------
+
+#----- apply on all data
+
+# Apply CCA
+ccares <- cancor(metavar, coefs)
+
+# Create new metavariables
+ccavar <- scale(metavar) %*% ccares$xcoef
+ccadf <- cbind(stage2df, cca = ccavar)
+
+# Initialize formula and result object
+ccaform <- basicform
+i2scores$CCA <- aicscores$CCA <- vector("numeric", maxk)
+mixcca <- vector("list", maxk)
+
+# Loop on number of components
+for (i in seq_len(maxk)){
+
+  print(sprintf("CCA : %i / %i", i, maxk))
+
+  # Update formula
+  ccaform <- update(ccaform, as.formula(sprintf("~ . + cca.%i", i)))
+
+  # Fit mixmeta model
+  mixcca[[i]] <- mixmeta(ccaform, data = ccadf, S = vcovs, random = ~ 1|city)
+
+  # Extract scores
+  i2scores$CCA[i] <- summary(mixcca[[i]])$i2stat[1]
+  aicscores$CCA[i] <- summary(mixcca[[i]])$AIC
+}
+
 # #----- Cross-validation 
 # ccacvres <- foreach(i = iter(seq(splitinds$splits)), .combine = cbind,
 #   .packages = c("mixmeta", "rsample", "splines")) %dopar% 
@@ -458,12 +458,11 @@ aicmat <- do.call(cbind, aicscores[-1])
 aicmat <- rbind(aicscores[[1]], aicmat)
 
 # Plot (only PLS)
-plot(0:maxk, aicmat[,"PLS"], type = "b", pch = 16, cex = 1.5,
-  xlim = c(0, maxk), xlab = "", ylab = "AIC", 
-  col = ifelse(0:maxk == npc, 2, 1))
+matplot(0:maxk, aicmat, type = "b", pch = 16, cex = 1.5,
+  xlim = c(0, maxk), xlab = "", ylab = "AIC")
 abline(v = npc, lty = 2)
 
-dev.print(pdf, file = "figures/SupFig_nPCchoice.pdf", width = 9, height = 6)
+# dev.print(pdf, file = "figures/SupFig_nPCchoice.pdf", width = 9, height = 6)
 
 
 #----- Extract I2 values for each method
