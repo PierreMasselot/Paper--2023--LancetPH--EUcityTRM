@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #----------------------
 # Figure 1a: Age effect
@@ -79,7 +79,7 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
     panel.grid.minor = element_blank(),
     axis.ticks.length = unit(6, "pt"))
 
-dev.print(pdf, file = "figures/Fig1b_AgeMMP.pdf")
+ggsave(file = "figures/Fig1b_AgeMMP.pdf")
 
 
 #---------------------------

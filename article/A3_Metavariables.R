@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #---------------------------
 # Supplementary tables: meta-variables
@@ -28,7 +28,7 @@ desctab$Category <- rep(names(metapreds), lengths(metapreds))
 desctab$Imputed <- sprintf("%i (%i%%)", metaregvars$nmis, metaregvars$propmis)
 
 # Export
-write.table(desctab, "figures/SupTable_metavars.csv", sep = ",",
+write.table(desctab, "figures/TableS_metavars.csv", sep = ",",
   row.names = F, quote = F, na = "-")
 
 #----- Others
@@ -52,7 +52,7 @@ names(otherdesc) <- c("Variable", "Source", "Imputed")
 otherdesc$"Age groups" <- groupages
 
 # Export
-write.table(otherdesc, "figures/SupTable_othermetavars.csv", sep = ",",
+write.table(otherdesc, "figures/TableS_othermetavars.csv", sep = ",",
   row.names = F, quote = F, na = "-")
 
 #---------------------------
@@ -107,4 +107,4 @@ ggplot(avail_long, aes(x = year, y = 1, fill = value)) +
     legend.title.align = 1)
 
 # Save
-ggsave("figures/SupFig_MetavarAvail.pdf", height = 12, width = 8)
+ggsave("figures/FigS_MetavarAvail.pdf", height = 12, width = 8)

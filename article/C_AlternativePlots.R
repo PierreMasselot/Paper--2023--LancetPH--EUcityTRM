@@ -41,7 +41,7 @@ defpars <- par()
 #----- Plot 
 
 # Open pdf
-pdf("figures/FigureS_ERFbyCountry.pdf", width = 15, height = 20)
+pdf("figures/FigS_ERFbyCountry.pdf", width = 15, height = 20)
 
 # Layout
 layout(laymat, heights = c(.1, rep(1, laydims[1])))

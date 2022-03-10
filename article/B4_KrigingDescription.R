@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #---------------------------
 # Extract BLUPs and predictions for comparison
@@ -64,7 +64,7 @@ plot(blup_heat, pred_heat, pch = 15, col = 2, xlab = "RR (BLUP)",
 abline(a = 0, b = 1)
 
 # Save
-dev.print(pdf, file = "figures/SupFig_BLUPresiduals.pdf", 
+dev.print(pdf, file = "figures/FigS_BLUPresiduals.pdf", 
   width = 12, height = 6)
 
 #-------------------------
@@ -98,7 +98,7 @@ pal <- viridis(3, direction = -1)
 par(mfrow = c(1, 1))
 plot(NA, bty = "l", xaxt = "n", 
   xlab = "Temperature percentile (%)", ylab = "RR",
-  xlim = range(ovper), ylim = c(.9, 4))
+  xlim = range(ovper), ylim = c(.9, 3))
 abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
 axis(1, at = ovaxis, labels = axisper)
 
@@ -119,7 +119,7 @@ do.call(legend, c(legpars,
     y = par("usr")[4] + legdim$rect$h)))
 
 # Save
-dev.print(pdf, file = "figures/SupFig_FSpredBLUP.pdf", width = 10, height = 8)
+dev.print(pdf, file = "figures/FigS_FSpredBLUP.pdf", width = 10, height = 8)
 
 #---------------------------
 # Co-variogram
@@ -132,7 +132,7 @@ plot(mccvario, vgfit, pch = 16, col = 1, lwd = 2, ylab = "Semi-variance",
   xlab = "Distance (km)")
 
 # Save
-dev.print(pdf, file = "figures/SupFig_variogram.pdf", width = 10, height = 7)
+dev.print(pdf, file = "figures/FigS_variogram.pdf", width = 10, height = 7)
 
 
 #-------------------------
@@ -180,5 +180,5 @@ design = "12
 wrap_plots(ranplots, guides = "collect", design = design)
 
 # Save
-ggsave("figures/SupFig_krigmaps.pdf", width = 10, height = 20)
+ggsave("figures/FigS_krigmaps.pdf", width = 10, height = 20)
 

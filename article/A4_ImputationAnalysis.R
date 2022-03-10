@@ -6,10 +6,11 @@
 #
 ################################################################################
 
-source("00_Packages_Parameters.R")
-
-load("data/Alldata.RData")
-
+if (length(ls()) == 0){
+  source("00_Packages_Parameters.R")
+  
+  load("data/Alldata.RData")
+}
 # #-----------------------
 # # Checking missing values
 # #-----------------------
@@ -30,7 +31,7 @@ load("data/Alldata.RData")
 plot(meta_imp, layout = c(2, sum(metadesc$nmis > 0)))
 
 # Save
-dev.print(pdf, file = "figures/SupFig_mice_convergence.pdf", 
+dev.print(pdf, file = "figures/FigS_mice_convergence.pdf", 
   width = 8, height = 15)
 
 #-----------------------
@@ -42,7 +43,7 @@ densityplot(meta_imp,
   strip = lattice::strip.custom(factor.levels = 
       subset(metadesc, nmis > 0, label, drop = T)))
 
-dev.print(pdf, file = "figures/SupFig_imputedDensity.pdf", 
+dev.print(pdf, file = "figures/FigS_imputedDensity.pdf", 
   width = 10, height = 7)
 
 #-----------------------

@@ -7,7 +7,7 @@
 #
 ################################################################################
 
-source("13_Plots.R") # To have the map object defined
+if (length(ls()) == 0) source("13_Plots.R") # To get the basic_map object
 
 #---------------------------
 # Parameters
@@ -79,7 +79,7 @@ plot(0:maxk, aicscores, type = "b", pch = 16, cex = 1.5,
 abline(v = npc, lty = 2)
 
 # Save
-dev.print(pdf, file = "figures/SupFig_nPCchoice.pdf", width = 9, height = 6)
+dev.print(pdf, file = "figures/FigS_nPCchoice.pdf", width = 9, height = 6)
 
 #----- Correlation matrix between metapredictors variables
 
@@ -99,7 +99,7 @@ corrplot.mixed(metacor, upper = "square", tl.pos = "lt",
   upper.col = pal(200), lower.col = pal(200))
 
 # Save
-dev.print(pdf, file = "figures/SupFig_metacor.pdf", width = 15, height = 15)
+dev.print(pdf, file = "figures/FigS_metacor.pdf", width = 15, height = 15)
 
 
 #----- Image of PLS components
@@ -120,7 +120,7 @@ corrplot(t(plotload), method = "square", is.corr = F, col.lim = c(-1, 1),
   col = pal(200))
 
 # Save
-dev.print(pdf, file = "figures/SupFig_PLScor.pdf")
+dev.print(pdf, file = "figures/FigS_PLScor.pdf")
 
 
 #----- Create map for each PLS component
@@ -131,8 +131,8 @@ plsmaps <- lapply(seq_len(npc), function(i){
     seq(0, 1, length.out = 5))))
   basic_map + aes_string(fill = sprintf("pls%i", i)) + 
     # scale_fill_viridis(name = sprintf("Comp. %i", i), direction = -1) + 
-    # guides(fill = guide_colourbar(title.position = "top", title.hjust = .5,
-    #   barwidth = 10, barheight = .8))
+    guides(fill = guide_coloursteps(title.position = "top", title.hjust = .5,
+      barwidth = 10, barheight = .8, even.steps = T)) +
     scale_fill_stepsn(colours = viridis(length(cutpts) - 1, direction = -1),
       values = rescale(cutpts), breaks = cutpts,
       name = sprintf("Comp. %i", i))
@@ -148,7 +148,7 @@ plsmaps[[letters[npc + 1]]] <- basic_map + coord_sf(xlim = c(0, 0), ylim = c(0, 
   theme(legend.position = "right")
 
 # Design
-design <- matrix(letters[1:floor(npc)], ncol = 2, byrow = T)
+design <- matrix(letters[1:(2 * round(npc / 2))], ncol = 2, byrow = T)
 if (npc %% 2 == 1) design <- rbind(design, letters[npc])
 design <- cbind(design, letters[npc + 1])
 design_char <- paste(apply(design, 1, paste, collapse = ""), collapse = "\n")
@@ -157,7 +157,7 @@ design_char <- paste(apply(design, 1, paste, collapse = ""), collapse = "\n")
 wrap_plots(plsmaps, widths = c(1, 1, .1), design = design_char)
 
 # Save
-ggsave("figures/SupFig_PLSmaps.pdf", width = 15, height = 30)
+ggsave("figures/FigS_PLSmaps.pdf", width = 9, height = 13)
 
 
 #----- Curve changes at extreme PLS
@@ -166,13 +166,16 @@ ggsave("figures/SupFig_PLSmaps.pdf", width = 15, height = 30)
 pal <- viridis(2, direction = -1)
 
 # Plot layout
-design <- matrix(1:floor(npc), ncol = 2, byrow = T)
-if (npc %% 2 == 1) design <- rbind(design, npc)
+design <- matrix(1:(2 * round(npc / 2)), ncol = 2, byrow = T)
+if (npc %% 2 == 1) {
+  design <- design[,rep(1:2, each = 2)]
+  design <- rbind(design, c(0, npc, npc, 0))
+}
 design <- cbind(design, npc + 1)
 
 # Initialize layout
-pdf(file = "figures/SupFig_PLS_ERF.pdf", height = 30, width = 15)
-layout(design, widths = c(1, 1, .2))
+pdf(file = "figures/FigS_PLS_ERF.pdf", height = 13, width = 10)
+layout(design, widths = c(rep(1, 2 * (1 + (npc %% 2))), .2 * (1 + (npc %% 2))))
 
 # Loop on PLS components
 for (i in seq_len(npc)){
@@ -205,4 +208,4 @@ legend("center", legend = c("1st", "99th"), lwd = 2,
 
 # Save
 dev.off()
-# dev.print(pdf, file = "figures/SupFig_PLS_ERF.pdf", height = 7, width = 8)
+

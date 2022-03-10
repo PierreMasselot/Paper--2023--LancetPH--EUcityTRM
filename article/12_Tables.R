@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #---------------------------
 # Table 1 : country summary
@@ -93,20 +93,19 @@ country_res_export <- data.frame(countryres[,c("region", "cntr_name")],
   digits = rep(c(0, 2, 0, 0), each = 2)))
 
 # Total lines
-totline <- which(regionres$region == "Total")
 tot_pretty <- mapply(function(x, digits) sprintf(disp, 
-  formatC(regionres[totline, paste0(x, "_est")], format = "f", big.mark = ",", 
+  formatC(regionres[, paste0(x, "_est")], format = "f", big.mark = ",", 
     digits = digits), 
-  formatC(regionres[totline, paste0(x, "_low")], format = "f", 
+  formatC(regionres[, paste0(x, "_low")], format = "f", 
     big.mark = ",", digits = digits),
-  formatC(regionres[totline, paste0(x, "_hi")], format = "f", 
+  formatC(regionres[, paste0(x, "_hi")], format = "f", 
     big.mark = ",", digits = digits)),
   x = c("excess_cold", "excess_heat", "af_cold", "af_heat", 
     "rate_cold", "rate_heat", "stdrate_cold", "stdrate_heat"), 
   digits = rep(c(0, 2, 0, 0), each = 2))
 
 # Add total lines
-tot_pretty <- data.frame("Total", "Total", t(tot_pretty))
+tot_pretty <- data.frame(regionres[,1], "Total", tot_pretty)
 colnames(tot_pretty) <- colnames(country_res_export)
 country_res_export <- rbind(country_res_export, tot_pretty)
 

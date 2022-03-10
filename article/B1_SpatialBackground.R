@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #---------------------------
 #  Fit model
@@ -106,7 +106,7 @@ ggplot(data = euromap) + theme_void() +
     lims_method = "box")
 
 # Save
-ggsave("figures/SupFig_Region_maps.pdf", width = 7, height = 7)
+ggsave("figures/FigS_Region_maps.pdf", width = 7, height = 7)
 
 #----- Region-specific ERF
 
@@ -140,4 +140,4 @@ do.call(legend, c(legpars,
   list(x = mean(par("usr")[1:2]) - legdim$rect$w / 2, 
     y = par("usr")[4] + legdim$rect$h)))
 
-dev.print(pdf, file = "figures/SupFig_regionERF.pdf")
+dev.print(pdf, file = "figures/FigS_regionERF.pdf")

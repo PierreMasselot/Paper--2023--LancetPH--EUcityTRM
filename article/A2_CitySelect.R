@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("13_Plots.R") # To get the basic_map object
+if (length(ls()) == 0) source("13_Plots.R") # To get the basic_map object
 
 #---------------------------
 # Supp Figure: List of cities in MCC
@@ -22,7 +22,7 @@ basic_map + aes(fill = inmcc) +
 
 #----- Save 
 
-ggsave("figures/SupFig_URAUcities.pdf", width = 7, height = 7)
+ggsave("figures/FigS_URAUcities.pdf", width = 7, height = 7)
 
 #---------------------------
 # Supp Table: Cities in MCC by country
@@ -80,5 +80,5 @@ colnames(mcc_summary) <- c("Region", "Country", "City number", "Cities in MCC",
   "MCC deaths", "Age groups", "Data period")
 
 # Export
-write.table(mcc_summary, "figures/SuppTable_MCCdesc.csv", sep = ",",
+write.table(mcc_summary, "figures/TableS_MCCdesc.csv", sep = ",",
   row.names = F, quote = F, na = "-")
