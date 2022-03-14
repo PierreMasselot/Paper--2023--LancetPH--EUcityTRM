@@ -64,8 +64,8 @@ plot(blup_heat, pred_heat, pch = 15, col = 2, xlab = "RR (BLUP)",
 abline(a = 0, b = 1)
 
 # Save
-dev.print(pdf, file = "figures/FigS_BLUPresiduals.pdf", 
-  width = 12, height = 6)
+dev.print(png, file = "figures/FigS_BLUPresiduals.png", 
+  width = 12, height = 6, units = "in", res = 300)
 
 #-------------------------
 # Example of difference between BLUP and predicted
@@ -119,7 +119,8 @@ do.call(legend, c(legpars,
     y = par("usr")[4] + legdim$rect$h)))
 
 # Save
-dev.print(pdf, file = "figures/FigS_FSpredBLUP.pdf", width = 10, height = 8)
+dev.print(png, file = "figures/FigS_FSpredBLUP.png", width = 10, height = 8,
+  units = "in", res = 300)
 
 #---------------------------
 # Co-variogram
@@ -132,7 +133,8 @@ plot(mccvario, vgfit, pch = 16, col = 1, lwd = 2, ylab = "Semi-variance",
   xlab = "Distance (km)")
 
 # Save
-dev.print(pdf, file = "figures/FigS_variogram.pdf", width = 10, height = 7)
+dev.print(png, file = "figures/FigS_variogram.png", width = 10, height = 7,
+  units = "in", res = 300)
 
 
 #-------------------------
@@ -180,5 +182,5 @@ design = "12
 wrap_plots(ranplots, guides = "collect", design = design)
 
 # Save
-ggsave("figures/FigS_krigmaps.pdf", width = 10, height = 20)
+ggsave("figures/FigS_krigmaps.png", width = 10, height = 20)
 

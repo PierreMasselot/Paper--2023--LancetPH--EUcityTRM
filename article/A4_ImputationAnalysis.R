@@ -27,12 +27,12 @@ if (length(ls()) == 0){
 # Checking convergence
 #-----------------------
 
-# Create plot
-plot(meta_imp, layout = c(2, sum(metadesc$nmis > 0)))
-
-# Save
-dev.print(pdf, file = "figures/FigS_mice_convergence.pdf", 
-  width = 8, height = 15)
+# # Create plot
+# plot(meta_imp, layout = c(2, sum(metadesc$nmis > 0)))
+# 
+# # Save
+# dev.print(png, file = "figures/FigS_mice_convergence.png", 
+#   width = 8, height = 15, units = "in")
 
 #-----------------------
 # Comparing density of observed and imputed
@@ -43,8 +43,8 @@ densityplot(meta_imp,
   strip = lattice::strip.custom(factor.levels = 
       subset(metadesc, nmis > 0, label, drop = T)))
 
-dev.print(pdf, file = "figures/FigS_imputedDensity.pdf", 
-  width = 10, height = 7)
+dev.print(png, file = "figures/FigS_imputedDensity.png", 
+  width = 10, height = 7, units = "in", res = 300)
 
 #-----------------------
 # Comparing imputed data for population

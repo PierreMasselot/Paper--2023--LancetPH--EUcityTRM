@@ -107,4 +107,4 @@ ggplot(avail_long, aes(x = year, y = 1, fill = value)) +
     legend.title.align = 1)
 
 # Save
-ggsave("figures/FigS_MetavarAvail.pdf", height = 12, width = 8)
+ggsave("figures/FigS_MetavarAvail.png", height = 12, width = 8)

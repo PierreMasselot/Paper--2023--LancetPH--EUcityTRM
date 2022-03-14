@@ -106,7 +106,7 @@ ggplot(data = euromap) + theme_void() +
     lims_method = "box")
 
 # Save
-ggsave("figures/FigS_Region_maps.pdf", width = 7, height = 7)
+ggsave("figures/FigS_Region_maps.png", width = 7, height = 7)
 
 #----- Region-specific ERF
 
@@ -121,7 +121,7 @@ plot(NA, bty = "l", xaxt = "n",
   xlim = range(ovper), 
   # ylim = c(min(sapply(regERF, "[[", "allRRlow")), 
   #   max(sapply(regERF, "[[", "allRRhigh")))
-  ylim = c(.8, 2.5))
+  ylim = c(.8, 3.5))
 abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
 axis(1, at = ovaxis, labels = axisper)
 
@@ -140,4 +140,5 @@ do.call(legend, c(legpars,
   list(x = mean(par("usr")[1:2]) - legdim$rect$w / 2, 
     y = par("usr")[4] + legdim$rect$h)))
 
-dev.print(pdf, file = "figures/FigS_regionERF.pdf")
+dev.print(png, file = "figures/FigS_regionERF.png", width = 9, height = 6,
+  units = "in", res = 300)

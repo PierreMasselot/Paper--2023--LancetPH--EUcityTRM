@@ -79,7 +79,8 @@ plot(0:maxk, aicscores, type = "b", pch = 16, cex = 1.5,
 abline(v = npc, lty = 2)
 
 # Save
-dev.print(pdf, file = "figures/FigS_nPCchoice.pdf", width = 9, height = 6)
+dev.print(png, file = "figures/FigS_nPCchoice.png", width = 9, height = 6,
+  units = "in", res = 300)
 
 #----- Correlation matrix between metapredictors variables
 
@@ -99,7 +100,8 @@ corrplot.mixed(metacor, upper = "square", tl.pos = "lt",
   upper.col = pal(200), lower.col = pal(200))
 
 # Save
-dev.print(pdf, file = "figures/FigS_metacor.pdf", width = 15, height = 15)
+dev.print(png, file = "figures/FigS_metacor.png", width = 15, height = 15,
+  units = "in", res = 300)
 
 
 #----- Image of PLS components
@@ -120,7 +122,8 @@ corrplot(t(plotload), method = "square", is.corr = F, col.lim = c(-1, 1),
   col = pal(200))
 
 # Save
-dev.print(pdf, file = "figures/FigS_PLScor.pdf")
+dev.print(png, file = "figures/FigS_PLScor.png", units = "in", res = 300,
+  width = 10, height = 7)
 
 
 #----- Create map for each PLS component
@@ -157,7 +160,7 @@ design_char <- paste(apply(design, 1, paste, collapse = ""), collapse = "\n")
 wrap_plots(plsmaps, widths = c(1, 1, .1), design = design_char)
 
 # Save
-ggsave("figures/FigS_PLSmaps.pdf", width = 9, height = 13)
+ggsave("figures/FigS_PLSmaps.png", width = 9, height = 13)
 
 
 #----- Curve changes at extreme PLS
@@ -174,7 +177,6 @@ if (npc %% 2 == 1) {
 design <- cbind(design, npc + 1)
 
 # Initialize layout
-pdf(file = "figures/FigS_PLS_ERF.pdf", height = 13, width = 10)
 layout(design, widths = c(rep(1, 2 * (1 + (npc %% 2))), .2 * (1 + (npc %% 2))))
 
 # Loop on PLS components
@@ -207,5 +209,6 @@ legend("center", legend = c("1st", "99th"), lwd = 2,
   col = pal, bty = "n", title = "Component\npercentile")
 
 # Save
-dev.off()
+dev.print(png, file = "figures/FigS_PLS_ERF.png", height = 13, width = 10,
+  units = "in", res = 300)
 

@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("11_ResultsVulnerability.R")
 
 #-----------------------------
 # Summary ERF plot by country
@@ -40,8 +40,8 @@ defpars <- par()
 
 #----- Plot 
 
-# Open pdf
-pdf("figures/FigS_ERFbyCountry.pdf", width = 15, height = 20)
+png("figures/FigS_ERFbyCountry.png", width = 15, height = 20,
+  units = "in", res = 300)
 
 # Layout
 layout(laymat, heights = c(.1, rep(1, laydims[1])))
@@ -90,3 +90,5 @@ for (i in seq_len(nrow(reg_cntr))){
 
 # Close pdf
 dev.off()
+
+
