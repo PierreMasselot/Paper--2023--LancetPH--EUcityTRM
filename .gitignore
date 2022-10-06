@@ -41,10 +41,5 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-# Datasets
-article/data/
-article/results/
-article/figures/
-report/data/
-report/results/
-report/figures/
+# other
+NEWS

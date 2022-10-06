@@ -55,10 +55,10 @@ cityres <- cbind(cityres, allcitystdrt)
 #----- Predict coefficients for each city
 
 # Consider life expectancy at birth as age
-# cityres$age <- metadata$lifexp_00
+cityres$age <- metadata$lifexp_00
 
 # Consider 65 as a common age
-cityres$age <- rep(65, nrow(cityres))
+# cityres$age <- rep(65, nrow(cityres))
 
 # Add PLS values
 cityres <-  cbind(cityres, pcvar)

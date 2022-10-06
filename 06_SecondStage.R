@@ -20,9 +20,6 @@ unlistresults <- unlist(sapply(stage1res, "[[", "modelres"), recursive = F)
 # Exclude models that did not converge
 unlistresults <- unlistresults[sapply(unlistresults, "[[", "conv")]
 
-# Exclude groups with mean age < 5
-# unlistresults <- unlistresults[sapply(unlistresults, "[[", "ageval") > 5]
-
 # Get coefs, vcov, average age and convergence
 coefs <- t(sapply(unlistresults, "[[", "coef"))
 vcovs <- lapply(unlistresults, "[[", "vcov")
@@ -43,24 +40,14 @@ stage2df <- data.frame(region = metadata$region[repmcc], age = agevals,
 
 # Store model dimensions
 nc <- ncol(coefs) # Number of first-stage coefficients
-nm <- sum(lengths(metapreds)) # Number of metapredictors
+nm <- length(metapreds) # Number of metapredictors
 
 #---------------------------
 #  PCA/PLS on metavariables
 #---------------------------
 
-# # Select meta predictors
-# metavar <- metadata[, metaprednames]
-# 
-# # Perform PCA on metavariables
-# pcares <- prcomp(metavar, center = TRUE, scale = TRUE)
-# 
-# # Extract principal components
-# pcvar <- pcares$x[, seq_len(npc)]
-
 # Select meta predictors
-metaprednames <- unlist(metapreds)
-metavar <- metadata[, metaprednames]
+metavar <- metadata[, metapreds]
 metapls <- scale(metavar)[repmcc,]
 
 # Compute PLSR (basic PLS computed as a linear model)

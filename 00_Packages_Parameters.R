@@ -13,6 +13,7 @@
 #----- Data management
 library(sf) # Geo data
 library(eurostat) # To download eurostat data
+library(giscoR) # To download eurostat geographical information
 library(doParallel) # Run loops in parallel
 library(MESS) # For function cumsumbinning
 library(Matrix) # Functions for matrix operations
@@ -24,6 +25,10 @@ library(raster) # Loading of some data
 library(readxl) # Load excel files
 library(kgc) # Koppen-Geiger climate classification
 library(xlsx) # Export of all results in Excel
+library(data.table) # Efficient data.frame and function between
+library(dplyr) # For data management
+library(elevatr) # For elevation data
+library(rnaturalearthdata) # For coastlines: distance to coast
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -52,19 +57,23 @@ library(ggnewscale) # Two have several fill scales on the same plot
 #----------------------
 
 #----- Data
-# Years selected for metapredictors. Averaged if several
-year <- 2000:2018
 
-# Starting year for analysis
+# Paths
+path_euro <- "V:/VolumeQ/AGteam/Eurostat"
+
+# Years selected for metapredictors. Averaged if several
+year <- 2000:2020
+
+# Years for analysis
 yearstart <- 1990
 
 # Projecttion for geo objects
 geoproj <- "4326"
 
 # MCC country datasets
-mcc_countries <- c('cze9415', 'est9718', 'fnl9411', 'fra0014',  
+mcc_countries <- c('cyp0419', 'cze9420', 'est9718', 'fnl9411', 'fra0015',  
   'grc0110', 'irl8407', 'ita0110', 'nor6916', 'por8012', 
-  'spa0913', 'sui9513', 'swe9016', 'uk9016',
+  'spa0913', 'sui9513', 'swe9016', 'uk9020',
   'ger9315', 'net9516c', 'rom9416') # Last line is MCC_all
 
 # Region definition for background taken fro UN M49 
@@ -103,19 +112,17 @@ minage <- 20
 #----- Second-stage analysis
 
 # Metapredictors
-metapreds <- list(Demographic = c("pop", "prop_65p", 
-    "popdens", "lifexp_00", "isol"),
-  'Socio-economic' = c("gdp", "unempl", "educ", "depriv","bedrates"),
-  'Built-environment' = c("urbshare", "greenshare", "blueshare"),
-  Environmental = c("mount_type", "urbn_type", "coast_type", 
-    "ndvi", "pm25", "no2"),
-  Climatological = c("cooldegdays", "heatdegdays", "tmean"))
+metapreds <- c("pop", "prop_65p", "popdens", "lifexp_00", "isol",
+  "gdp", "unempl", "educ", "depriv", "bedrates",
+  "imperv", "tree", "grass", "water", "woody",
+  "elevation", "coast_dist", "ndvi", "pm25", "no2",
+  "tmean", "trange")
 
 # Number of metapredictor components
-npc <- 5
+npc <- 4
 
 # Knots for age spline
-ageknots <- 65
+ageknots <- NULL
 
 # Parameters for variogram model
 variopars <- list(
@@ -142,9 +149,9 @@ axisper <- c(1, 25, 50, 75, 99)
 ngrid <- 50
 
 # Age groups for excess mortality
-agebreaks <- c(45, 65, 75, 85)
-agelabs <- c(paste(c(minage, agebreaks[-length(agebreaks)]), 
-  agebreaks, sep = "-"), sprintf("%i+", agebreaks[length(agebreaks)]))
+agebreaks <- c(20, 45, 65, 75, 85)
+agelabs <- c(paste(agebreaks[-length(agebreaks)], agebreaks[-1], sep = "-"), 
+  sprintf("%i+", agebreaks[length(agebreaks)]))
 
 # Grid for age prediction
 agegrid <- minage:99

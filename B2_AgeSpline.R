@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("07_ResultsPrep.R")
+if (length(ls()) == 0) source("07_ResultsPrep.R")
 
 #-------------------
 # Parameters
@@ -34,9 +34,7 @@ comparedParam <- list(
   'Knots 70, 80' = list(knots = c(70, 80))
 )
 
-# baseline formula for mixmeta
-# baseform <- sprintf("coefs ~ %s + region",
-#   paste(colnames(pcvar), collapse = " + "))
+# Baseline formula for mixmeta: at this point regional background is chosen
 baseform <- "coefs ~ region"
 
 #-------------------
@@ -76,4 +74,5 @@ plot(aicvec, pch = 16, ylab = "AIC", xlab = "", xaxt = "n",
   col = ifelse(aicvec == min(aicvec), 2, 1), cex = 1.5)
 axis(1, at = seq_along(aicvec), labels = names(aicvec), las = 3)
 
-dev.print(pdf, file = "figures/SupFig_agecomparison.pdf", width = 9, height = 6)
+dev.print(png, file = "figures/FigS_agecomparison.png", width = 9, height = 6,
+  units = "in", res = 300)

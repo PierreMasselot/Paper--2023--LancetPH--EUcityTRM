@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-if (length(ls()) == 0) source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("12_ResultsVulnerability.R")
 
 #----------------------
 # Figure 1a: Age effect
@@ -131,7 +131,7 @@ bgplot <- ggplot(big_cityres,
 coldplot <- bgplot + 
   aes(y = rrcold, ymin = rrcold_low, ymax = rrcold_hi) + 
   scale_color_manual(guide = "none",
-    values = brewer.pal(length(agebreaks) + 3, "Blues")[-(1:2)]) +
+    values = brewer.pal(length(agebreaks) + 2, "Blues")[-(1:2)]) +
   ylab(sprintf("RR at temperature\npercentile %i", resultper[1])) + 
   scale_x_continuous(name = "", breaks = NULL,
     sec.axis = sec_axis(trans = ~., name = "", breaks = regpos$id, 
@@ -140,7 +140,7 @@ coldplot <- bgplot +
 heatplot <- bgplot + 
   aes(y = rrheat, ymin = rrheat_low, ymax = rrheat_hi) + 
   scale_color_manual(guide = "none",
-    values = brewer.pal(length(agebreaks) + 3, "Reds")[-(1:2)]) +
+    values = brewer.pal(length(agebreaks) + 2, "Reds")[-(1:2)]) +
   ylab(sprintf("RR at temperature\npercentile %i", resultper[2]))
 
 #----- Put together and save
@@ -150,7 +150,7 @@ legplot <- ggplot(big_cityres, aes(x = id, group = agegroup, col = agegroup)) +
   theme_void() + ylim(c(0,0)) +
   geom_pointrange(aes(y = rrheat, ymin = rrheat_low, ymax = rrheat_hi)) +
   scale_color_manual(name = "Age group",
-    values = brewer.pal(length(agebreaks) + 3, "Greys")[-(1:2)]) + 
+    values = brewer.pal(length(agebreaks) + 2, "Greys")[-(1:2)]) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 # Put everything together

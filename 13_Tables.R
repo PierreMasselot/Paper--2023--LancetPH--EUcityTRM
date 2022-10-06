@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-if (length(ls()) == 0) source("11_ResultsVulnerability.R")
+if (length(ls()) == 0) source("12_ResultsVulnerability.R")
 
 #---------------------------
 # Table 1 : country summary
@@ -110,10 +110,6 @@ colnames(tot_pretty) <- colnames(country_res_export)
 country_res_export <- rbind(country_res_export, tot_pretty)
 
 # Reorder
-# country_res_export$region <- factor(country_res_export$region, 
-#   levels = c(regord, "Total"))
-# country_res_export$cntr_name <- factor(country_res_export$cntr_name, 
-#   levels = c(sort(unique(countryres$cntr_name)), "Total"))
 country_res_export <- country_res_export[with(country_res_export, 
   order(region, cntr_name)),]
 

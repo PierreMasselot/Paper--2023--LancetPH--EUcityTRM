@@ -108,3 +108,24 @@ ggplot(avail_long, aes(x = year, y = 1, fill = value)) +
 
 # Save
 ggsave("figures/FigS_MetavarAvail.png", height = 12, width = 8)
+
+#---------------------------
+# Plotting metavariables
+#---------------------------
+
+ggplot(data = metadata, aes(x = lon, y = lat, size = pop, fill = no2)) + 
+  theme_void() + 
+  geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
+  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+    crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
+    lims_method = "box") +
+  scale_size(range = c(2, 8), guide = "none",
+    breaks = c(1, 5, 10, 50) * 10^5, labels = c(1, 5, 10, 50) / 10, 
+    name = "Population (millions)") + 
+  theme(legend.position = "bottom", legend.box = "vertical") + 
+  geom_point(alpha = .9, pch = 21, colour = "white", stroke = .1) + 
+  guides(fill = guide_coloursteps(title.position = "top", title.hjust = .5,
+    barwidth = 20, barheight = .8, even.steps = T)) + 
+  scale_fill_viridis(name = "NO2 (mg/m3)")
+
+ggsave("figures/FigX_no2Map.pdf", width = 7, height = 7, units = "in")

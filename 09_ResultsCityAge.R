@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("07_ResultsPrep.R")
+source("08_ResultsPrep.R")
 
 #---------------------------
 # Prepare predictions
@@ -31,7 +31,7 @@ cityageres$agegroup <- agelabs[cityagegrid[,1]]
 #----- Compute average age of death for each city/age group
 
 # Determine average death age for each prediction group and each city
-agegrps <- cut(ageseq[ageseq > minage], c(minage, agebreaks, 100), right = F)
+agegrps <- cut(ageseq[ageseq > minage], c(agebreaks, 100), right = F)
 agepred <- tapply(ageseq[ageseq > minage], agegrps, function(a){
   apply(agedeaths[,as.character(a)], 1, weighted.mean, x = a)
 })
@@ -65,7 +65,7 @@ cityagecoefs <- Map(function(cfix, cran){
   list(fit = csum, vcov = cvcov)
 }, cityagecoefs, ranpred[cityagegrid[,2]])
 
-#----- Predict overall curves
+#----- Construct curves
 
 cityageERF <- Map(function(b, era5){
     # percentiles of era5 for this city
@@ -93,12 +93,14 @@ cityageres$mmp <- as.numeric(gsub("%", "",
   sapply(cityageERF, function(x) attr(x$cen, "names"))))
 
 # Relative risks at extreme percentiles
-cityageres$rrcold <- sapply(cityageERF, "[[", "allRRfit")[predper == resultper[1],]
+cityageres$rrcold <- sapply(cityageERF, "[[", "allRRfit")[
+  predper == resultper[1],]
 cityageres$rrcold_low <- sapply(cityageERF, "[[", "allRRlow")[
   predper == resultper[1],]
 cityageres$rrcold_hi <- sapply(cityageERF, "[[", "allRRhigh")[
   predper == resultper[1],]
-cityageres$rrheat <- sapply(cityageERF, "[[", "allRRfit")[predper == resultper[2],]
+cityageres$rrheat <- sapply(cityageERF, "[[", "allRRfit")[
+  predper == resultper[2],]
 cityageres$rrheat_low <- sapply(cityageERF, "[[", "allRRlow")[
   predper == resultper[2],]
 cityageres$rrheat_hi <- sapply(cityageERF, "[[", "allRRhigh")[
@@ -136,7 +138,7 @@ popgrps <- tapply(as.list(as.data.frame(ageprop))[ageseq > minage],
 popgrps <- c(do.call(rbind, popgrps))
 
 # Multiply by total population
-cityageres$agepop <- popgrps * rep(metadata$pop, each = length(agebreaks) + 1) / 
+cityageres$agepop <- popgrps * rep(metadata$pop, each = length(agebreaks)) / 
   100
 
 #----- Construct deaths for each city / age group
@@ -158,7 +160,7 @@ cityageres$death <- with(cityageres, deathrate * agepop)
 espbreaks <- (seq_along(esp2013) - 1) * 5
 
 # Create groups
-espgrps <- cut(espbreaks[espbreaks >= minage], c(minage, agebreaks, 100), 
+espgrps <- cut(espbreaks[espbreaks >= minage], c(agebreaks, 100), 
   right = F, labels = agelabs)
 
 # Sum stamdard population for each group
@@ -243,7 +245,7 @@ attrlist <- foreach(i = seq_len(nca),
   ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
   
   # Output divided by the total number of day to obtain annual values
-  list(est = rbind(anlist, ansimCI), sim = ansimlist)
+  list(est = rbind(anlist, ansimCI), sim = ansimlist, coefsim = coefsim)
 }
 
 # Stop parallel

@@ -75,7 +75,7 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
   
   # Determine age ranges
   agerange <- sapply(strsplit(yvars, "_"), "[", 2)
-  if (is.na(agerange)){
+  if (all(is.na(agerange))){
     amin <- "00"
     amax <- "99"
   } else {

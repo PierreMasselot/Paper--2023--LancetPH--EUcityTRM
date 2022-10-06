@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("05_SecondStage.R")
+source("06_SecondStage.R")
 
 #---------------------------
 # Prepare BLUP spatial information
@@ -42,9 +42,9 @@ for (i in 1:nc) {
 #----- Fit variogram for correlation structure
 
 # Compute semi variogram
-mccvario <- variogram(cokrig, cutoff = 1000)
+mccvario <- variogram(cokrig, cutoff = 600)
 
-# Initial variogram model
+# Fit variogram model
 varmod <- do.call(vgm, variopars)
 vgfit <- fit.lmc(mccvario, cokrig, varmod,
   fit.method = 6, correct.diagonal = 1.01)

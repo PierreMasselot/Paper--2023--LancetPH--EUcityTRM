@@ -6,14 +6,14 @@
 #
 ################################################################################
 
-source("11_ResultsVulnerability.R")
+source("12_ResultsVulnerability.R")
 
 #-------------------------
 # Parameters
 #-------------------------
 
 # Select a specific country
-whichcount <- "FR"
+whichcount <- ""
 
 #-------------------------
 # Creates pretty Table
@@ -162,7 +162,9 @@ layout(matrix(seq(nrows * ncols), nrow = nrows, byrow = T))
 par(mar = c(4, 3.8, 3, 2.4), mgp = c(2.5,1,0), las = 1)
 
 # Loop on all cities
-for(i in which(substr(names(cityERFplot), 1, 2) %in% whichcount)){
+# plotlist <- which(substr(names(cityERFplot), 1, 2) %in% whichcount)
+plotlist <- seq_along(cityERFplot)
+for(i in plotlist){
   # Part of the curve above MMP
   # heatind <- cityERFplot[[i]][[1]]$predvar >= cityERFplot[[i]][[1]]$cen
   
@@ -204,3 +206,14 @@ for(i in which(substr(names(cityERFplot), 1, 2) %in% whichcount)){
 
 dev.off()
 
+
+#---------------------------
+# Export coefs/vcov for use in projection studies
+#---------------------------
+
+# Create list of results
+coeflist <- Map(function(icoef, iattr) c(icoef, iattr["coefsim"]),
+  cityagecoefs, attrlist)
+
+# Export
+save(cityageres, coeflist, file = sprintf("%s/data/URAU_ERF.RData", path_euro))
