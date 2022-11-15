@@ -15,10 +15,10 @@ if (length(ls()) == 0) source("12_ResultsVulnerability.R")
 #----- Prepare plot
 
 # Select specific ages
-selagecp <- agecp[agegrid %in% agebreaks]
+selagecp <- agecp[agegrid %in% agebreaks[-1]]
 
 # Palette
-pal <- viridis(length(agebreaks), direction = -1)
+pal <- viridis(length(selagecp), direction = -1)
 
 #----- Plot all for ages
 
@@ -32,14 +32,14 @@ abline(v = ovaxis, h = axTicks(2), lty = 2, col = "lightgrey")
 axis(1, at = ovaxis, labels = axisper)
 
 # Add age curves
-for (i in seq_along(agebreaks)){
+for (i in seq_along(selagecp)){
   lines(selagecp[[i]], ptype = "overall", col = pal[i], ci = "area", 
     lwd = 2, ci.arg = list(col = adjustcolor(pal[i], .2)))
 }
 abline(h = 1)
 
 # Add legend
-legpars <- list(legend = agebreaks, col = pal, lty = 1, lwd = 2, 
+legpars <- list(legend = agebreaks[-1], col = pal, lty = 1, lwd = 2, 
   title = "Age", bty = "n", horiz = T, xpd = T)
 legdim <- do.call(legend, c(legpars, list(x = "center", plot = F)))
 do.call(legend, c(legpars, 
@@ -53,15 +53,28 @@ dev.print(pdf, file = "figures/Fig1a_AgeERF.pdf", width = 10, height = 8)
 # Figure 1b: MMP versus age
 #----------------------
 
-#----- Create data.frame
+#----- Prepare
 
-mmpdf <- data.frame(age = agegrid, mmp = agemmp, 
-  low = mmpci[1,], high = mmpci[2,])
+# Create data.frame
+mmpdf <- data.frame(age = agegrid, mmp = agemmp, mmpci)
 
-#----- Plot it
+# Color palette
+cipal <- adjustcolor(viridis(length(alphalist), direction = -1), .4)
+names(cipal) <- sprintf("a%i", alphalist * 100)
 
-ggplot(mmpdf, aes(x = age)) + theme_classic() +
-  geom_ribbon(aes(ymin = low, ymax = high), fill = adjustcolor(4, .4)) + 
+#----- Plot
+
+# Initialize ribbons
+ribs <- lapply(seq_along(alphalist), function(i) geom_ribbon(
+  aes_string(ymin = sprintf("low_%i", alphalist[i] * 100), 
+    ymax = sprintf("high_%i", alphalist[i] * 100), 
+    fill = factor(names(cipal))[i]))
+)
+
+# Create full plot with Ribbons
+Reduce("+", ribs, init = ggplot(mmpdf, aes(x = age))) + 
+  scale_fill_manual(values = rev(cipal), name = "CI",
+    labels = rev(sprintf("%i%%", 100 - alphalist * 100))) +
   geom_line(aes(y = mmp), size = 1.5) + 
   scale_x_continuous(name = "Age", 
     breaks = seq(minage, 100, by = 10)) + 
@@ -69,6 +82,7 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
     breaks = ovper[predper %in% seq(30, 90, by = 10)], 
     labels = seq(30, 90, by = 10)) + 
   # coord_cartesian(ylim = ovper[predper %in% c(50, 90)]) +
+  theme_classic() +
   theme(axis.text = element_text(size = 12), 
     axis.text.x = element_text(margin = margin(t = 6)),
     axis.text.y = element_text(margin = margin(r = 6)),
@@ -77,7 +91,8 @@ ggplot(mmpdf, aes(x = age)) + theme_classic() +
     axis.title.y = element_text(margin = margin(r = 12)),
     panel.grid.major = element_line(linetype = 2, color = "lightgrey"),
     panel.grid.minor = element_blank(),
-    axis.ticks.length = unit(6, "pt"))
+    axis.ticks.length = unit(6, "pt"),
+    legend.position = "top")
 
 ggsave(file = "figures/Fig1b_AgeMMP.pdf")
 
@@ -123,8 +138,8 @@ bgplot <- ggplot(big_cityres,
     axis.text.x.top = element_text(size = 15),
     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) + 
   geom_pointrange(position = position_dodge(.8), size = .3) + 
-  coord_cartesian(ylim = c(.8, 2.5)) + 
-  scale_y_continuous(breaks = c(1, 1.5, 2, 2.5))
+  coord_cartesian(ylim = c(.8, 3)) + 
+  scale_y_continuous(breaks = c(1, 2, 3))
 
 #----- Add values for heat and cold
 
@@ -158,7 +173,7 @@ coldplot / heatplot / legplot +
   plot_layout(heights = c(1, 1, .1))
 
 # Save
-ggsave("figures/Fig2_CapitalRes.pdf", height = 8, width = 15)
+ggsave(sprintf("figures/Fig2_CapitalRes%s.pdf", suf), height = 8, width = 15)
 
 #---------------------------
 #  Figure 3: Excess rates by country and age group
@@ -243,7 +258,7 @@ ggplot(plotageres, aes(y = id)) + theme_classic() +
     name = "Age group")
 
 # Save
-ggsave("figures/Fig3_CountryExcess.pdf", height = 8, width = 12)
+ggsave(sprintf("figures/Fig3_CountryExcess%s.pdf", suf), height = 8, width = 12)
 
 #---------------------------
 #  Figure 4: Big maps of results
@@ -301,8 +316,8 @@ stdcoldmap <- basic_map + aes(fill = stdrate_cold_est) +
 
 
 # Heat with white to red
-cutpts <- unname(round(quantile(cityres$stdrate_heat_est / 5, 
-  seq(0, 1, length.out = 7))) * 5)
+cutpts <- unique(unname(round(quantile(cityres$stdrate_heat_est / 5, 
+  seq(0, 1, length.out = 7))) * 5))
 stdheatmap <- basic_map + aes(fill = stdrate_heat_est) + 
   scale_fill_stepsn(
     colours = rocket(length(cutpts) - 1, direction = -1, begin = .3),
@@ -329,5 +344,6 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
   plot_layout(height = c(1, 1, .05))
 
 # Save
-ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
+ggsave(sprintf("figures/Fig4_cityMap%s.pdf", suf), 
+  width = 10, height = 15, units = "in")
 

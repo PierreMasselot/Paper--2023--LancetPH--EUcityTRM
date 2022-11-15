@@ -211,9 +211,27 @@ dev.off()
 # Export coefs/vcov for use in projection studies
 #---------------------------
 
-# Create list of results
-coeflist <- Map(function(icoef, iattr) c(icoef, iattr["coefsim"]),
-  cityagecoefs, attrlist)
+# Save results summary
+save(cityageres, file = sprintf("%s/data/city_coef/RData/city_desc.RData", 
+  path_euro))
+write.table(cityageres, file = sprintf("%s/data/city_coef/csv/city_desc.csv", 
+  path_euro), sep = ",", row.names = F, col.names = T)
 
-# Export
-save(cityageres, coeflist, file = sprintf("%s/data/URAU_ERF.RData", path_euro))
+# Loop on city to export
+cityage_coeflist <- tapply(seq_len(nca), cityageres$URAU_CODE, function(ind){
+  
+  # Create single list
+  icoefs <- lapply(cityagecoefs[ind], plyr::rename, c("fit" = "coef"))
+  isim <- lapply(attrlist[ind], "[", "coefsim")
+  outlist <- Map(c, icoefs, isim)
+  names(outlist) <- cityageres$agegroup[ind]
+  
+  # Export
+  saveRDS(outlist, file = sprintf("%s/data/city_coef/RDS/%s.RDS", 
+    path_euro, unique(cityageres$URAU_CODE[ind])))
+  outlist
+})
+
+# Save the full list
+save(cityageres, cityage_coeflist, 
+  file = sprintf("%s/data/city_coef/RData/all_city_coefs.RData", path_euro))

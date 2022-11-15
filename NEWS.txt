@@ -1,0 +1,3 @@
+- Some linkage with NUTS3_2016
+- Amended the age plot not to show age 20
+- Made model selection easier to follow

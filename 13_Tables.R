@@ -69,7 +69,7 @@ tab_export <- country_summary[with(country_summary, order(region, cntr_name)),
   "nmcc", "pop", "deaths", "tmean_IQR")]
 
 # Export
-write.table(tab_export, "figures/Table1.txt", sep = ";",
+write.table(tab_export, sprintf("figures/Table1%s.txt", suf), sep = ";",
   row.names = F, quote = F, na = "-")
 
 #---------------------------
@@ -114,5 +114,5 @@ country_res_export <- country_res_export[with(country_res_export,
   order(region, cntr_name)),]
 
 # Export
-write.table(country_res_export, "figures/Table2.txt", sep = ";",
+write.table(country_res_export, sprintf("figures/Table2%s.txt", suf), sep = ";",
   row.names = F, quote = F, na = "-")

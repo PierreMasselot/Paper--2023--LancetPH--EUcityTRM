@@ -6,9 +6,10 @@
 #
 ################################################################################
 
-source("00_Packages_Parameters.R")
-
-load("data/Alldata.RData")
+if (length(ls()) == 0){
+  source("00_Packages_Parameters.R")
+  load("data/Alldata.RData")
+}
 
 #---------------------------
 #  Prepare loop
@@ -122,10 +123,10 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     }
     
     # Run model
-    # res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 
+    # res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))),
     #   dat, family = quasipoisson))
     # Exclusion of August 2003
-    res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))), 
+    res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))),
       dat, family = quasipoisson, subset = !(month == 8 & year == 2003)))
     
     # Some models fail completely (pseudo-weights of IRLS become Inf)
@@ -161,4 +162,4 @@ stopCluster(cl)
 names(stage1res) <- cities$city
 
 # Export
-save.image(file = "data/FirstStage.RData")
+save.image(file = sprintf("data/FirstStage%s.RData", suf))

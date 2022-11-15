@@ -65,6 +65,12 @@ meta_means <- aggregate(metacityyear[,metadesc$metavar],
 # Merge to metadata
 metadata <- merge(metadata, meta_means, by = "URAU_CODE", all.x = T)
 
+# Round the proportions to 100
+propvars <- grep("prop_[[:digit:]]{4}", names(metadata), value = T)
+metadata[,propvars] <- 100 * metadata[,propvars] / 
+  matrix(rowSums(metadata[,propvars]), 
+    nrow = nrow(metadata), ncol = length(propvars), byrow = F)
+
 #---------------------------
 # Keep track of missing values
 #---------------------------

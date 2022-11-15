@@ -24,7 +24,7 @@ library(abind) # Array binding
 library(raster) # Loading of some data
 library(readxl) # Load excel files
 library(kgc) # Koppen-Geiger climate classification
-library(xlsx) # Export of all results in Excel
+# library(xlsx) # Export of all results in Excel
 library(data.table) # Efficient data.frame and function between
 library(dplyr) # For data management
 library(elevatr) # For elevation data
@@ -65,7 +65,7 @@ path_euro <- "V:/VolumeQ/AGteam/Eurostat"
 year <- 2000:2020
 
 # Years for analysis
-yearstart <- 1990
+yearanalysis <- 1990:2019
 
 # Projecttion for geo objects
 geoproj <- "4326"
@@ -128,7 +128,7 @@ ageknots <- NULL
 variopars <- list(
   model = "Gau",
   nugget = NA,
-  range = 350
+  range = 250
 )
 
 #----- Results exploitation
@@ -161,3 +161,6 @@ nsim <- 1000
 
 # Denominator for death rates
 byrate <- 10^5
+
+# Suffix for results saving
+suf <- ""

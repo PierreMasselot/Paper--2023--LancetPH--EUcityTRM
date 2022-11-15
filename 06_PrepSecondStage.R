@@ -2,13 +2,14 @@
 #
 #                         MCC-EUcityTRM
 #
-#                   Second stage meta analysis
+#         Prepare objects for second stage & prediction
 #
 ################################################################################
 
-load("data/FirstStage.RData")
-
-source("00_Packages_Parameters.R")
+if (length(ls()) == 0){
+  load("data/FirstStage.RData")
+  source("00_Packages_Parameters.R")
+}
 
 #---------------------------
 #  Prepare stage 2 dataset
@@ -43,33 +44,38 @@ nc <- ncol(coefs) # Number of first-stage coefficients
 nm <- length(metapreds) # Number of metapredictors
 
 #---------------------------
-#  PCA/PLS on metavariables
+# Prepare predictions
 #---------------------------
 
-# Select meta predictors
-metavar <- metadata[, metapreds]
-metapls <- scale(metavar)[repmcc,]
+#----- Common temperature for prediction
 
-# Compute PLSR (basic PLS computed as a linear model)
-plsres <- plsr(coefs ~ metapls, center = F)
+# Estimate an overall empirical distribution of temperature
+tmeandist <- t(sapply(era5series, 
+  function(x) quantile(x$era5landtmean, predper / 100)))
+ovper <- colMeans(tmeandist)
 
-# Extract scores for all cities
-pcvar <- predict(plsres, newdata = scale(metavar), ncomp = 1:npc, 
-  type = "scores")
-colnames(pcvar) <- sprintf("pls%i", seq_len(npc))
+# Create basis for overall relationship
+ovknots <- ovper[sprintf("%i.0%%",varper)]
+ov_basis <- onebasis(ovper, fun = varfun, degree = vardegree, knots = ovknots)
 
-# Add to second stage dataset
-stage2df <- cbind(stage2df, pcvar[repmcc,])
+# Acceptable MMP values 
+inrange <- predper >= mmprange[1] & predper <= mmprange[2]
+
 
 #---------------------------
-#  Meta-regression model
+# Prepare plotting
 #---------------------------
 
-# Create formula
-st2form <- sprintf("coefs ~ %s + region + 
-    ns(age, knots = %s, Boundary.knots = c(0, 100))",
-  paste(colnames(pcvar), collapse = " + "), deparse(ageknots))
+#----- For reporting ERFs
 
-# Apply meta regression model
-stage2res <- mixmeta(as.formula(st2form), data = stage2df, 
-  S = vcovs, random = ~ 1|city, na.action = na.exclude) 
+# Axis locations for plots
+ovaxis <- ovper[predper %in% axisper]
+
+#----- For maps
+# Country layout
+euromap <- get_eurostat_geospatial(nuts_level = "0", year = "2021")
+
+# Limits of cities considered
+urauext <- st_bbox(metageo)
+bnlon <- urauext[c(1,3)]
+bnlat <- urauext[c(2,4)]

@@ -70,6 +70,11 @@ metadata$LABEL[is.na(metadata$LABEL)] <- metadata$URAU_NAME[
 # Remove all mention to city words
 metadata$LABEL <- gsub("Greater", "", metadata$LABEL)
 
+# Relabel whent here is a comma
+commaind <- grep("\\,", metadata$LABEL)
+metadata$LABEL[commaind] <- sapply(strsplit(metadata$LABEL[commaind], ", "), 
+  function(x) paste(rev(x), collapse = " "))
+
 # Remove all that is in parenthesis
 metadata$LABEL <- gsub("\\(.*\\)", "", metadata$LABEL)
 
@@ -279,7 +284,7 @@ metacityyear <- merge(metacityyear, no2_long, by = c("URAU_CODE", "year"),
 metadesc <- rbind(metadesc, cbind(metavar = "no2", 
   label = "NO2", source = "Atmospheric Composition Analysis Group"))
 
-#----- CORINE
+#----- Copernicus High-Resolution-Layers
 
 # Load data
 load(paste0(path_rem, "/Corine_LC_URAU_LB_2015_boundaries.RData"))
@@ -297,7 +302,7 @@ metadesc <- rbind(metadesc, cbind(
   metavar = c("imperv", "tree", "grass", "water", "woody"), 
   label = c("Imperviousness", "Tree Cover Density", "Grassland", 
     "Wetness and Water", "Small Woody Features"), 
-  source = "Copernicus / CORINE"))
+  source = "Copernicus / HRL"))
 
 #---------------------------
 # Additional city-level data
@@ -348,7 +353,7 @@ era5_df <- subset(URAU_RG_2020_4326_era5_land_df,
   URAU_CODE %in% metadata$URAU_CODE)
 
 # Select period
-era5_df <- subset(era5_df, date >= as.Date(sprintf("%i-01-01", yearstart)))
+era5_df <- subset(era5_df, format(date, "%Y") %in% yearanalysis)
 
 # Split by location
 era5series <- split(era5_df[,c("date", "era5landtmean")], era5_df$URAU_CODE)

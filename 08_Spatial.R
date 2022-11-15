@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("06_SecondStage.R")
+if (length(ls()) == 0) source("07_SecondStage.R")
 
 #---------------------------
 # Prepare BLUP spatial information

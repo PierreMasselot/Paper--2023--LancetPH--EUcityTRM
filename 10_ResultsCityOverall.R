@@ -153,4 +153,4 @@ cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
 # Save
 #---------------------------
 
-save.image("data/cityResults.RData")
+save.image(sprintf("data/cityResults%s.RData", suf))

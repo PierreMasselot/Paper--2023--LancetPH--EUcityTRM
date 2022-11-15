@@ -73,7 +73,7 @@ cities <- cities[cities$country %in% mcc_countries,]
 
 for(i in seq(dlist)) {
   # Exclude everything before starting year
-  dlist[[i]] <- dlist[[i]][dlist[[i]]$year >= yearstart,]
+  dlist[[i]] <- dlist[[i]][dlist[[i]]$year %in% yearanalysis,]
   
   # Reorder by date
   dlist[[i]] <- dlist[[i]][order(dlist[[i]]$date),]
@@ -107,4 +107,4 @@ dlist <- dlist[ord]
 # Save
 save(dlist, cities, metadata, metadesc, metacityyear, 
   metageo, era5series,
-  file = "data/Alldata.RData")
+  file = sprintf("data/Alldata%s.RData", suf))

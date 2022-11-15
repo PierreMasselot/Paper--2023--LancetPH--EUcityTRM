@@ -24,11 +24,20 @@ nuts_meta$POP_PROP[is.na(nuts_meta$POP_PROP)] <- 1
 #----- Prepare the annual table for NUTS
 
 # Expand by year
-meta_nutsyear <- expand.grid(NUTS3 = unique(nuts_meta$NUTS3), year = year)
+meta_nutsyear <- expand.grid(NUTS3_2021 = unique(nuts_meta$NUTS3_2021), 
+    year = year) |> 
+  merge(subset(nuts_meta, !duplicated(NUTS3_2021), 
+    c("NUTS3_2021", "NUTS3_2016"))) |>
+  arrange(NUTS3_2021, year)
+
 
 # Create variables for higher NUTS level
-for (i in 0:2) meta_nutsyear[[sprintf("NUTS%i", i)]] <- substr(
-  meta_nutsyear$NUTS3, 1, 2 + i)
+for (i in 0:2) {
+  meta_nutsyear[[sprintf("NUTS%i_2021", i)]] <- substr(
+    meta_nutsyear$NUTS3_2021, 1, 2 + i)
+  meta_nutsyear[[sprintf("NUTS%i_2016", i)]] <- substr(
+    meta_nutsyear$NUTS3_2021, 1, 2 + i)
+}
 
 #---------------------------
 # Load NUTS meta-variables
@@ -41,20 +50,31 @@ for (i in 0:2) meta_nutsyear[[sprintf("NUTS%i", i)]] <- substr(
 # newvar: the df containing new NUTS metavariable
 # level: the NUTS level of the variable
 # highest: the highest NUTS level to attempt the match if the level is not found
-nuts_merge <- function(meta, newvar, level = 3, highest = level)
+# tryOld: logical. Should the merging should be attempting with 2016 NUTS codes?
+nuts_merge <- function(meta, newvar, level = 3, highest = level, tryOld = T)
 {
   
   # Determine index variable
-  idvar <- sprintf("NUTS%s", level)
+  idvar <- sprintf("NUTS%s_2021", level)
   
   # Initial merge with metadata
   meta <- merge(meta, newvar, by.x = c(idvar, "year"), by.y = c("geo", "time"),
     all.x = T, all.y = F)
   
+  # Try to merge with NUTS3 of 2016
+  if (tryOld){
+    idold <- sprintf("NUTS%s_2016", level)
+    nutmis <- is.na(meta[,colnames(newvar)[3]])
+    matchind <- match(interaction(meta[nutmis, c(idold, "year")]), 
+      interaction(newvar[,c("geo", "time")]))
+    meta[which(nutmis)[!is.na(matchind)], colnames(newvar)[-(1:2)]] <- 
+      newvar[na.omit(matchind), -(1:2)]
+  }
+  
   # Try to merge with higher level for missing
   while (level > highest){
     level <- level - 1
-    idvar <- sprintf("NUTS%s", level)
+    idvar <- sprintf("NUTS%s_2021", level)
     nutmis <- is.na(meta[,colnames(newvar)[3]])
     matchind <- match(interaction(meta[nutmis, c(idvar, "year")]), 
       interaction(newvar[,c("geo", "time")]))

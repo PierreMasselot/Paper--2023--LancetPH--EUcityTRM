@@ -6,9 +6,10 @@
 #
 ################################################################################
 
-source("00_Packages_Parameters.R")
-
-load("data/cityResults.RData")
+if (length(ls()) == 0){
+  source("00_Packages_Parameters.R")
+  load("data/cityResults.RData")
+}
 
 #---------------------------
 # Country-age results
