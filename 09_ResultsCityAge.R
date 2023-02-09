@@ -223,26 +223,38 @@ attrlist <- foreach(i = seq_len(nca),
   # Total simulated coefs
   coefsim <- fixsim + ransim
   
-  # Estimate mmt for each simulation
-  whichmmt <- apply((ov_basis %*% t(coefsim))[inrange,], 2, which.min)
-  mmtsim <- quantile(era5, predper / 100)[inrange][whichmmt]
-  cenmat <- onebasis(mmtsim, fun = varfun, degree = vardegree, 
-    knots = quantile(era5, varper / 100), Boundary.knots = range(era5))
+  # # Estimate mmt for each simulation
+  # whichmmt <- apply((ov_basis %*% t(coefsim))[inrange,], 2, which.min)
+  # mmtsim <- quantile(era5, predper / 100)[inrange][whichmmt]
+  # cenmat <- onebasis(mmtsim, fun = varfun, degree = vardegree, 
+  #   knots = quantile(era5, varper / 100), Boundary.knots = range(era5))
+  # 
+  # # Center basis and multiply and compute daily an
+  # andaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
+  #     scale = F) %*% coef)) * cityageres[i, "death"],
+  #   as.data.frame(t(cenmat)), as.data.frame(t(coefsim)))
+  # 
+  # # Heat index for each simulation
+  # heatindsim <- outer(era5, mmtsim, ">=")
+  # 
+  # # Sum total, heat and cold
+  # ansimlist <- cbind(total = colSums(andaysim), 
+  #   cold = colSums(andaysim * (!heatindsim)), 
+  #   heat = colSums(andaysim * heatindsim))
+  # ansimlist <- ansimlist / length(era5)
+  # ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
   
-  # Center basis and multiply and compute daily an
-  andaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
-      scale = F) %*% coef)) * cityageres[i, "death"],
-    as.data.frame(t(cenmat)), as.data.frame(t(coefsim)))
+  # Compute daily AN
+  andaysim <- apply(coefsim, 1, function(coef) (1 - exp(-bvarcen %*% coef)) * 
+      cityageres[i, "death"])
   
-  # Heat index for each simulation
-  heatindsim <- outer(era5, mmtsim, ">=")
-  
-  # Sum total, heat and cold
+  # Sum for total, heat and cold
   ansimlist <- cbind(total = colSums(andaysim), 
-    cold = colSums(andaysim * (!heatindsim)), 
-    heat = colSums(andaysim * heatindsim))
+    cold = colSums(andaysim[!heatind,]), 
+    heat = colSums(andaysim[heatind,]))
   ansimlist <- ansimlist / length(era5)
   ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
+  
   
   # Output divided by the total number of day to obtain annual values
   list(est = rbind(anlist, ansimCI), sim = ansimlist, coefsim = coefsim)

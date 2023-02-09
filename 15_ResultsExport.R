@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-source("12_ResultsVulnerability.R")
+if (length(ls()) == 0) source("12_ResultsVulnerability.R")
 
 #-------------------------
 # Parameters
