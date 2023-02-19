@@ -1,8 +1,12 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#               Cleaning and imputing missing meta-predictors
+# The Lancet Planetary Health, 2023
+#
+# (Non-reproducible) R Code
+# Part 3: Manual cleaning and tidying
 #
 ################################################################################
 

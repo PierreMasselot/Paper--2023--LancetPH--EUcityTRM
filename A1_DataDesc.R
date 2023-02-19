@@ -6,7 +6,10 @@
 #
 ################################################################################
 
-if (length(ls()) == 0) source("06_PrepSecondStage.R")
+if (length(ls()) == 0){
+  source("06_PrepSecondStage.R")
+  metacityyear <- read.csv(gzfile("data/metacityyear.csv.gz"))
+}
 
 #---------------------------
 # Supp Table: Cities in MCC by country

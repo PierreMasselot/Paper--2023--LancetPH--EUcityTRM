@@ -30,6 +30,23 @@ cityageres$agegroup <- agelabs[cityagegrid[,1]]
 
 #----- Compute average age of death for each city/age group
 
+# Extract and sort age group deaths
+deathvars <- sort(grep("deathrate_[[:digit:]]", names(metadata), value = T))
+
+# Extract min, and max of age group
+agemin <- substr(deathvars, 11, 12)
+agemax <- substr(deathvars, 13, 14)
+
+# Repeat values for each age
+ageseqs <- Map(seq, agemin, agemax, by = 1)
+agedeaths <- mapply(function(d, a){ 
+    do.call(cbind, rep(list(d), length(a)))
+  }, metadata[,deathvars], ageseqs)
+agedeaths <- do.call(cbind, agedeaths)
+ageseq <- unlist(ageseqs, use.names = F)
+colnames(agedeaths) <- ageseq
+rownames(agedeaths) <- metadata$URAU_CODE
+
 # Determine average death age for each prediction group and each city
 agegrps <- cut(ageseq[ageseq > minage], c(agebreaks, 100), right = F)
 agepred <- tapply(ageseq[ageseq > minage], agegrps, function(a){
@@ -172,8 +189,7 @@ esptot <- tapply(esp2013[espbreaks >= minage], espgrps, sum)
 cityageXdes <- model.matrix(delete.response(terms(stage2res)), cityageres)
 
 # Prepare parallelisation
-ncores <- detectCores()
-cl <- makeCluster(max(1, ncores - 2))
+cl <- makeCluster(ncores)
 registerDoParallel(cl)
 
 #----- Write text file to trace iterations
@@ -223,27 +239,6 @@ attrlist <- foreach(i = seq_len(nca),
   # Total simulated coefs
   coefsim <- fixsim + ransim
   
-  # # Estimate mmt for each simulation
-  # whichmmt <- apply((ov_basis %*% t(coefsim))[inrange,], 2, which.min)
-  # mmtsim <- quantile(era5, predper / 100)[inrange][whichmmt]
-  # cenmat <- onebasis(mmtsim, fun = varfun, degree = vardegree, 
-  #   knots = quantile(era5, varper / 100), Boundary.knots = range(era5))
-  # 
-  # # Center basis and multiply and compute daily an
-  # andaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
-  #     scale = F) %*% coef)) * cityageres[i, "death"],
-  #   as.data.frame(t(cenmat)), as.data.frame(t(coefsim)))
-  # 
-  # # Heat index for each simulation
-  # heatindsim <- outer(era5, mmtsim, ">=")
-  # 
-  # # Sum total, heat and cold
-  # ansimlist <- cbind(total = colSums(andaysim), 
-  #   cold = colSums(andaysim * (!heatindsim)), 
-  #   heat = colSums(andaysim * heatindsim))
-  # ansimlist <- ansimlist / length(era5)
-  # ansimCI <- apply(ansimlist, 2, quantile, c(.025, .975))
-  
   # Compute daily AN
   andaysim <- apply(coefsim, 1, function(coef) (1 - exp(-bvarcen %*% coef)) * 
       cityageres[i, "death"])
@@ -258,7 +253,8 @@ attrlist <- foreach(i = seq_len(nca),
   
   # Output divided by the total number of day to obtain annual values
   list(est = rbind(anlist, ansimCI), sim = ansimlist, coefsim = coefsim)
-}
+  }
+names(attrlist) <- names(cityagecoefs)
 
 # Stop parallel
 stopCluster(cl)

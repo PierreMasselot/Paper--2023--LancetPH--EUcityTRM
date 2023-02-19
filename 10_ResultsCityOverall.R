@@ -6,6 +6,8 @@
 #
 ################################################################################
 
+if (length(ls()) == 0) source("09_ResultsCityAge.R")
+
 #---------------------------
 # Initialize results object
 #---------------------------
@@ -147,10 +149,3 @@ cityres$rrheat_low <- sapply(cityERF, "[[", "allRRlow")[
   predper == resultper[2],]
 cityres$rrheat_hi <- sapply(cityERF, "[[", "allRRhigh")[
   predper == resultper[2],]
-
-
-#---------------------------
-# Save
-#---------------------------
-
-save.image(sprintf("data/cityResults%s.RData", suf))

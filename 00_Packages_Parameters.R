@@ -1,8 +1,12 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                     Packages and analysis parameters
+# The Lancet Planetary Health, 2023
+#
+# (Non-reproducible) R Code
+# Part 0: Loading packages and analysis parameters
 #
 ################################################################################
 
@@ -12,7 +16,9 @@
 
 #----- Data management
 library(sf) # Geo data
-library(eurostat) # To download eurostat data
+library(eurostat) # To download eurostat data (/!\ it might be necessary to 
+# install a more recent version from Github because of recent changes 
+# in Eurostat API) 
 library(giscoR) # To download eurostat geographical information
 library(doParallel) # Run loops in parallel
 library(MESS) # For function cumsumbinning
@@ -24,7 +30,6 @@ library(abind) # Array binding
 library(raster) # Loading of some data
 library(readxl) # Load excel files
 library(kgc) # Koppen-Geiger climate classification
-# library(xlsx) # Export of all results in Excel
 library(data.table) # Efficient data.frame and function between
 library(dplyr) # For data management
 library(elevatr) # For elevation data
@@ -162,5 +167,7 @@ nsim <- 1000
 # Denominator for death rates
 byrate <- 10^5
 
-# Suffix for results saving
-suf <- ""
+#----- Other
+
+# Number of cores for parallel computation
+ncores <- max(1, detectCores() - 2)

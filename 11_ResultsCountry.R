@@ -7,8 +7,7 @@
 ################################################################################
 
 if (length(ls()) == 0){
-  source("00_Packages_Parameters.R")
-  load("data/cityResults.RData")
+  source("10_ResultsCityOverall.R")
 }
 
 #---------------------------
@@ -80,14 +79,9 @@ colnames(excesstotpopCIs) <- sprintf("ratetotpop_%s",
 countryageres <- cbind(popcountry, attrest, attrCIs, excessest, excessCIs,
   excesstotpopest, excesstotpopCIs)
 
-# Add country name
-eurcntr <- rbind(eu_countries, efta_countries)
-countryageres$cntr_name <- factor(eurcntr[match(countryageres$CNTR_CODE, 
-  eurcntr[,1]),2], level = sort(eurcntr[,2]))
-
-# Add region
-countryageres$region <- factor(regionlist[countryageres$CNTR_CODE], 
-  level = regord)
+# Add country name and region
+countryageres <- merge(countryageres, 
+  unique(metadata[,c("CNTR_CODE", "cntr_name", "region")]))
 
 #---------------------------
 # Country overall results
@@ -156,14 +150,15 @@ countryres <- cbind(countrysum, countryexcesssumCIs, countryratesumCIs,
   countrystd)
 
 # Add country names
-countryres$cntr_name <- factor(eurcntr[
-  match(countryres$CNTR_CODE, eurcntr[,1]),2], level = sort(eurcntr[,2]))
+countryres$cntr_name <- countryageres$cntr_name[
+  match(countryres$CNTR_CODE, countryageres$CNTR_CODE)]
 
 # Add pop
 countryres <- merge(countryres, cntrtotpop)
 
 # Add region
-countryres$region <- factor(regionlist[countryres$CNTR_CODE], level = regord)
+countryres$region <- factor(regionlist[as.character(countryres$CNTR_CODE)], 
+  level = regord)
 
 #----- Attributable fractions
 

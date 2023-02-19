@@ -6,18 +6,13 @@
 #
 ################################################################################
 
-if (length(ls()) == 0){
-  source("00_Packages_Parameters.R")
-  load("data/Alldata.RData")
-}
 
 #---------------------------
 #  Prepare loop
 #---------------------------
 
 #----- Prepare parallelisation
-ncores <- detectCores()
-cl <- makeCluster(max(1, ncores - 2))
+cl <- makeCluster(ncores)
 registerDoParallel(cl)
 
 #----- Write text file to trace iterations
@@ -49,7 +44,7 @@ rownames(agedeaths) <- metadata$URAU_CODE
 #---------------------------
 
 stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)), 
-  .packages = c("dlnm", "splines", "MESS")) %dopar% {
+  .packages = c("dlnm", "splines", "MESS"), .combine = rbind) %dopar% {
 
   #----- Store iteration (1 every 20)
   if(i %% 20 == 0) cat("\n", "iter = ", i, as.character(Sys.time()), "\n",
@@ -122,22 +117,18 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
         sprintf("lifexp_%s", aamin)] + as.numeric(aamin)
     }
     
-    # Run model
-    # res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))),
-    #   dat, family = quasipoisson))
-    # Exclusion of August 2003
+    # Run model excluding August 2003
+    # To keep August 2003 in the analysis, just remove the subset argument
     res <- try(glm(y ~ cb + dow + ns(date, df = 7 * length(unique(year))),
       dat, family = quasipoisson, subset = !(month == 8 & year == 2003)))
     
-    # Some models fail completely (pseudo-weights of IRLS become Inf)
+    # Some models might fail to coverge (pseudo-weights of IRLS become Inf)
     # Exit current iteration with NAs and a flag for non-convergence
     if (inherits(res, "try-error") || !res$converged){
       nred <- attr(cb, "df")[1]
-      ageres[[a]] <- list(coef = rep(NA, nred), 
-        vcov = matrix(NA, nred, nred), 
-        totdeath = sum(y, na.rm = T), conv = F, ageval = meanage
-      )
-      names(ageres)[a] <- paste0(aamin,aamax)
+      ageres[[a]] <- data.frame(t(rep(NA, nred)), t(rep(NA, sum(1:nred))), 
+        totdeath = sum(y, na.rm = T), conv = F, ageval = meanage ,
+        agegr = paste0(aamin, aamax))
       next
     }
     
@@ -145,21 +136,22 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
     redall <- crossreduce(cb, res, cen = median(dat$era5landtmean))
     
     # Output
-    ageres[[a]] <- list(coef = coef(redall), vcov = vcov(redall), 
-      totdeath = sum(y, na.rm = T), conv = res$converged, ageval = meanage
-    )
-    names(ageres)[a] <- paste0(aamin, aamax)
+    trimat <- row(vcov(redall)) >= col(vcov(redall))
+    vvec <- vcov(redall)[trimat]
+    names(vvec) <- sprintf("v%i%i", row(vcov(redall))[trimat], 
+      col(vcov(redall))[trimat])
+    ageres[[a]] <- data.frame(t(coef(redall)), t(vvec), 
+      totdeath = sum(y, na.rm = T), conv = res$converged, 
+      ageval = meanage, agegr = paste0(aamin, aamax))
   }
   
   # Output
-  list(tsum = quantile(dat$era5landtmean, predper / 100), modelres = ageres)
+  cbind(city = cities[i,"city"], do.call(rbind, ageres))
 }
 
 # Stop parallel
 stopCluster(cl)
 
-# Rename
-names(stage1res) <- cities$city
-
-# Export
-save.image(file = sprintf("data/FirstStage%s.RData", suf))
+#----- Export first-stage results
+write.csv(stage1res, file = gzfile("data/stage1res.csv.gz"), 
+  row.names = F)

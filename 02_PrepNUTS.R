@@ -1,8 +1,12 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#               Linkage of cities with NUTS regions
+# The Lancet Planetary Health, 2023
+#
+# (Non-reproducible) R Code
+# Part 2: Preparing NUTS-level variables
 #
 ################################################################################
 
@@ -146,7 +150,7 @@ metadesc <- rbind(metadesc, cbind(metavar = varnames,
 gdp <- get_eurostat("nama_10r_3gdp", time_format = "num",
   filters = list(unit = "EUR_HAB", time = year)
 )
-gdp <- gdp[,-1]
+gdp <- gdp[, c("geo", "time", "values")]
 names(gdp)[3] <- "gdp"
 
 ## Add UK
@@ -185,7 +189,7 @@ metadesc <- rbind(metadesc, cbind(metavar = "gdp",
 educ <- get_eurostat("edat_lfse_04", time_format = "num",
   filters = list(isced11 = "ED5-8", sex = "T", age = "Y25-64", time = year)
 )
-educ <- educ[,-(1:4)]
+educ <- educ[,c("geo", "time", "values")]
 names(educ)[3] <- "educ"
 
 # Merge with metadata
@@ -199,7 +203,7 @@ metadesc <- rbind(metadesc, cbind(metavar = "educ",
 unempl <- get_eurostat("lfst_r_lfu3rt", time_format = "num",
   filters = list(isced11 = "TOTAL", sex = "T", age = "Y20-64", time = year)
 )
-unempl <- unempl[,-(1:4)]
+unempl <- unempl[,c("geo", "time", "values")]
 names(unempl)[3] <- "unempl"
 
 # Merge with metadata
@@ -213,7 +217,7 @@ metadesc <- rbind(metadesc, cbind(metavar = "unempl",
 depriv <- get_eurostat("ilc_mddd21", time_format = "num",
   filters = list(unit = "PC", time = year)
 )
-depriv <- depriv[,-1]
+depriv <- depriv[,c("geo", "time", "values")]
 names(depriv)[3] <- "depriv"
 
 # Merge with metadata
@@ -227,7 +231,7 @@ metadesc <- rbind(metadesc, cbind(metavar = "depriv",
 bedrates <- get_eurostat("hlth_rs_bdsrg", time_format = "num",
   filters = list(unit = "P_HTHAB", facility = "HBEDT", time = year)
 )
-bedrates <- bedrates[,-(1:2)]
+bedrates <- bedrates[,c("geo", "time", "values")]
 names(bedrates)[3] <- "bedrates"
 
 # Merge with metadata
@@ -271,7 +275,7 @@ popdeaths$deathrate <- with(popdeaths, deaths / pop)
 # Reshape
 popdeaths <- reshape(popdeaths, timevar = "age", idvar = c("geo", "time"),
   ids = "deathrate", direction = "wide", 
-  drop = c("sex", "unit", "deaths", "pop"))
+  drop = c("freq", "sex", "unit", "deaths", "pop"))
 names(popdeaths)[match(sprintf("deathrate.%s", age_list), 
   names(popdeaths))] <- varnames
 

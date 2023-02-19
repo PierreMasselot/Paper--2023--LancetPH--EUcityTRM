@@ -173,7 +173,7 @@ coldplot / heatplot / legplot +
   plot_layout(heights = c(1, 1, .1))
 
 # Save
-ggsave(sprintf("figures/Fig2_CapitalRes%s.pdf", suf), height = 8, width = 15)
+ggsave("figures/Fig2_CapitalRes.pdf", height = 8, width = 15)
 
 #---------------------------
 #  Figure 3: Excess rates by country and age group
@@ -258,7 +258,7 @@ ggplot(plotageres, aes(y = id)) + theme_classic() +
     name = "Age group")
 
 # Save
-ggsave(sprintf("figures/Fig3_CountryExcess%s.pdf", suf), height = 8, width = 12)
+ggsave("figures/Fig3_CountryExcess.pdf", height = 8, width = 12)
 
 #---------------------------
 #  Figure 4: Big maps of results
@@ -344,6 +344,5 @@ stdheatmap <- basic_map + aes(fill = stdrate_heat_est) +
   plot_layout(height = c(1, 1, .05))
 
 # Save
-ggsave(sprintf("figures/Fig4_cityMap%s.pdf", suf), 
-  width = 10, height = 15, units = "in")
+ggsave("figures/Fig4_cityMap.pdf", width = 10, height = 15, units = "in")
 

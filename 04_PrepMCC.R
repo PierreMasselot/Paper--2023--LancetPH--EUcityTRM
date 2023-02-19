@@ -1,8 +1,12 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                       MCC data preparation
+# The Lancet Planetary Health, 2023
+#
+# (Non-reproducible) R Code
+# Part 4: Load and prepare MCC mortality data
 #
 ################################################################################
 
@@ -90,7 +94,7 @@ for(nm in cities$city) {
 }
 
 #---------------------------
-#  Save all data
+#  Save metadata
 #---------------------------
 
 # Reorder everything by URAU_CODE
@@ -104,7 +108,15 @@ ord <- match(na.omit(metadata$mcc_code), cities$city)
 cities <- cities[ord,]
 dlist <- dlist[ord]
 
-# Save
-save(dlist, cities, metadata, metadesc, metacityyear, 
-  metageo, era5series,
-  file = sprintf("data/Alldata%s.RData", suf))
+# Save metadata
+write.csv(metadata, file = gzfile("data/metadata.csv.gz"), 
+  row.names = F)
+write.csv(metacityyear, file = gzfile("data/metacityyear.csv.gz"), 
+  row.names = F)
+write.csv(metadesc, file = gzfile("data/metadesc.csv.gz"), 
+  row.names = F)
+
+# Save era5 series
+era5out <- era5_df |> arrange(URAU_CODE, date) |> subset(select = -Year)
+write.csv(era5out, file = gzfile("data/era5series.csv.gz"), row.names = F)
+

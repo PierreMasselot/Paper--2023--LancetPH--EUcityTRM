@@ -6,7 +6,7 @@
 #
 ################################################################################
 
-# Choice of models if performed by scripts B1 to B3
+# Choice of models is performed by script A2
 
 if (length(ls()) == 0) source("06_PrepSecondStage.R")
 

@@ -1,8 +1,5 @@
 # Folders
-data/
 temp/
-results/
-figures/
 
 # History files
 .Rhistory

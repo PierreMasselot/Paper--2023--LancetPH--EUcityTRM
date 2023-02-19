@@ -1,8 +1,12 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#               City selection and data preparation
+# The Lancet Planetary Health, 2023
+#
+# (Non-reproducible) R Code
+# Part 1: Preparing city-level variables
 #
 ################################################################################
 
@@ -86,7 +90,8 @@ metadata$LABEL <- gsub("[[:blank:][:punct:]]*$", "", metadata$LABEL)
 metadata$LABEL <- str_to_title(metadata$LABEL)
 
 # Label country
-eurcntr <- rbind(eu_countries, efta_countries)
+eurcntr <- as.data.frame(rbind(eu_countries, efta_countries, 
+  data.frame(code = "UK", name = "United Kingdom", label = "United Kingdom")))
 metadata$cntr_name <- factor(eurcntr[match(metadata$CNTR_CODE, eurcntr[,1]),2],
   level = sort(eurcntr[,2]))
 
@@ -179,12 +184,17 @@ lau_tab <- rbind(lau_tab, subset(linkUK, !is.na(URAU_CODE), names(lau_tab)))
 
 # Loop on available years (2011:2020 are the available years in giscoR, 20220929)
 # to get pop / popdens
-laupop <- foreach(y = intersect(2011:2020, year), .combine = rbind) %do% {
+cl <- makeCluster(ncores)
+registerDoParallel(cl)
+laupop <- foreach(y = intersect(2011:2020, year), .combine = rbind,
+  .packages = c("giscoR", "dplyr", "sf")) %dopar% 
+{
   lauinfo <- gisco_get_lau(year = y, epsg = geoproj)
   lauinfo <- rename(lauinfo, POP = sprintf("POP_%i", y))
   st_drop_geometry(subset(lauinfo, YEAR %in% year & POP > 0, 
     c("GISCO_ID", "LAU_NAME", "YEAR", "POP", "AREA_KM2")))
 }
+stopCluster(cl)
 
 # Link LAUs and cities
 lautab <- merge(lau_tab, unique(laupop), by.x = "LAU_CODE", by.y = "GISCO_ID")
@@ -363,12 +373,10 @@ era5series <- era5series[match(metadata$URAU_CODE, names(era5series))]
 
 #----- Temperature-based metadata
 
-# Select years
-era5_df$year <- format(era5_df$date, "%Y")
-era5_df <- era5_df[era5_df$year %in% as.character(year),]
-
 # Compute annual average temperatures and degree days
-annualEra5 <- aggregate(era5landtmean ~ URAU_CODE + year, era5_df, 
+era5_df$Year <- format(era5_df$date, "%Y")
+annualEra5 <- aggregate(era5landtmean ~ URAU_CODE + Year,
+  data = subset(era5_df, Year %in% as.character(year)),
   function(x) c(tmean = mean(x), trange = diff(range(x))))
 annualEra5 <- cbind(annualEra5[1:2], annualEra5[[3]])
 
