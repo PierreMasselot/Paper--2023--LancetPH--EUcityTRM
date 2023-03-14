@@ -4,6 +4,7 @@
 #   a health impact assessment study in 854 cities in Europe
 #
 # The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
 #
 # (Non-reproducible) R Code
 # Part 4: Load and prepare MCC mortality data
@@ -109,14 +110,11 @@ cities <- cities[ord,]
 dlist <- dlist[ord]
 
 # Save metadata
-write.csv(metadata, file = gzfile("data/metadata.csv.gz"), 
-  row.names = F)
-write.csv(metacityyear, file = gzfile("data/metacityyear.csv.gz"), 
-  row.names = F)
-write.csv(metadesc, file = gzfile("data/metadesc.csv.gz"), 
-  row.names = F)
+write.csv(metadata, file = "data/metadata.csv", row.names = F)
+write.csv(metacityyear, file = "data/metacityyear.csv", row.names = F)
+write.csv(metadesc, file = "data/metadesc.csv", row.names = F)
 
 # Save era5 series
 era5out <- era5_df |> arrange(URAU_CODE, date) |> subset(select = -Year)
-write.csv(era5out, file = gzfile("data/era5series.csv.gz"), row.names = F)
+write.csv(era5out, file = "data/era5series.csv", row.names = F)
 

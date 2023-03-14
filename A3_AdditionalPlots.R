@@ -1,8 +1,13 @@
 ################################################################################
 #
-#                         MCC-EUcityTRM
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                   Appendix 3: Data description
+# The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
+#
+# (Reproducible) R Code
+# Appendix 3: Additional plots found in Supplementary Materials
 #
 ################################################################################
 

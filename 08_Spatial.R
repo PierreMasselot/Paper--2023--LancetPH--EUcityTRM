@@ -1,8 +1,13 @@
 ################################################################################
 #
-#                         MCC-EUcityTRM
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                   Spatial interpolation of BLUP
+# The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
+#
+# (Reproducible) R Code
+# Part 8: Krige BLUP residuals from meta-regression
 #
 ################################################################################
 

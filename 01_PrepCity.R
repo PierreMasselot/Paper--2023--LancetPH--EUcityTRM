@@ -4,6 +4,7 @@
 #   a health impact assessment study in 854 cities in Europe
 #
 # The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
 #
 # (Non-reproducible) R Code
 # Part 1: Preparing city-level variables

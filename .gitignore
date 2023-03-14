@@ -1,12 +1,15 @@
 # Folders
 temp/
+data/*.csv
+data/*.zip
+results/
 
 # History files
 .Rhistory
 .Rapp.history
 
 # Session Data files
-.RData
+# *.RData
 
 # User-specific files
 .Ruserdata

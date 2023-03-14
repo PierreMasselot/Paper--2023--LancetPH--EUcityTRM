@@ -1,8 +1,13 @@
 ################################################################################
 #
-#                         MCC-CityEurope
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                       First-stage models
+# The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
+#
+# (Non-reproducible) R Code
+# Part 5: First-stage analysis using MCC data
 #
 ################################################################################
 
@@ -153,5 +158,4 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
 stopCluster(cl)
 
 #----- Export first-stage results
-write.csv(stage1res, file = gzfile("data/stage1res.csv.gz"), 
-  row.names = F)
+write.csv(stage1res, file = "data/stage1res.csv", row.names = F)

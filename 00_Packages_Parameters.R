@@ -4,8 +4,9 @@
 #   a health impact assessment study in 854 cities in Europe
 #
 # The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
 #
-# (Non-reproducible) R Code
+# R Code
 # Part 0: Loading packages and analysis parameters
 #
 ################################################################################
@@ -34,6 +35,7 @@ library(data.table) # Efficient data.frame and function between
 library(dplyr) # For data management
 library(elevatr) # For elevation data
 library(rnaturalearthdata) # For coastlines: distance to coast
+library(zen4R) # To download data from Zenodo
 
 #----- Analysis
 library(mice) # Missing value imputation
@@ -55,7 +57,7 @@ library(corrplot) # Plotting correlation matrices
 library(patchwork) # Putting together plots created with ggplot
 library(ggpubr) # For get_legend
 library(ggstance) # For horizontal plot
-library(ggnewscale) # Two have several fill scales on the same plot
+library(ggnewscale) # To have several fill scales on the same plot
 
 #----------------------
 # Parameters

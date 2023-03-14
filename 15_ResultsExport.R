@@ -1,8 +1,13 @@
 ################################################################################
 #
-#                         MCC-EUcityTRM
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#                   Big city-level results Table
+# The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
+#
+# (Reproducible) R Code
+# Part 15: Export results
 #
 ################################################################################
 
@@ -23,7 +28,7 @@ cityageexport <- cityageres |>
   left_join(dplyr::select(cityres, URAU_CODE, starts_with("stdrate")))
   
 # Save
-write.csv(cityageexport, file = gzfile("results/city_results.csv.gz"), row.names = F)
+write.csv(cityageexport, file = "results/city_results.csv", row.names = F)
 
 #---------------------------
 # Export coefs/vcov for use in projection studies
@@ -40,7 +45,7 @@ colnames(cityageinfo) <- c("URAU_CODE", "agegroup")
 splinecoefs <- data.frame(cityageinfo, splinecoefs)
 
 # Export
-write.csv(splinecoefs, gzfile("results/coefs.csv.gz"), row.names = F)
+write.csv(splinecoefs, "results/coefs.csv", row.names = F)
 
 #----- Export vcov matrices
 
@@ -56,13 +61,34 @@ colnames(cityageinfo) <- c("URAU_CODE", "agegroup")
 splinevcov <- data.frame(cityageinfo, splinevcov)
 
 # Export
-write.csv(splinevcov, gzfile("results/vcov.csv.gz"), row.names = F)
+write.csv(splinevcov, "results/vcov.csv", row.names = F)
 
 #----- Export simulated coefficients
 
-for (i in 1:nca){
+# Bind everything
+simu_out <- foreach(i = 1:nca, .combine = rbind, .multicombine = T) %do% {
   colnames(attrlist[[i]]$coefsim) <- 
     gsub(".pred", "", colnames(attrlist[[i]]$coefsim), fixed = T)
-  write.csv(attrlist[[i]]$coefsim, gzfile(sprintf("results/simu/%s.csv.gz", 
-    names(cityagecoefs)[i])), row.names = F)
+  data.frame(cityageres[i,c("URAU_CODE", "agegroup")], sim = 1:nsim, 
+    attrlist[[i]]$coefsim)
 }
+
+# Write
+write.csv(simu_out, "results/coef_simu.csv", row.names = F)
+
+#----- Export temperature percentiles
+
+# Compute percentiles
+alltmeandist <- t(sapply(era5series, 
+  function(x) quantile(x$era5landtmean, c(0, predper / 100, 1))))
+
+# Export
+out <- data.frame(URAU_CODE = rownames(alltmeandist), alltmeandist,
+  check.names = F)
+write.csv(out, "results/tmean_distribution.csv", row.names = F)
+
+#---------------------------
+# Export second-stage model
+#---------------------------
+
+save(plsres, stage2res, vgfit, file = "data/meta-model.RData")

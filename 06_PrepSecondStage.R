@@ -1,8 +1,13 @@
 ################################################################################
 #
-#                         MCC-EUcityTRM
+# Excess mortality attributed to heat and cold: 
+#   a health impact assessment study in 854 cities in Europe
 #
-#         Prepare objects for second stage & prediction
+# The Lancet Planetary Health, 2023
+# https://doi.org/10.1016/S2542-5196(23)00023-2
+#
+# (Reproducible) R Code
+# Part 6: Load metadata and first-stage results, prepare for second-stage
 #
 ################################################################################
 
@@ -11,26 +16,31 @@
 #---------------------------
 
 if (length(ls()) == 0){
-  # Source all analysis parameters
+  # Source all analysis parameters and load packages
   source("00_Packages_Parameters.R") 
   
-  # Read data
-  metadata <- read.csv(gzfile("data/metadata.csv.gz"))
-  stage1res <- read.csv(gzfile("data/stage1res.csv.gz"))
+  # Download data from Zenodo
+  download_zenodo("10.5281/zenodo.7672108", path = "data",
+    files = list("metadata.csv", "additional_data.zip"))
   
-  # Some transformation as factors
+  # Read metadata
+  metadata <- read.csv("data/metadata.csv")
+  
+  # Read additional data
+  stage1res <- read.csv(unz("data/additional_data.zip", "stage1res.csv"))
+  era5df <- read.csv(unz("data/additional_data.zip", "era5series.csv"))
+  
+  # Some transformation as factors in metadata
   metadata$region <- factor(metadata$region, levels = regord)
   eurcntr <- as.data.frame(rbind(eu_countries, efta_countries, 
     data.frame(code = "UK", name = "United Kingdom", label = "United Kingdom")))
   metadata$cntr_name <- factor(eurcntr[match(metadata$CNTR_CODE, eurcntr[,1]),2],
     level = sort(eurcntr[,2]))
   
-  # Read era5series /!\ a bit longer
-  era5path <- "data/era5series"
-  filelist <- list.files(era5path)
-  era5series <- lapply(sprintf("%s/%s", era5path, filelist), function(f) 
-    read.csv(f) |> mutate(date = as.Date(date)))
-  names(era5series) <- sapply(strsplit(filelist, ".", fixed = T), "[", 1)
+  # Split era5series
+  era5df <- arrange(era5df, URAU_CODE, date) |> mutate(date = as.Date(date))
+  era5series <- split(era5df[, c("date", "era5landtmean")], era5df$URAU_CODE)
+  rm(era5df)
 }
 
 #---------------------------
