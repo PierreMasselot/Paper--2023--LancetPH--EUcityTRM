@@ -49,9 +49,7 @@ modlist$kgc <- mixmeta(formlist$kgc, data = stage2df,
 #----- Spline lat/lon
 
 # Add to the data.frame
-latlon <- do.call(rbind, metageo$geometry[repmcc])
-colnames(latlon) <- c("lon", "lat")
-stage2df <- cbind(stage2df, latlon)
+stage2df <- cbind(stage2df, metadata[repmcc, c("lon", "lat")])
 
 # Create formula
 formlist$latlon <- update(formlist$base, ~ . + 

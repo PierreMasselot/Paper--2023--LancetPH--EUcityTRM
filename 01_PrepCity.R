@@ -64,6 +64,7 @@ metadata$region <- factor(regionlist[metadata$CNTR_CODE], levels = regord)
 # Load some labels
 labpath <- paste0(path_euro, "/lookup/URAU_DisplayNames.csv")
 uraulabs <- read.csv(labpath)
+Encoding(uraulabs$LABEL) <- "latin1"
 
 # Merge
 metadata <- merge(metadata, uraulabs, all.x = T, all.y = F)
@@ -75,7 +76,7 @@ metadata$LABEL[is.na(metadata$LABEL)] <- metadata$URAU_NAME[
 # Remove all mention to city words
 metadata$LABEL <- gsub("Greater", "", metadata$LABEL)
 
-# Relabel whent here is a comma
+# Relabel when there is a comma
 commaind <- grep("\\,", metadata$LABEL)
 metadata$LABEL[commaind] <- sapply(strsplit(metadata$LABEL[commaind], ", "), 
   function(x) paste(rev(x), collapse = " "))
@@ -185,17 +186,15 @@ lau_tab <- rbind(lau_tab, subset(linkUK, !is.na(URAU_CODE), names(lau_tab)))
 
 # Loop on available years (2011:2020 are the available years in giscoR, 20220929)
 # to get pop / popdens
-cl <- makeCluster(ncores)
-registerDoParallel(cl)
 laupop <- foreach(y = intersect(2011:2020, year), .combine = rbind,
-  .packages = c("giscoR", "dplyr", "sf")) %dopar% 
+  .packages = c("giscoR", "dplyr", "sf")) %do% 
 {
   lauinfo <- gisco_get_lau(year = y, epsg = geoproj)
   lauinfo <- rename(lauinfo, POP = sprintf("POP_%i", y))
   st_drop_geometry(subset(lauinfo, YEAR %in% year & POP > 0, 
     c("GISCO_ID", "LAU_NAME", "YEAR", "POP", "AREA_KM2")))
 }
-stopCluster(cl)
+
 
 # Link LAUs and cities
 lautab <- merge(lau_tab, unique(laupop), by.x = "LAU_CODE", by.y = "GISCO_ID")
@@ -379,7 +378,8 @@ era5_df$Year <- format(era5_df$date, "%Y")
 annualEra5 <- aggregate(era5landtmean ~ URAU_CODE + Year,
   data = subset(era5_df, Year %in% as.character(year)),
   function(x) c(tmean = mean(x), trange = diff(range(x))))
-annualEra5 <- cbind(annualEra5[1:2], annualEra5[[3]])
+annualEra5 <- cbind(annualEra5[1:2], annualEra5[[3]]) |>
+  rename(year = "Year")
 
 # Merge to other variables
 metacityyear <- merge(metacityyear, annualEra5, 

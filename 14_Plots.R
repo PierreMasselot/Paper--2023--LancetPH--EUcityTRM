@@ -65,22 +65,26 @@ mmpdf <- data.frame(age = agegrid, mmp = agemmp, mmpci)
 
 # Color palette
 cipal <- adjustcolor(viridis(length(alphalist), direction = -1), .4)
-names(cipal) <- sprintf("a%i", alphalist * 100)
+names(cipal) <- sprintf("a%02i", alphalist * 100)
 
 #----- Plot
 
 # Initialize ribbons
-ribs <- lapply(seq_along(alphalist), function(i) geom_ribbon(
-  aes_string(ymin = sprintf("low_%i", alphalist[i] * 100), 
-    ymax = sprintf("high_%i", alphalist[i] * 100), 
-    fill = factor(names(cipal))[i]))
-)
+ribs <- lapply(seq_along(alphalist), function(i) {
+  varnames <- sprintf("%s_%i", c("low", "high"), alphalist[i] * 100)
+  geom_ribbon(aes(ymin = .data[[varnames[1]]], ymax = .data[[varnames[2]]], 
+    fill = names(cipal)[i]))
+})
+
+# Labels
+labs <- sprintf("%i%%", 100 - alphalist * 100)
+names(labs) <- names(cipal)
 
 # Create full plot with Ribbons
 Reduce("+", ribs, init = ggplot(mmpdf, aes(x = age))) + 
-  scale_fill_manual(values = rev(cipal), name = "CI",
-    labels = rev(sprintf("%i%%", 100 - alphalist * 100))) +
-  geom_line(aes(y = mmp), size = 1.5) + 
+  scale_fill_manual(values = cipal, name = "CI", labels = labs, 
+    breaks = rev(names(cipal))) +
+  geom_line(aes(y = mmp), linewidth = 1.5) + 
   scale_x_continuous(name = "Age", 
     breaks = seq(minage, 100, by = 10)) + 
   scale_y_continuous(name = "MMP",
@@ -143,8 +147,9 @@ bgplot <- ggplot(big_cityres,
     axis.text.x.top = element_text(size = 15),
     panel.grid.major.y = element_line(linetype = 3, colour = "grey")) + 
   geom_pointrange(position = position_dodge(.8), size = .3) + 
-  coord_cartesian(ylim = c(.8, 3)) + 
-  scale_y_continuous(breaks = c(1, 2, 3))
+  # coord_cartesian(ylim = c(.8, 3)) + 
+  scale_y_continuous(limits = 
+      range(with(big_cityres, c(rrcold_low, rrcold_hi, rrheat_low, rrheat_hi))))
 
 #----- Add values for heat and cold
 
@@ -274,7 +279,7 @@ ggsave("figures/Fig3_CountryExcess.pdf", height = 8, width = 12)
 basic_map <- ggplot(data = cityres, aes(x = lon, y = lat, size = pop)) + 
   theme_void() + 
   geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+  coord_sf(xlim = bnlon, ylim = bnlat,
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box") +
   scale_size(range = c(2, 8), guide = "none",

@@ -4,7 +4,9 @@ Code implementing the analysis from the paper:
 
 > Excess mortality attributed to heat and cold: a health impact assessment study in 854 cities in Europe (2023) *The Lancet Planetary Health* <https://doi.org/10.1016/S2542-5196(23)00023-2>
 
-To get the full set of exposure-response functions and results derived in this paper, please consult the associated Zenodo repository ([DOI:10.5281/zenodo.7672108](https://doi.org/10.5281/zenodo.7672108)).
+To get the full set of exposure-response functions and results derived in this paper, please consult the associated Zenodo repository ([DOI:10.5281/zenodo.10288665](https://doi.org/10.5281/zenodo.10288665)).
+
+**Note: This is an updated version of the published results linked above. This version mainly corrects the computation of the death rates for age group 85+ performed in lines 273 to 285 of the script *02_PrepNUTS.R*. This updated code contains additional minor edits that are detailed in the commit message.**
 
 This code is not fully reproducible because of restrictive data agreements on mortality series. However, intermediary data, in particular the clean metadata and first-stage results, are freely available on the Zenodo repository associated with the paper. This allows running the second part of the analysis, namely from script *06_PrepSecondStage.R* on. See details in the **Code** section below. 
 

@@ -29,7 +29,7 @@ meta_summary <- by(metadata, metadata$CNTR_CODE, function(x){
 
 # Bind everything
 metasumdf <- do.call(rbind, meta_summary)
-metasumdf$cntr_code <- names(meta_summary)
+metasumdf$CNTR_CODE <- names(meta_summary)
 
 # Add info from era5
 tquartiles <- tapply(era5series, metadata$CNTR_CODE, function(x){
@@ -40,13 +40,13 @@ matquart <- do.call(rbind, tquartiles)
 colnames(matquart) <- sprintf("quartile_%i", c(25, 75))
 
 # Add to summary df
-country_summary <- cbind(metasumdf, matquart[metasumdf$cntr_code,])
+country_summary <- cbind(metasumdf, matquart[metasumdf$CNTR_CODE,])
 
 # Add a total line
 totline <- summarise(country_summary, region = NA, cntr_name = NA, 
   ncities = sum(ncities),
   nmcc = sum(nmcc), pop = sum(pop), deaths = sum(deaths), tmean = mean(tmean), 
-  cntr_code = NA, quartile_25 = mean(quartile_25), 
+  CNTR_CODE = NA, quartile_25 = mean(quartile_25), 
   quartile_75 = mean(quartile_75))
 country_summary <- rbind(country_summary, totline)
 

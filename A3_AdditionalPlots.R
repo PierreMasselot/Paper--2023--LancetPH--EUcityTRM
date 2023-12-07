@@ -33,7 +33,7 @@ ggplot(data = euromap) + theme_void() +
     size = .1) + 
   scale_fill_manual(values = regpal, name = "Region", 
     na.value = grey(.95), na.translate = F) +
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+  coord_sf(xlim = bnlon, ylim = bnlat,
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box")
 
@@ -125,7 +125,7 @@ dev.print(png, file = "figures/FigS_PLScor.png", units = "in", res = 300,
 plsmaps <- lapply(seq_len(npc), function(i){
   cutpts <- unname(round(quantile(cityres[, sprintf("pls%i", i)], 
     seq(0, 1, length.out = 5))))
-  basic_map + aes_string(fill = sprintf("pls%i", i)) + 
+  basic_map + aes(fill = .data[[sprintf("pls%i", i)]]) + 
     # scale_fill_viridis(name = sprintf("Comp. %i", i), direction = -1) + 
     guides(fill = guide_coloursteps(title.position = "top", title.hjust = .5,
       barwidth = 10, barheight = .8, even.steps = T)) +
@@ -262,8 +262,8 @@ dev.print(png, file = "figures/FigS_BLUPresiduals.png",
 #----- Example of difference between BLUP and predicted
 
 # Which first stage
-toplot <- "mnch.ger9315.0099"
-whichobs <- which(rownames(stage2df) == toplot)
+toplot <- "mnch.ger9315"
+whichobs <- which(metadata$mcc_code[repmcc] == toplot)
 
 # Also create first-stage curves
 firstpred <- ov_basis %*% t(coefs)
@@ -321,9 +321,9 @@ dev.print(png, file = "figures/FigS_variogram.png", width = 10, height = 7,
 #----- Grid of predictions
 
 # Create grid
-createraster <- raster(extent(metageo), nrow = 100, ncol = 100, 
-  crs = st_crs(metageo))
-rastcoord <- st_as_sf(as.data.frame(coordinates(createraster)), 
+createraster <- rast(extent = ext(metageo), nrow = 100, ncol = 100, 
+  crs = crs(metageo))
+rastcoord <- st_as_sf(as.data.frame(crds(createraster)), 
   coords = c("x","y"), crs = st_crs(metageo))
 euroraster <- st_intersection(rastcoord, st_union(euromap))
 
@@ -334,7 +334,7 @@ surfpred <- predict(vgfit, euroraster)
 rasterplot <- ggplot(data = surfpred) + 
   geom_sf(pch = 15) +
   geom_sf(data = euromap, fill = NA, inherit.aes = F, col = grey(.5)) + 
-  coord_sf(xlim = extent(surfpred)[1:2], ylim = extent(surfpred)[3:4],
+  coord_sf(xlim = ext(surfpred)[1:2], ylim = ext(surfpred)[3:4],
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box") +
   scale_colour_gradient2(low = muted("blue"), high = muted("red"),
@@ -350,11 +350,7 @@ for (i in seq_len(nc)){
 } 
 
 # Put plots together
-design = "12
-  34
-  55
-"
-wrap_plots(ranplots, guides = "collect", design = design)
+wrap_plots(ranplots, guides = "collect", ncol = 2)
 
 # Save
 ggsave("figures/FigS_krigmaps.png", width = 10, height = 20)

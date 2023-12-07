@@ -103,12 +103,12 @@ varnames <- c("prop_0004", "prop_0509", "prop_1014", "prop_1519",
 
 # Load variables from eurostat
 popstr <- get_eurostat("demo_r_pjanind3", time_format = "num",
-  filters = list(indic_de = indicde_list, time = year))
+  filters = list(indic_de = indicde_list, time = year, unit = "PC"))
 
 # Reshape
 popstr <- reshape(as.data.frame(popstr), timevar = "indic_de", 
   idvar = c("geo", "time"), ids = "values", direction = "wide",
-  drop = "unit")
+  drop = c("unit", "freq"))
 names(popstr)[match(sprintf("values.%s", indicde_list), names(popstr))] <- 
   varnames
 
@@ -135,7 +135,7 @@ lifexp <- get_eurostat("demo_r_mlifexp", time_format = "num",
 # Reshape
 lifexp <- reshape(as.data.frame(lifexp), timevar = "age", 
   idvar = c("geo", "time"), ids = "values", direction = "wide",
-  drop = c("unit", "sex"))
+  drop = c("unit", "sex", "freq"))
 names(lifexp)[match(sprintf("values.%s", ages), names(lifexp))] <- 
   varnames
 
@@ -270,6 +270,17 @@ colnames(pop)[colnames(pop) == "values"] <- "pop"
 # Merge them
 popdeaths <- merge(deaths, pop)
 
+# Sum 85-89 and ge90 to match population of URAU
+popdeaths85 <- subset(popdeaths, age %in% c("Y85-89", "Y_GE90")) |>
+  # This is to ensure we always have a couple deaths/pop 
+  # otherwise this would distort the death rates
+  mutate(deaths = ifelse(is.na(pop), NA, deaths), 
+    pop = ifelse(is.na(deaths), NA, pop)) |>
+  group_by(freq, sex, unit, geo, time) |>
+  summarise(deaths = sum(deaths), pop = sum(pop)) |>
+  mutate(age = "Y85-99")
+popdeaths <- rbind(popdeaths, popdeaths85)
+
 # Compute rates
 popdeaths$deathrate <- with(popdeaths, deaths / pop)
 
@@ -277,11 +288,8 @@ popdeaths$deathrate <- with(popdeaths, deaths / pop)
 popdeaths <- reshape(popdeaths, timevar = "age", idvar = c("geo", "time"),
   ids = "deathrate", direction = "wide", 
   drop = c("freq", "sex", "unit", "deaths", "pop"))
-names(popdeaths)[match(sprintf("deathrate.%s", age_list), 
-  names(popdeaths))] <- varnames
-
-# Sum 85-89 and ge90 to match population
-popdeaths$deathrate_8599 <- popdeaths$deathrate_8589 + popdeaths$deathrate_90p
+names(popdeaths)[match(sprintf("deathrate.%s", c(age_list, "Y85-99")), 
+  names(popdeaths))] <- c(varnames, "deathrate_8599")
 
 # Remove variables
 popdeaths[c("deathrate.UNK", "deathrate_8589", "deathrate_90p")] <- NULL

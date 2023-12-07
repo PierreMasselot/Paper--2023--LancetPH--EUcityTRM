@@ -18,6 +18,7 @@ if (length(ls()) == 0){
 
 #---------------------------
 # Supp Table: Cities in MCC by country
+# NB: cannot be replicated as need MCC data
 #---------------------------
 
 #----- Prepare information
@@ -84,7 +85,7 @@ write.table(mcc_summary, "figures/TableS_MCCdesc.csv", sep = ",",
 ggplot(data = metadata, aes(x = lon, y = lat, size = pop)) + 
   theme_void() + 
   geom_sf(data = euromap, fill = grey(.95), inherit.aes = F, col = grey(.5)) + 
-  coord_sf(xlim = urauext[c(1,3)], ylim = urauext[c(2,4)],
+  coord_sf(xlim = bnlon, ylim = bnlat,
     crs = sf::st_crs(3035), default_crs = sf::st_crs(4326),
     lims_method = "box") +
   scale_size(range = c(2, 8), guide = "none",

@@ -17,9 +17,16 @@ if (length(ls()) == 0) source("09_ResultsCityAge.R")
 # Initialize results object
 #---------------------------
 
-# Extract from metadata
-cityres <- metadata[, c("URAU_CODE", "LABEL", "CNTR_CODE", "cntr_name",
-  "region", "lon", "lat", "pop", "inmcc")]
+# Sum AN, pop and deaths from city-age results
+cityres <- group_by(cityageres, pick(URAU_CODE:inmcc, starts_with("pls"))) |> 
+  dplyr::summarise(pop = sum(agepop), death = sum(death), 
+    across(starts_with("an_"), sum)) |>
+  ungroup()
+ 
+# Recompute impact summaries
+cityres <- mutate(cityres, across(starts_with("an"), 
+  list(rate = ~ byrate * .x / pop, af = ~ 100 * .x / death),
+  .names = "{.fn}_{gsub('an_', '', .col)}"))
 
 #---------------------------
 # Standardised rates
@@ -51,9 +58,11 @@ allcitystdrt <- t(sapply(stdratecity, "c"))
 colnames(allcitystdrt) <- sprintf("stdrate_%s", t(outer(
   c("total", "cold", "heat"), c("est", "low", "hi"), 
   FUN = "paste", sep = "_")))
+allcitystdrt <- data.frame(URAU_CODE = rownames(allcitystdrt), 
+  allcitystdrt)
 
-# Add to result summary object
-cityres <- cbind(cityres, allcitystdrt)
+# Add to result summary objects
+cityres <- merge(cityres, allcitystdrt)
 
 #---------------------------
 # Overall ERF: at life expectancy
@@ -63,12 +72,6 @@ cityres <- cbind(cityres, allcitystdrt)
 
 # Consider life expectancy at birth as age
 cityres$age <- metadata$lifexp_00
-
-# Consider 65 as a common age
-# cityres$age <- rep(65, nrow(cityres))
-
-# Add PLS values
-cityres <-  cbind(cityres, pcvar)
 
 # Predict coefficients
 citycoefs <- predict(stage2res, cityres, vcov = T)
@@ -128,7 +131,6 @@ mmtci <- sapply(seq_len(nrow(metadata)), simplify = "array", function(i){
   cbind(mmp = quantile(mmpsim, c(.025, .975)), 
     mmt = quantile(mmtsim, c(.025, .975)))
 })
-
 
 #----- ERF summary
 

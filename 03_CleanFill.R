@@ -37,6 +37,14 @@ metacityyear[metacityyear$URAU_CODE == "BE014C" & metacityyear$year == 2018,
 metacityyear[metacityyear$URAU_CODE == "BE015C" & metacityyear$year == 2018,
   c("pop", "popdens")] <- c(55198, 1669)
 
+#----- Missing densities: divide pop by area
+misden <- group_by(metacityyear, URAU_CODE) |>
+  summarise(ismis = all(is.na(popdens))) |>
+  subset(ismis, URAU_CODE, drop = T)
+misdenind <- metacityyear$URAU_CODE %in% misden
+metacityyear[misdenind, "popdens"] <- metacityyear[misdenind, "pop"] / 
+  merge(metacityyear[misdenind,], urau_points, all.x = T)$AREA_KM2
+
 #----- Fill missings in 65p by NUTS3 structure
 
 # Fill missing
@@ -53,7 +61,7 @@ metadesc[metadesc$metavar == "prop_65p", "source"] <- "Urban Audit / NUTS3"
 
 # Fill missing
 metacityyear$isol[is.na(metacityyear$isol)] <- 
-  metacityyear$isol2[is.na(metacityyear$isol)]
+  metacityyear$isol2[is.na(metacityyear$isol)] * 100
 
 # Change description in metavariable and remove isol at NUTS2
 metadesc[metadesc$metavar == "isol", "source"] <- "Urban Audit / NUTS2"

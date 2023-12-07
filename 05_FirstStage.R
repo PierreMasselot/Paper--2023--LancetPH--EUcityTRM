@@ -158,4 +158,15 @@ stage1res <- foreach(dat = iter(dlist), i = iter(seq(dlist)),
 stopCluster(cl)
 
 #----- Export first-stage results
+
+# Export results
 write.csv(stage1res, file = "data/stage1res.csv", row.names = F)
+
+# Zip with other "additional data" (requires Rtools installed)
+setwd("data")
+tozip <- c("era5series", "metacityyear", "metadesc", "stage1res")
+zip("additional_data.zip", files = sprintf("%s.csv", tozip))
+setwd("..")
+
+# Remove zipped files
+unlink(sprintf("data/%s.csv", tozip))

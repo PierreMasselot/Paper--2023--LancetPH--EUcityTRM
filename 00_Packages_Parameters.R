@@ -21,14 +21,13 @@ library(eurostat) # To download eurostat data (/!\ it might be necessary to
 # install a more recent version from Github because of recent changes 
 # in Eurostat API) 
 library(giscoR) # To download eurostat geographical information
-library(doParallel) # Run loops in parallel
+library(doParallel); library(doSNOW) # Run loops in parallel
 library(MESS) # For function cumsumbinning
 library(Matrix) # Functions for matrix operations
 library(modeest) # For computing mode of a vector
 library(PHEindicatormethods) # For the 2013 European standard population
 library(stringr) # For label management
 library(abind) # Array binding
-library(raster) # Loading of some data
 library(readxl) # Load excel files
 library(kgc) # Koppen-Geiger climate classification
 library(data.table) # Efficient data.frame and function between
@@ -38,13 +37,14 @@ library(rnaturalearthdata) # For coastlines: distance to coast
 library(zen4R) # To download data from Zenodo
 
 #----- Analysis
-library(mice) # Missing value imputation
 library(dlnm) # DLNM
 library(splines) # For natural splines
 library(mixmeta) # Second stage meta-analysis
 library(pls) # PLS variables
 library(MASS) # Multivariate normal simulation
 library(gstat) # Performs kriging
+library(doRNG) # For replicable RNG within parallelisation
+library(terra) # To create fields of BLUP residuals
 
 #----- Plotting
 library(ggplot2) # Plotting
@@ -126,7 +126,7 @@ metapreds <- c("pop", "prop_65p", "popdens", "lifexp_00", "isol",
   "tmean", "trange")
 
 # Number of metapredictor components
-npc <- 4
+npc <- 5
 
 # Knots for age spline
 ageknots <- NULL
@@ -157,7 +157,7 @@ ngrid <- 50
 
 # Age groups for excess mortality
 agebreaks <- c(20, 45, 65, 75, 85)
-agelabs <- c(paste(agebreaks[-length(agebreaks)], agebreaks[-1], sep = "-"), 
+agelabs <- c(paste(agebreaks[-length(agebreaks)], agebreaks[-1] - 1, sep = "-"), 
   sprintf("%i+", agebreaks[length(agebreaks)]))
 
 # Grid for age prediction

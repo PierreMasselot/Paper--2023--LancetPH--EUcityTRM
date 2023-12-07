@@ -132,12 +132,6 @@ cityageres$rrheat_hi <- sapply(cityageERF, "[[", "allRRhigh")[
 # Excess rates
 #---------------------------
 
-#----- Simulations
-
-# Simulate metacoefficients from multivariate normal distribution
-set.seed(12345)
-metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
-
 #----- Compute age group population
 
 # Extract population structure variables from metadata
@@ -190,8 +184,16 @@ esptot <- tapply(esp2013[espbreaks >= minage], espgrps, sum)
 
 #----- Prepare simulation
 
+# Simulate fixed effect part: 
+# metacoefficients from multivariate normal distribution
+set.seed(12345)
+metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
+
 # Recreate model matrix with the city / age grid
 cityageXdes <- model.matrix(delete.response(terms(stage2res)), cityageres)
+
+# Prepare random number generation for random part of coefficients (parallel)
+rng <- RNGseq(nca, 6789)
 
 # Prepare parallelisation
 cl <- makeCluster(ncores)
@@ -203,7 +205,7 @@ cat(as.character(as.POSIXct(Sys.time())), file = "temp/logres.txt", append = T)
 
 #----- Compute annual AN / AF
 attrlist <- foreach(i = seq_len(nca), 
-  .packages = c("dlnm", "MASS", "Matrix")) %dopar% {
+  .packages = c("dlnm", "MASS", "Matrix", "rngtools")) %dopar% {
   
   # Store iteration (1 every 100)
   if(i %% 100 == 0) cat("\n", "iter = ", i, as.character(Sys.time()), "\n",
@@ -239,6 +241,7 @@ attrlist <- foreach(i = seq_len(nca),
   
   # Simulate the random part
   iran <- ranpred[[cityagegrid[i,2]]]
+  setRNG(rng[[i]])
   ransim <- mvrnorm(nsim, iran$fit, nearPD(iran$vcov)$mat)
   
   # Total simulated coefs
@@ -258,7 +261,7 @@ attrlist <- foreach(i = seq_len(nca),
   
   # Output divided by the total number of day to obtain annual values
   list(est = rbind(anlist, ansimCI), sim = ansimlist, coefsim = coefsim)
-  }
+}
 names(attrlist) <- names(cityagecoefs)
 
 # Stop parallel

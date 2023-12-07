@@ -30,7 +30,6 @@ mcccoords <- metadata[repmcc, c("lon", "lat")][!dups,]
 # Create spatial object
 mccgeo <- st_as_sf(cbind(mccblup, mcccoords), coords = c("lon","lat"), 
   crs = st_crs(4326))
-mccgeo <- st_transform(mccgeo, crs = as.numeric(geoproj))
 
 #---------------------------
 # Spatial interpolation to all cities
@@ -57,18 +56,16 @@ vgfit <- fit.lmc(mccvario, cokrig, varmod,
 #----- Predict at every location
 
 # Predict from model at every URAU city
-metageo <- metadata[,c("lon", "lat")]
-coordinates(metageo) <- ~ lon + lat
-proj4string(metageo) <- CRS(sprintf("EPSG:%s", geoproj))
+metageo <- st_as_sf(metadata[,c("lon", "lat")], coords = c("lon","lat"), 
+  crs = st_crs(4326))
+metageo <- st_transform(metageo, crs = as.numeric(geoproj))
 allkrig <- predict(vgfit, metageo)
 
 # Extract random effect and vcov
-ranpred <- apply(data.matrix(allkrig@data), 1, function(x){
-  fit <- x[1:nc * 2 - 1]
-  vcov <- matrix(NA, nc, nc)
-  diag(vcov) <- x[1:nc * 2]
-  vcov[upper.tri(vcov)] <- x[-(1:(nc * 2))]
-  vcov[lower.tri(vcov)] <- t(vcov)[lower.tri(vcov)]
-  list(fit = fit, vcov = vcov)
-})
+ranpred <- foreach(x = iter(allkrig, by = "row")) %do% {
+  fit <- st_drop_geometry(x[1:nc * 2 - 1]) |> unlist()
+  vech <- st_drop_geometry(x[-(1:nc * 2 - 1)]) |> unlist()
+  vech <- vech[order(gsub("cov\\.|\\.var", "", names(vech)))] 
+  list(fit = fit, vcov = xpndMat(vech))
+}
 names(ranpred) <- metadata$URAU_CODE

@@ -15,13 +15,23 @@
 # Load data
 #---------------------------
 
+# The following is performed if the workspace is empty
 if (length(ls()) == 0){
+
   # Source all analysis parameters and load packages
   source("00_Packages_Parameters.R") 
   
-  # Download data from Zenodo
-  download_zenodo("10.5281/zenodo.7672108", path = "data",
-    files = list("metadata.csv", "additional_data.zip"))
+  #----- Download data from Zenodo
+
+  # Files useful at this stage
+  datalist <- list("metadata.csv", "additional_data.zip")
+  
+  # Check if files are there, download if not
+  if (!all(unlist(datalist) %in% list.files("data"))) {
+    download_zenodo("10.5281/zenodo.7672108", path = "data", files = datalist)
+  }
+
+  #----- Load data
   
   # Read metadata
   metadata <- read.csv("data/metadata.csv")
@@ -29,6 +39,10 @@ if (length(ls()) == 0){
   # Read additional data
   stage1res <- read.csv(unz("data/additional_data.zip", "stage1res.csv"))
   era5df <- read.csv(unz("data/additional_data.zip", "era5series.csv"))
+  
+  # Useful for data description
+  metadesc <- read.csv(unz("data/additional_data.zip", "metadesc.csv"))
+  metacityyear <- read.csv(unz("data/additional_data.zip", "metacityyear.csv"))
   
   # Some transformation as factors in metadata
   metadata$region <- factor(metadata$region, levels = regord)
