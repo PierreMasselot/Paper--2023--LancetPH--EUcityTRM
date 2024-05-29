@@ -28,7 +28,7 @@ if (length(ls()) == 0){
   
   # Check if files are there, download if not
   if (!all(unlist(datalist) %in% list.files("data"))) {
-    download_zenodo("10.5281/zenodo.7672108", path = "data", files = datalist)
+    download_zenodo("10.5281/zenodo.10288665", path = "data", files = datalist)
   }
 
   #----- Load data
