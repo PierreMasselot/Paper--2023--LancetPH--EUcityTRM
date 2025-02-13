@@ -1,4 +1,4 @@
-# Excess mortality attributed to heat and cold: a health impact assessment study in 854 cities in Europe
+# Excess mortality attributed to heat and cold in 854 European cities
  
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10288665.svg)](https://doi.org/10.5281/zenodo.10288665)
  
